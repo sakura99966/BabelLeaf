@@ -1,227 +1,128 @@
-<div align="left">
+# BabelLeaf
 
-[简体中文](./README_cn.md) | [हिंदी](./README_hi.md)
-|[Português](./README_pt.md) | [Indonesian](./README_id.md) | English | [Türkçe](./README_tr.md)
+**Read beyond language.**
 
-</div>
+BabelLeaf is an open-source, local-first reader for books, documents, and comics. It is being built for readers who move between Simplified Chinese, English, and Japanese and want translation, dictionary lookup, text-to-speech, and manga translation to stay close to the reading experience.
 
-<div align="center" >
-  <img src="https://dl.koodoreader.com/screenshots/logo.png" width="96px" height="96px"/>
-</div>
+> **Project status:** active foundation work. The repository currently starts from the Koodo Reader codebase. The BabelLeaf product identity, local AI workflow, bilingual reading model, and comic translation workflow are under development; the roadmap below is not a statement that every feature has shipped.
 
-<h1 align="center">
-  Koodo Reader
-</h1>
+[简体中文](./README_cn.md) · [Upstream inventory](./docs/UPSTREAM_INVENTORY.md)
 
-<h3 align="center">
-  A cross-platform ebook reader
-</h3>
-<div align="center">
+## Goals
 
-[Download](https://koodoreader.com/en) | [Preview](https://web.koodoreader.com) | [Roadmap](https://koodoreader.com/en/roadmap) | [Document](https://koodoreader.com/en/document) | [Plugins](https://koodoreader.com/en/plugin)
+- Keep a user's library local by default.
+- Import and read books directly from local files, without a built-in web crawler or resource downloader.
+- Make English and Japanese content easy to read in Simplified Chinese with user-configured AI models.
+- Support both reflowable text books and image-first comics without destroying original files.
+- Build a shared product experience for Windows first, followed by macOS, Android, and iOS.
 
-</div>
+## Content formats
 
-## Preview
+The inherited reader baseline supports the following local formats. BabelLeaf will keep validating them as the codebase evolves.
 
-<div align="center">
-  <br/>
-  <br/>
-  <img src="https://dl.koodoreader.com/screenshots/7.png" width="800px">
-  <br/>
-  <br/>
-  <img src="https://dl.koodoreader.com/screenshots/8.png" width="800px">
-  <br/>
-  <br/>
-</div>
+| Type | Formats |
+| --- | --- |
+| E-books | EPUB, MOBI, AZW, AZW3, FB2, TXT, Markdown, DOCX, HTML, XML, XHTML, MHTML |
+| Documents | PDF |
+| Comics | CBZ, CBR, CBT, CB7, local image collections |
 
-## Features
+DRM-protected books are out of scope. A DRM-free MOBI or Kindle-format import may be converted into an internal reading representation while the original file remains untouched.
 
-- Format support:
-  - EPUB (**.epub**)
-  - PDF (**.pdf**)
-  - DRM-free Mobipocket (**.mobi**) and Kindle (**.azw3**, **.azw**)
-  - Plain-text (**.txt**)
-  - FictionBook (**.fb2**)
-  - Comic book archive (**.cbr**, **.cbz**, **.cbt**, **.cb7**)
-  - Rich text (**.md**, **.docx**)
-  - HyperText (**.html**, **.xml**, **.xhtml**, **.mhtml**, **.htm**)
-- Platform support: **Windows**, **macOS**, **Linux**, **Android**, **iOS** and **Web**
-- Sync and backup your data with **OneDrive**, **Google Drive**, **Dropbox**, **iCloud**, **MEGA**, **pCloud**, **Yandex Disk**, **Box**, **FTP**, **SFTP**, **WebDAV**, **SMB**, or **Object Storage**
-- Easily import books from **OneDrive**, **Google Drive**, **MEGA**, **Yandex Disk**, **Box**, **FTP**, **SFTP**, **WebDAV**, **SMB**, or **Object Storage**
-- Use your custom AI model to power AI Translation, AI Dictionary, AI Summarization, and AI Encyclopedia
-- Sync reading progress with **KOReader**
-- Sync notes and highlights to **Readwise**, **Notion**, **Obsidian**, **Joplin**, and more
-- Support local MDX dictionary lookup
-- Automatically sync words to **Anki** and **Eudic**
-- Protect your library with password, PIN, Windows Hello, Touch ID, and more
-- One-click export of all books
-- One-click export of notes and highlights, supporting **CSV**, **Markdown**, **HTML**, **TXT**, and **PDF**
-- Privacy-first design: no tracking services, and no proactive uploading of your reading data or personal information
-- Support **OPDS** protocol and share your library as an **OPDS** feed
-- Support browser extension to save anything on the web to your library
-- Built-in 50+ plugins for translation, dictionaries, and text-to-speech, with support for custom plugins
-- Support vertical layout book
-- Support reading statistics
-- Built-in **Paddle** and **Tesseract** OCR engines
-- Support library snapshots and version control
-- Single-column, two-column or continuous scrolling layouts
-- Text-to-speech, translation, dictionary, touch screen support, and batch import
-- Add bookmarks, notes, and highlights to your books
-- Adjust font size, font family, line-spacing, paragraph spacing, background color, text color, margins, and brightness
-- Night mode and theme color
-- Text highlighting, underline, boldness, italics, and shadow
+## Reading and language features
 
-## Installation
+### Available in the inherited baseline
 
-### Desktop version: [Download](https://koodoreader.com/en/download)
+- Local library, batch import, metadata, shelves, tags, progress, bookmarks, notes, and highlights.
+- EPUB/PDF/text/comic reading modes, including vertical text and common page layouts.
+- Dictionary lookup, text-to-speech, OCR options, and configurable translation/AI plug-ins.
 
-### Web version：[Visit](https://web.koodoreader.com)
+### BabelLeaf focus
 
-### Android version：[Download](https://koodoreader.com/en/download)
+- Bring-your-own-key model connections, including OpenAI-compatible endpoints.
+- Explicit consent before sending selected text or OCR output to an external model.
+- Translation memory, terminology, retryable background jobs, and transparent model/cost settings.
+- Original-only, translation-only, and aligned bilingual views for text-based books.
+- Language-aware word lookup for English and Japanese.
+- Language-aware TTS for Chinese, English, and Japanese.
 
-### iOS version：[Download](https://koodoreader.com/en/download)
+## Comic translation workflow
 
-### Browser extension：[Download](https://www.koodoreader.com/en/use-extension)
+Comic translation is a first-class workflow, not a flattened image filter:
 
-### Install with Scoop:
+1. Import a local archive or image collection.
+2. Detect text regions and recognize Japanese, English, Chinese, and other configured languages.
+3. Translate the extracted text with a user-selected provider.
+4. Store original text, translated text, coordinates, style, and confidence separately from the source images.
+5. Render an editable translation overlay; users can switch between original, translated, and bilingual views.
+6. Export a flattened copy only when the user explicitly asks for one.
 
-```shell
-scoop bucket add extras
-scoop install extras/koodo-reader
+We are evaluating open-source OCR and comic-processing projects through a local worker interface. The decision record and license inventory are in [docs/UPSTREAM_INVENTORY.md](./docs/UPSTREAM_INVENTORY.md).
+
+## Architecture direction
+
+```text
+Electron + React reader shell
+  ├─ Local library, reading state, annotations, settings
+  ├─ Translation queue and bilingual content model
+  └─ Local worker protocol
+       ├─ OCR adapter (for example, PaddleOCR or manga-ocr)
+       ├─ Comic layout / typesetting adapter
+       └─ User-configured translation and TTS providers
 ```
 
-### Install with Homebrew:
+Windows is the first delivery target. Cross-platform compatibility is an architectural requirement, but Python- and GPU-based comic workers need separate packaging and validation for macOS, Android, and iOS.
 
-```shell
-brew install --cask koodo-reader
+## Privacy principles
+
+- Books, PDFs, comics, annotations, and derived translation data stay on the device by default.
+- API keys must use platform-secure storage and must never be synced as plain text.
+- External AI calls are opt-in and should show the destination model/provider before content is sent.
+- Cloud sync, if added later, will prioritize metadata, progress, notes, and translation results rather than silently uploading a whole library.
+
+## Development
+
+### Prerequisites
+
+- Node.js 20 or later
+- Yarn Classic
+- A supported desktop build environment for Electron
+
+### Run locally
+
+```bash
+yarn
+yarn dev
 ```
 
-### Install with Docker:
+Useful commands:
 
-[Installation Guide](https://koodoreader.com/en/deploy-docker)
+```bash
+yarn start    # Web development mode
+yarn build    # Production web build
+yarn test     # Run tests
+yarn release  # Package the Electron application
+```
 
-## Screenshot
+## Repository layout
 
-<div align="center">
-  <b>Book list</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/1.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>Book display</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/5.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>List mode</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/2.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>Cover mode</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/3.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>Reader menu</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/6.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>Dark mode</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/4.png" width="800px"></kbd>
-  <br/>
-</div>
+| Path | Purpose |
+| --- | --- |
+| `src/` | React UI, reader views, state management, utilities, and i18n |
+| `main.js` | Electron main process, IPC, local database access, and native integration |
+| `httpserver/` | Optional Go HTTP service used by inherited integrations |
+| `docs/` | Product decisions, upstream inventory, and engineering documentation |
+| `.upstream/` | Ignored local mirrors used for evaluation; never committed into the application repository |
 
-## Develop
+## Roadmap
 
-Make sure that you have installed yarn and git
+1. Establish the BabelLeaf identity and remove upstream branding/service assumptions.
+2. Build the local BYOK translation service and a stable bilingual text model.
+3. Add translation memory, terminology, and language-aware dictionary/TTS behaviour.
+4. Define and implement the comic OCR, translation, overlay, and correction workflow on Windows.
+5. Validate import, reader, worker, and sync boundaries for macOS, Android, and iOS.
 
-1. Download the repo
+## License and attribution
 
-   ```
-   git clone https://github.com/koodo-reader/koodo-reader.git
-   ```
+BabelLeaf is derived from [Koodo Reader](https://github.com/koodo-reader/koodo-reader) and is distributed under the GNU Affero General Public License v3.0 (AGPL-3.0). It is an independent project and is not affiliated with the Koodo Reader maintainers.
 
-2. Enter desktop mode
-
-   ```
-   yarn
-   yarn dev
-   ```
-
-3. Enter web mode
-
-   ```
-   yarn
-   yarn start
-   ```
-
-## Translation
-
-### Edit current language
-
-1. Select your target language from the following list.
-
-2. Click the view button to examine the source file. The untranslated terms are listed at the bottom of each file.
-
-3. Translate the terms to your target language based on the given English reference
-
-4. Submit the translation file or just translation snippets based on the amount of your translation to [this link](https://github.com/koodo-reader/koodo-reader/issues/new?assignees=&labels=submit+translation&projects=&template=submit_translation.yml). Pull request is also welcomed.
-
-| Language(A-Z)   | Code  | View                                    |
-| --------------- | ----- | --------------------------------------- |
-| Amharic         | am    | [View](./src/assets/locales/am.json)    |
-| Arabic          | ar    | [View](./src/assets/locales/ar.json)    |
-| Armenian        | hy    | [View](./src/assets/locales/hy.json)    |
-| Bengali         | bn    | [View](./src/assets/locales/bn.json)    |
-| Bulgarian       | bg    | [View](./src/assets/locales/bg.json)    |
-| Chinese (CN)    | zh-CN | [View](./src/assets/locales/zh-CN.json) |
-| Chinese (MO)    | zh-MO | [View](./src/assets/locales/zh-MO.json) |
-| Chinese (TW)    | zh-TW | [View](./src/assets/locales/zh-TW.json) |
-| Czech           | cs    | [View](./src/assets/locales/cs.json)    |
-| Danish          | da    | [View](./src/assets/locales/da.json)    |
-| Dutch           | nl    | [View](./src/assets/locales/nl.json)    |
-| English         | en    | [View](./src/assets/locales/en.json)    |
-| Finnish         | fi    | [View](./src/assets/locales/fi.json)    |
-| French          | fr    | [View](./src/assets/locales/fr.json)    |
-| German          | de    | [View](./src/assets/locales/de.json)    |
-| Greek           | el    | [View](./src/assets/locales/el.json)    |
-| Hindi           | hi    | [View](./src/assets/locales/hi.json)    |
-| Hungarian       | hu    | [View](./src/assets/locales/hu.json)    |
-| Indonesian      | id    | [View](./src/assets/locales/id.json)    |
-| Interlingue     | ie    | [View](./src/assets/locales/ie.json)    |
-| Irish           | ga    | [View](./src/assets/locales/ga.json)    |
-| Italian         | it    | [View](./src/assets/locales/it.json)    |
-| Japanese        | ja    | [View](./src/assets/locales/ja.json)    |
-| Korean          | ko    | [View](./src/assets/locales/ko.json)    |
-| Persian         | fa    | [View](./src/assets/locales/fa.json)    |
-| Polish          | pl    | [View](./src/assets/locales/pl.json)    |
-| Portuguese      | pt    | [View](./src/assets/locales/pt.json)    |
-| Portuguese (BR) | pt-BR | [View](./src/assets/locales/pt-BR.json) |
-| Romanian        | ro    | [View](./src/assets/locales/ro.json)    |
-| Russian         | ru    | [View](./src/assets/locales/ru.json)    |
-| Slovenian       | sl    | [View](./src/assets/locales/sl.json)    |
-| Spanish         | es    | [View](./src/assets/locales/es.json)    |
-| Swedish         | sv    | [View](./src/assets/locales/sv.json)    |
-| Tamil           | ta    | [View](./src/assets/locales/ta.json)    |
-| Thai            | th    | [View](./src/assets/locales/th.json)    |
-| Tagalog         | tl    | [View](./src/assets/locales/tl.json)    |
-| Tibetan         | bo    | [View](./src/assets/locales/bo.json)    |
-| Turkish         | tr    | [View](./src/assets/locales/tr.json)    |
-| Ukrainian       | uk    | [View](./src/assets/locales/uk.json)    |
-| Vietnamese      | vi    | [View](./src/assets/locales/vi.json)    |
-
-### Add new language
-
-1. If you can't find your target language from the above list, download the English source file from [this link](./src/assets/locales/en.json).
-
-2. When you're finished translating, submit the source file to [this link](https://github.com/koodo-reader/koodo-reader/issues/new?assignees=&labels=submit+translation&projects=&template=submit_translation.yml). Pull requests are also welcome.
+The project must preserve applicable copyright notices and license terms for all reused code, OCR models, fonts, dictionaries, and other bundled assets. See [docs/UPSTREAM_INVENTORY.md](./docs/UPSTREAM_INVENTORY.md) before adding an upstream dependency.

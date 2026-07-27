@@ -1,166 +1,128 @@
-<div align="left">
+# BabelLeaf
 
-简体中文 | [हिंदी](./README_hi.md) |[Português](./README_pt.md) | [English](./README.md) | [Indonesian](./README_id.md)
+**跨越语言，自在阅读。**
 
-</div>
+BabelLeaf 是一款开源、本地优先的多格式阅读器，面向书籍、文档与漫画。它服务于经常在简体中文、英文、日文内容之间阅读的用户，将 AI 翻译、词典、朗读与漫画翻译放在阅读流程中，而不是拆成彼此割裂的工具。
 
-<div align="center">
-  <img src="https://dl.koodoreader.com/screenshots/logo.png" width="96px" height="96px"/>
-</div>
+> **项目状态：** 正在进行基础开发。当前代码基于 Koodo Reader，BabelLeaf 的产品身份、本地 AI 工作流、双语阅读模型与漫画翻译工作流仍在建设中。下方路线图不代表所有功能已经完成。
 
-<h1 align="center">
-  Koodo Reader
-</h1>
+[English](./README.md) · [上游项目与许可证清单](./docs/UPSTREAM_INVENTORY.md)
 
-<h3 align="center">
-  一个跨平台的电子书阅读器
-</h3>
+## 产品目标
 
-<div align="center">
+- 图书馆默认保存在本地。
+- 只从本地文件导入书籍、文档和漫画，不内置网页爬取或资源下载功能。
+- 使用用户自行配置的模型，让英文、日文内容更适合简体中文用户阅读。
+- 同时做好可重排文本书与图片漫画的阅读体验，并始终保留原始文件。
+- 先完成 Windows 端，再逐步适配 macOS、Android 与 iOS。
 
-[下载客户端](https://koodoreader.com/zh) | [在线预览](https://web.koodoreader.com) | [开发计划](https://koodoreader.com/zh/roadmap) | [帮助文档](https://koodoreader.com/zh/document) | [插件列表](https://koodoreader.com/zh/plugin)
+## 内容格式
 
-</div>
+当前继承的阅读器基线支持以下本地格式；BabelLeaf 会在演进中持续验证兼容性。
 
-## 预览
+| 类型 | 格式 |
+| --- | --- |
+| 电子书 | EPUB、MOBI、AZW、AZW3、FB2、TXT、Markdown、DOCX、HTML、XML、XHTML、MHTML |
+| 文档 | PDF |
+| 漫画 | CBZ、CBR、CBT、CB7、本地图片集 |
 
-<div align="center">
-  <br/>
-  <br/>
-  <img src="https://dl.koodoreader.com/screenshots/7.png" width="800px">
-  <br/>
-  <br/>
-  <img src="https://dl.koodoreader.com/screenshots/8.png" width="800px">
-  <br/>
-  <br/>
-</div>
+受 DRM 保护的图书不在支持范围内。无 DRM 的 MOBI 或 Kindle 格式可以转换成内部阅读表示，但原始文件会保持不变。
 
-## 特色
+## 阅读与语言能力
 
-- 支持阅读格式：
-  - EPUB (**.epub**)
-  - PDF (**.pdf**)
-  - Kindle (**.azw3**, **.mobi**, **.azw**)
-  - 纯文本 (**.txt**)
-  - 漫画 (**.cbr**, **.cbz**, **.cbt**, **.cb7**)
-  - 富文本 (**.md**, **.docx**)
-  - FB2 (**.fb2**)
-  - 超文本 (**.html**, **.xml**, **.xhtml**, **.mhtml**, **.htm**)
-- 支持 **Windows**，**macOS**，**Linux** ，**安卓** ，**iOS** 和 **网页版**
-- 利用 **OneDrive**, **Google Drive**, **Dropbox**, **iCloud**, **MEGA**, **pCloud**, **阿里云盘**, **百度网盘**, **115 网盘**, **Box**, **Yandex Disk**, **FTP**, **SFTP**, **SMB**, **Docker**, **WebDAV**, **对象存储** 实现数据多端同步和备份
-- 轻松从 **OneDrive**, **Google Drive**, **MEGA**, **阿里云盘**, **百度网盘**, **115 网盘**, **Box**, **Yandex Disk**, **FTP**, **SFTP**, **SMB**, **WebDAV**, **对象存储** 导入图书
-- 使用您的自定义 AI 模型，实现 AI 翻译、AI 词典、AI 总结与 AI 百科
-- 与 **KOReader** 同步图书阅读进度
-- 将笔记与高亮同步至 **Readwise**、**Notion**、**Obsidian**、**Joplin** 等三方平台
-- 支持本地 MDX 词典查词
-- 自动同步生词到 **Anki** 与**欧路词典**
-- 通过密码、PIN 码、Windows Hello、Touch ID 等多重方式保护您的图书库
-- 一键导出全部图书
-- 一键导出笔记与高亮，支持 **CSV**、**Markdown**、**HTML**、**TXT** 等格式
-- 隐私优先，不使用任何追踪服务，不主动上传您的阅读数据与隐私信息
-- 支持 **OPDS** 协议，并可将您的书库以 **OPDS** 形式分享
-- 支持浏览器扩展，可将网页文章剪藏到您的书库
-- 内置 50+ 翻译、词典及听书插件，并支持自定义插件
-- 支持竖排图书阅读
-- 支持阅读统计功能
-- 内置 **Paddle** 与 **Tesseract** OCR 引擎
-- 支持图书库快照与版本控制
-- 双页模式，单页模式，滚动模式
-- 听书功能，翻译功能，词典功能，触控屏支持，批量导入图书
-- 支持目录，书签，笔记，高亮，书架，标签
-- 自定义字体，字体大小，行间距，段落间距，阅读背景色，文字颜色，屏幕亮度，文字下划线、斜体、文字阴影、字体粗细
-- 黑夜模式和主题色设置
+### 当前继承基线已有的能力
 
-## 使用方法
+- 本地书库、批量导入、元数据、书架、标签、阅读进度、书签、笔记与高亮。
+- EPUB、PDF、文本、漫画的阅读视图，以及竖排文本和常见翻页布局。
+- 词典查询、文本朗读、OCR 选项和可配置的翻译/AI 插件。
 
-### 桌面端：[下载](https://koodoreader.com/zh/download)
+### BabelLeaf 的重点改造
 
-### 网页版：[前往](https://web.koodoreader.com)
+- 用户自带密钥（BYOK）的模型连接，支持 OpenAI 兼容接口。
+- 向外部模型发送选中文本或 OCR 结果前，明确征得用户同意。
+- 翻译记忆、术语表、可重试后台任务，以及透明的模型与费用设置。
+- 文本书的原文、译文与对齐双语阅读模式。
+- 面向英文、日文的语言感知划词与词典查询。
+- 面向中、英、日内容的语言感知朗读。
 
-### 安卓版：[下载](https://koodoreader.com/zh/download)
+## 漫画翻译工作流
 
-### iOS 版：[下载](https://koodoreader.com/zh/download)
+漫画翻译是独立阅读工作流，而不是直接覆盖原图的滤镜：
 
-### 浏览器拓展：[下载](https://www.koodoreader.com/zh/use-extension)
+1. 导入本地漫画压缩包或图片集。
+2. 检测文字区域，并识别日文、英文、中文和用户配置的其他语言。
+3. 通过用户选择的翻译服务翻译文字。
+4. 将原文、译文、坐标、样式和置信度与源图片分开保存。
+5. 使用可编辑的译文覆盖层，支持原图、译文、双语三种视图。
+6. 仅在用户明确导出时，才生成合成后的图片副本。
 
-### 使用 Scoop 安装：
+项目会通过本地 Worker 接口评估开源 OCR 与漫画处理项目，具体选择和许可证记录见 [docs/UPSTREAM_INVENTORY.md](./docs/UPSTREAM_INVENTORY.md)。
 
-```shell
-scoop bucket add extras
-scoop install extras/koodo-reader
+## 架构方向
+
+```text
+Electron + React 阅读器外壳
+  ├─ 本地书库、阅读状态、批注与设置
+  ├─ 翻译任务队列与双语内容模型
+  └─ 本地 Worker 协议
+       ├─ OCR 适配器（例如 PaddleOCR、manga-ocr）
+       ├─ 漫画排版与嵌字适配器
+       └─ 用户配置的翻译与朗读服务
 ```
 
-### 使用 Homebrew 安装：
+Windows 是第一个交付目标。跨平台兼容是架构要求，但基于 Python 或 GPU 的漫画处理 Worker 需要为 macOS、Android、iOS 分别打包和验证，不能直接假设可用。
 
-```shell
-brew install --cask koodo-reader
+## 隐私原则
+
+- 图书、PDF、漫画、批注和翻译衍生数据默认留在设备内。
+- API Key 必须存放在系统安全存储中，绝不以明文同步。
+- 外部 AI 调用必须由用户主动启用，并在发送前显示目标服务或模型。
+- 若后续加入云同步，将优先同步元数据、进度、笔记和翻译结果，不会静默上传完整书库。
+
+## 开发
+
+### 环境要求
+
+- Node.js 20 或更高版本
+- Yarn Classic
+- Electron 所需的桌面端构建环境
+
+### 本地运行
+
+```bash
+yarn
+yarn dev
 ```
 
-### 使用 Docker 安装：
+常用命令：
 
-[部署教程](https://koodoreader.com/zh/deploy-docker)
+```bash
+yarn start    # 网页开发模式
+yarn build    # 生成生产环境网页构建
+yarn test     # 运行测试
+yarn release  # 打包 Electron 应用
+```
 
-## 截图
+## 目录说明
 
-<div align="center">
-  <b>图书列表</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/1.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>图书展示</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/5.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>列表模式</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/2.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>封面模式</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/3.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>阅读菜单</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/6.png" width="800px"></kbd>
-  <br/>
-  <br/>
-  <b>黑夜模式</b>
-  <br/>
-  <br/>
-  <kbd><img src="https://dl.koodoreader.com/screenshots/4.png" width="800px"></kbd>
-  <br/>
-  <br/>
-</div>
+| 路径 | 用途 |
+| --- | --- |
+| `src/` | React 界面、阅读视图、状态管理、工具函数与多语言资源 |
+| `main.js` | Electron 主进程、IPC、本地数据库与原生能力 |
+| `httpserver/` | 继承功能使用的可选 Go HTTP 服务 |
+| `docs/` | 产品决策、上游清单与工程文档 |
+| `.upstream/` | 仅供评估的本地上游镜像，已被 Git 忽略，不会提交到应用仓库 |
 
-## 运行源码
+## 路线图
 
-请确保您电脑已配置好 yarn，git 的运行环境。
+1. 建立 BabelLeaf 身份，并移除上游品牌和服务依赖假设。
+2. 实现本地 BYOK 翻译服务与稳定的双语文本模型。
+3. 加入翻译记忆、术语表与语言感知词典/TTS。
+4. 在 Windows 上完成漫画 OCR、翻译、覆盖层与人工校正闭环。
+5. 验证 macOS、Android、iOS 的导入、阅读器、Worker 与同步边界。
 
-1. 将项目源码下载到本地
+## 许可证与致谢
 
-   ```
-   git clone https://github.com/koodo-reader/koodo-reader.git
-   ```
+BabelLeaf 基于 [Koodo Reader](https://github.com/koodo-reader/koodo-reader) 开发，并以 GNU Affero General Public License v3.0（AGPL-3.0）发布。BabelLeaf 是独立项目，与 Koodo Reader 维护者不存在隶属或官方关联。
 
-2. cd 到项目文件夹，运行以下代码进入客户端模式
-
-   ```
-   yarn
-   yarn dev
-   ```
-
-3. 运行以下代码进入网页模式
-
-   ```
-   yarn
-   yarn start
-   ```
+复用代码、OCR 模型、字体、词典与其他打包资源时，必须保留相应的版权和许可证通知。新增上游依赖前请先查阅 [docs/UPSTREAM_INVENTORY.md](./docs/UPSTREAM_INVENTORY.md)。
