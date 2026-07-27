@@ -17,6 +17,7 @@ dist/
 /.vscode
 /.claude
 /.superpowers
+/.upstream
 
 # misc
 .DS_Store
