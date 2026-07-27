@@ -194,6 +194,14 @@ fn build_response<R: Runtime>(app: &AppHandle<R>, request: &Request<Vec<u8>>) ->
 mod tests {
     use super::*;
 
+    fn absolute_test_path(relative: &str) -> PathBuf {
+        if cfg!(windows) {
+            Path::new(r"C:\").join(relative)
+        } else {
+            Path::new("/").join(relative)
+        }
+    }
+
     #[test]
     fn parses_path_start_end() {
         let q = parse_query(Some("path=%2Fbooks%2Fa.epub&start=1024&end=2047")).unwrap();
@@ -234,24 +242,24 @@ mod tests {
 
     #[test]
     fn safe_path_accepts_absolute_traversal_free() {
-        assert!(is_safe_path(Path::new(
-            "/data/user/0/com.bilingify.readest/Readest/Books/a.epub"
+        assert!(is_safe_path(&absolute_test_path(
+            "data/user/0/com.bilingify.readest/Readest/Books/a.epub"
         )));
-        assert!(is_safe_path(Path::new("/书/堂吉诃德.mobi")));
+        assert!(is_safe_path(&absolute_test_path("书/堂吉诃德.mobi")));
     }
 
     #[test]
     fn safe_path_rejects_parent_dir_traversal() {
-        assert!(!is_safe_path(Path::new(
-            "/data/user/0/com.bilingify.readest/Readest/../../../../etc/passwd"
+        assert!(!is_safe_path(&absolute_test_path(
+            "data/user/0/com.bilingify.readest/Readest/../../../../etc/passwd"
         )));
-        assert!(!is_safe_path(Path::new("/a/../b")));
+        assert!(!is_safe_path(&absolute_test_path("a/../b")));
     }
 
     #[test]
     fn safe_path_rejects_relative_and_nul() {
         assert!(!is_safe_path(Path::new("data/x/a.epub"))); // not absolute
         assert!(!is_safe_path(Path::new("a.epub")));
-        assert!(!is_safe_path(Path::new("/data/a\0b.epub"))); // NUL byte
+        assert!(!is_safe_path(&absolute_test_path("data/a\0b.epub"))); // NUL byte
     }
 }

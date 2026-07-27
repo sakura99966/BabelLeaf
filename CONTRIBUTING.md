@@ -47,7 +47,7 @@ Any proposed exception requires an issue, threat review, and an update to
 - Git with submodule support
 - Node.js 24
 - pnpm 11 (the repository pins `pnpm@11.1.1`)
-- Rust stable and Cargo for Tauri development
+- Rust 1.90 or newer (stable recommended) and Cargo for Tauri development
 - the [Tauri v2 platform prerequisites](https://v2.tauri.app/start/prerequisites/)
 
 For Windows, install the WebView2 Runtime and Visual Studio Build Tools with
@@ -137,6 +137,15 @@ pnpm fmt:check
 pnpm clippy:check
 pnpm --filter @readest/readest-app test:rust
 ```
+
+Windows contributors can produce an unsigned x64 validation installer with:
+
+```bash
+pnpm --filter @readest/readest-app build-win-x64:unsigned
+```
+
+Do not publish that development artifact as a release until BabelLeaf-owned
+icons and Authenticode signing are in place.
 
 Run focused tests while developing and add manual checks appropriate to the
 change. Format and reader work should state which DRM-free sample types,

@@ -54,7 +54,7 @@
     "resources": [],
     "windows": {
       "webviewInstallMode": {
-        "type": "embedBootstrapper"
+        "type": "offlineInstaller"
       },
       "nsis": {
         "installMode": "both"
@@ -77,49 +77,49 @@
     },
     "fileAssociations": [
       {
-        "name": "epub",
+        "name": "BabelLeaf.EPUB",
         "ext": ["epub"],
         "description": "EPUB file",
         "mimeType": "application/epub+zip",
         "role": "Viewer"
       },
       {
-        "name": "mobi",
+        "name": "BabelLeaf.MOBI",
         "ext": ["mobi"],
         "description": "MOBI file",
         "mimeType": "application/x-mobipocket-ebook",
         "role": "Viewer"
       },
       {
-        "name": "azw",
+        "name": "BabelLeaf.AZW",
         "ext": ["azw"],
         "description": "AZW file",
         "mimeType": "application/vnd.amazon.ebook",
         "role": "Viewer"
       },
       {
-        "name": "azw3",
+        "name": "BabelLeaf.AZW3",
         "ext": ["azw3"],
         "description": "AZW3 file",
         "mimeType": "application/vnd.amazon.mobi8-ebook",
         "role": "Viewer"
       },
       {
-        "name": "fb2",
+        "name": "BabelLeaf.FB2",
         "ext": ["fb2"],
         "description": "FB2 file",
         "mimeType": "application/x-fictionbook+xml",
         "role": "Viewer"
       },
       {
-        "name": "cbz",
+        "name": "BabelLeaf.CBZ",
         "ext": ["cbz"],
         "description": "CBZ file",
         "mimeType": "application/vnd.comicbook+zip",
         "role": "Viewer"
       },
       {
-        "name": "pdf",
+        "name": "BabelLeaf.PDF",
         "ext": ["pdf"],
         "description": "PDF file",
         "mimeType": "application/pdf",

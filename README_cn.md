@@ -101,7 +101,7 @@ React / Next.js 界面
 - 支持子模块的 Git
 - Node.js 24
 - pnpm 11（仓库固定为 `pnpm@11.1.1`）
-- Rust stable 以及 Tauri v2 对当前平台要求的依赖
+- Rust 1.90 或更高版本（建议 stable）以及 Tauri v2 对当前平台要求的依赖
 - Windows 需要 WebView2 Runtime，以及安装了 **Desktop development with
   C++** 工作负载的 Visual Studio Build Tools
 
@@ -150,6 +150,16 @@ pnpm fmt:check
 pnpm clippy:check
 pnpm --filter @readest/readest-app test:rust
 ```
+
+在 Windows 生成未签名的 x64 验证安装包：
+
+```bash
+pnpm --filter @readest/readest-app build-win-x64:unsigned
+```
+
+安装包输出到
+`target/x86_64-pc-windows-msvc/release/bundle/nsis/`。这是开发验证产物；
+公开分发前仍需替换为 BabelLeaf 自有图标并配置 Authenticode 签名。
 
 平台安装包需要完整的对应 Tauri 工具链，并在目标操作系统上验证。
 

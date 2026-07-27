@@ -119,7 +119,8 @@ upstreams and candidate components are listed in
 - Git with submodule support
 - Node.js 24
 - pnpm 11 (the repository pins `pnpm@11.1.1`)
-- Rust stable and the platform prerequisites required by Tauri v2
+- Rust 1.90 or newer (stable recommended) and the platform prerequisites
+  required by Tauri v2
 - On Windows: WebView2 Runtime and Visual Studio Build Tools with the
   **Desktop development with C++** workload
 
@@ -169,6 +170,17 @@ pnpm fmt:check
 pnpm clippy:check
 pnpm --filter @readest/readest-app test:rust
 ```
+
+On Windows, create an unsigned x64 validation installer with:
+
+```bash
+pnpm --filter @readest/readest-app build-win-x64:unsigned
+```
+
+The installer is written under
+`target/x86_64-pc-windows-msvc/release/bundle/nsis/`. It is a development
+artifact; public distribution still requires BabelLeaf-owned icons and
+Authenticode signing.
 
 Platform packaging requires the corresponding Tauri toolchain and should be
 verified on the target operating system.
