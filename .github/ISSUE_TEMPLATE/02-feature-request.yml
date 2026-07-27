@@ -6,9 +6,7 @@ body:
   - type: "markdown"
     attributes:
       value: |
-        <p align="center">
-          <img src="https://github.com/readest/readest/blob/main/apps/readest-app/src-tauri/icons/icon.png?raw=true" alt="Readest Logo" width="20%" />
-        </p>
+        ## BabelLeaf
 
         Please replace the **`FEATURE REQUEST`** template above describing your feature request.
 

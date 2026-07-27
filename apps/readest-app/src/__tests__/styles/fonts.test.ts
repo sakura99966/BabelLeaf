@@ -7,6 +7,9 @@ vi.mock('@/utils/path', () => ({
 vi.mock('@/utils/md5', () => ({
   md5Fingerprint: vi.fn((name: string) => `md5_${name}`),
 }));
+vi.mock('@/services/productPolicy', () => ({
+  isNetworkCapabilityAllowed: vi.fn(() => true),
+}));
 
 import { isCJKEnv } from '@/utils/misc';
 import {

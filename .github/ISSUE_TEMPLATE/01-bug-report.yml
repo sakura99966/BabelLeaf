@@ -6,15 +6,13 @@ body:
   - type: "markdown"
     attributes:
       value: |
-        <p align="center">
-          <img src="https://github.com/readest/readest/blob/main/apps/readest-app/src-tauri/icons/icon.png?raw=true" alt="Readest Logo" width="20%" />
-        </p>
+        ## BabelLeaf
 
-        Please replace the **`BUG DESCRPTION`** template above with a clear and concise description of what the current behvaior is.
+        Please replace the **`BUG DESCRIPTION`** template above with a clear and concise description of the current behavior.
 
         An example of a good bug report title would look like:
         ```plaintext
-        In DarkMode, a blank square appears in bottom right corner while scrolling
+        In dark mode, a blank square appears in the bottom-right corner while scrolling
         ```
 
         ---
@@ -76,13 +74,13 @@ body:
     validations:
       required: true
   - type: "input"
-    id: "readest_version"
+    id: "babelleaf_version"
     attributes:
-      label: "Readest Version"
+      label: "BabelLeaf Version"
       description: |
-        The Readest version you are running.
+        The BabelLeaf version you are running.
 
-        To find this, go to **☰ -> About Readest**.
+        To find this, go to **Menu -> About BabelLeaf**.
       placeholder: "Version x.xx.xx (WebView xxx.x.xx)"
     validations:
       required: true

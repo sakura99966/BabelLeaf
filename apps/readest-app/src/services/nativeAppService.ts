@@ -42,6 +42,7 @@ import { copyURIToPath, getStorefrontRegionCode, saveImageToGallery } from '@/ut
 import { galleryFileName } from '@/utils/image';
 import { copyFiles } from '@/utils/files';
 import { detectViewTransitionGroup, detectViewTransitionsAPI } from '@/utils/viewTransition';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 import { BaseAppService } from './appService';
 import { DatabaseOpts, DatabaseService } from '@/types/database';
@@ -566,6 +567,7 @@ export class NativeAppService extends BaseAppService {
   override hasSafeAreaInset = OS_TYPE === 'ios' || OS_TYPE === 'android';
   override hasHaptics = OS_TYPE === 'ios' || OS_TYPE === 'android';
   override hasUpdater =
+    isNetworkCapabilityAllowed('updater') &&
     OS_TYPE !== 'ios' &&
     !process.env['NEXT_PUBLIC_DISABLE_UPDATER'] &&
     !window.__READEST_UPDATER_DISABLED;
@@ -613,7 +615,7 @@ export class NativeAppService extends BaseAppService {
     // Flatpak, or a Linux deb/rpm/pacman install that Tauri can't self-update). The
     // command is the reliable source of truth; the `__READEST_UPDATER_DISABLED`
     // init-script global isn't dependable on every Linux/WebKitGTK setup (#4874).
-    if (this.isDesktopApp) {
+    if (this.isDesktopApp && isNetworkCapabilityAllowed('updater')) {
       try {
         const updaterDisabled = await invoke<boolean>('is_updater_disabled');
         this.hasUpdater = this.hasUpdater && !updaterDisabled;

@@ -37,6 +37,7 @@ import { DEFAULT_AI_SETTINGS } from './ai/constants';
 import { DEFAULT_ANNOTATION_TOOLBAR_ITEMS } from '@/utils/annotationToolbar';
 import { DEFAULT_SENTENCE_GAP_SEC } from './tts/EdgeTTSClient';
 import { DEFAULT_PARAGRAPH_GAP_SEC } from './tts/TTSController';
+import { isNetworkCapabilityAllowed } from './productPolicy';
 
 export const DATA_SUBDIR = 'Readest';
 export const LOCAL_BOOKS_SUBDIR = `${DATA_SUBDIR}/Books`;
@@ -147,7 +148,7 @@ export const DEFAULT_SYSTEM_SETTINGS: Partial<SystemSettings> = {
   alwaysOnTop: false,
   openBookInNewWindow: true,
   alwaysShowStatusBar: false,
-  autoCheckUpdates: true,
+  autoCheckUpdates: isNetworkCapabilityAllowed('updater'),
   updateChannel: 'stable',
   screenWakeLock: false,
   screenBrightness: -1, // -1~100, -1 for system default
@@ -166,7 +167,7 @@ export const DEFAULT_SYSTEM_SETTINGS: Partial<SystemSettings> = {
   openLastBooks: false,
   lastOpenBooks: [],
   autoImportBooksOnOpen: false,
-  telemetryEnabled: true,
+  telemetryEnabled: isNetworkCapabilityAllowed('telemetry'),
   discordRichPresenceEnabled: false,
   libraryViewMode: 'grid',
   librarySortBy: LibrarySortByType.Updated,

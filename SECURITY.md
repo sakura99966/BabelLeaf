@@ -1,142 +1,207 @@
-# Security Policy
+# BabelLeaf security policy
 
-## Threat Model
+## Current support status
 
-### Overview
+BabelLeaf is in foundation migration and has not published a supported release.
+Development snapshots are for evaluation and may still contain inherited
+Readest code paths that do not conform to BabelLeaf's final network policy.
 
-Readest is a cross-platform e-reader (macOS, Windows, Linux, Android, iOS, Web) built on Next.js and Tauri. It processes user-supplied ebook files, syncs data to the cloud, integrates with external services (OPDS catalogs, KOReader, DeepL, Yandex), and handles user authentication.
+| Version | Security support |
+| --- | --- |
+| Unreleased migration branch | Best-effort fixes; not production supported |
+| BabelLeaf releases | None published yet |
+| Upstream Readest releases | Report to [Readest](https://github.com/readest/readest/security) unless the issue is caused by BabelLeaf changes |
+
+This section will be replaced with concrete supported versions when BabelLeaf
+publishes its first release.
+
+## Intended security and privacy boundary
+
+BabelLeaf is designed for local file import and local application data. The
+only intended external network capability is translation through an
+OpenAI-compatible endpoint that the user explicitly configures and enables.
+
+The current source tree is derived from Readest and still contains code or
+configuration for authentication, synchronization, updater checks, telemetry,
+online catalogs, metadata, dictionaries, speech, translation providers, and
+generic network bridges. Those paths are being gated or removed in stages.
+Their presence means the current development tree must **not** be described as
+fully offline, local-only, or hardened.
+
+The normative target and containment checklist are in
+[`docs/NETWORK_POLICY.md`](docs/NETWORK_POLICY.md).
+
+## Threat model
 
 ### Assets
 
-| Asset                          | Description                                                                          |
-| ------------------------------ | ------------------------------------------------------------------------------------ |
-| Ebook files                    | User-uploaded EPUB, MOBI, PDF, and other formats stored locally and in cloud storage |
-| Reading progress & annotations | Highlights, bookmarks, and notes synced across devices                               |
-| User credentials               | Authentication tokens and session data for cloud sync                                |
-| User preferences & settings    | Reading preferences, custom fonts, theme configurations                              |
-| External API keys              | Translation service credentials (DeepL, Yandex) configured by users                  |
+| Asset | Why it matters |
+| --- | --- |
+| Imported books and comics | Files may be private, copyrighted, or sensitive |
+| Reading state | Progress, highlights, bookmarks, notes, and history reveal user interests |
+| Local settings and caches | Can contain paths, document identifiers, endpoint configuration, and translated text |
+| LLM credentials | API keys or tokens may authorize paid requests and access to a private service |
+| Translation payloads/results | Selected text or larger requested units may leave the device when a remote endpoint is used |
+| Local dictionaries, fonts, voices, and future OCR models | May be confidential, licensed, or a supply-chain vector |
+| Native application permissions | Tauri commands can access files, secure storage, processes, or the network if exposed too broadly |
 
-### Threat Actors
+### Threat actors
 
-| Actor                   | Motivation                                                 |
-| ----------------------- | ---------------------------------------------------------- |
-| Malicious ebook author  | Craft a malformed file to exploit the parser or renderer   |
-| Network attacker (MitM) | Intercept sync traffic to steal credentials or inject data |
-| Malicious OPDS server   | Serve crafted catalog responses to exploit the client      |
-| Compromised dependency  | Supply chain attack via npm or Cargo ecosystem             |
-| Unauthorized user       | Access another user's synced library or annotations        |
+| Actor | Example goal |
+| --- | --- |
+| Malicious document author | Exploit EPUB/PDF/image/archive parsing, escape rendering isolation, read local files, or exfiltrate data |
+| Malicious or compromised LLM endpoint | Capture book text/keys, return hostile content, redirect credentials, or exhaust local resources |
+| Network attacker | Observe or modify remote translation traffic, especially when plain HTTP is used |
+| Compromised dependency or build service | Inject code through npm, Cargo, Git submodules, native libraries, models, fonts, or release artifacts |
+| Another local user or local malware | Read application data, credentials, caches, or temporary files |
+| Accidental developer/operator action | Commit a key, enable inherited telemetry, publish private fixtures, or ship the wrong product identity/update channel |
 
-### Attack Surfaces & Mitigations
+### Trust boundaries
 
-#### 1. Ebook File Parsing
+#### Imported documents
 
-- **Risk:** Malformed EPUB/MOBI/PDF files could trigger parser bugs, path traversal, or script injection via embedded HTML/JS.
-- **Mitigations:** Ebook content is rendered in a sandboxed iframe. External script execution is blocked. File parsing is isolated from the main process.
+Every imported EPUB, MOBI-family file, FB2, PDF, archive, image, TXT, or
+Markdown file is untrusted. Relevant risks include script injection, parser
+memory-safety defects, path traversal, decompression bombs, oversized images,
+malicious links, and remote subresource loading.
 
-#### 2. Cloud Sync & Authentication
+The release target is sandboxed rendering, strict sanitization, bounded parsing
+and extraction, no automatic remote document resources, and narrowly scoped
+native file access. The inherited baseline provides some sandboxing and parser
+controls, but these controls require BabelLeaf-specific audit and regression
+tests before release.
 
-- **Risk:** Credential theft, session hijacking, or unauthorized access to another user's library data.
-- **Mitigations:** All sync traffic uses HTTPS/TLS. Authentication tokens are stored securely (OS keychain/secure storage). Server-side authorization ensures users can only access their own data.
+#### Tauri and native IPC
 
-#### 3. OPDS / External Catalog Integration
+Compromised renderer content must not be able to invoke arbitrary file, shell,
+OAuth, WebSocket, upload/download, secure-storage, or network operations. Tauri
+capabilities, command inputs, filesystem scopes, custom protocols, and the CSP
+must be reduced to the minimum BabelLeaf needs.
 
-- **Risk:** A malicious OPDS server could serve crafted XML to exploit the parser, or redirect downloads to malicious files.
-- **Mitigations:** OPDS responses are parsed defensively. Users explicitly add catalog sources. Downloaded files are treated as untrusted user content.
+The inherited Readest configuration currently includes broad network origins
+and commands. Hardening is ongoing; the current configuration is not cited as
+a completed mitigation.
 
-#### 4. Rendered HTML/JS in Ebook Content
+#### LLM translation
 
-- **Risk:** Embedded JavaScript in EPUB files could attempt XSS or data exfiltration.
-- **Mitigations:** Book content is rendered in a sandboxed iframe with scripting restrictions. Navigation outside the book context is blocked.
+A remote translation endpoint necessarily receives the text requested by the
+user. BabelLeaf cannot control what that provider stores or how it uses the
+content.
 
-#### 5. Supply Chain
+The intended client controls include:
 
-- **Risk:** Compromised npm or Cargo packages could introduce malicious code.
-- **Mitigations:** Dependencies are pinned via `pnpm-lock.yaml` and `Cargo.lock`. Dependabot and GitHub's dependency review are enabled for automated vulnerability detection.
+- explicit endpoint/model configuration and opt-in;
+- platform secure storage for API keys;
+- no keys or book text in logs, analytics, ordinary settings, or exports;
+- validation of schemes and hosts, plus redirect protection;
+- clear distinction between loopback and remote endpoints;
+- bounded requests, timeouts, cancellation, and rate/concurrency limits;
+- no silent fallback to a different translation provider;
+- no upload merely from importing or opening a book.
 
-#### 6. Desktop Native Code (Tauri)
+These are release requirements, not a claim that the migration branch already
+implements every item.
 
-- **Risk:** Tauri IPC commands could be abused by malicious web content to access the filesystem or OS APIs.
-- **Mitigations:** Tauri's allowlist restricts which IPC commands are exposed. File system access is scoped to the application data directory.
+#### Local data and credentials
 
-### Out of Scope
+Data directories and secure-storage service names must be BabelLeaf-specific
+so an installation cannot collide with or impersonate Readest. Sensitive
+temporary files should be minimized, permissions scoped, and secrets removed
+on explicit user request.
 
-- Vulnerabilities in user's operating system or browser outside of Readest's control
-- Physical access attacks to a user's device
-- Issues in third-party services (DeepL, Yandex, Calibre) themselves
+Operating-system compromise, physical access to an unlocked device, and other
+local malware are not fully preventable by the application, but avoidable
+plaintext secrets remain a BabelLeaf responsibility.
 
-## Supported Versions
+#### Supply chain and releases
 
-Readest does not currently maintain separate release channels. Security updates are provided only for the latest release series.
+`pnpm-lock.yaml`, `Cargo.lock`, and Git submodule revisions pin major inputs,
+but pinning alone does not prove they are safe. Changes to dependencies,
+submodules, build actions, native binaries, models, fonts, dictionaries,
+voices, or packaged data require provenance and license review.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.10.x  | :white_check_mark: |
-| < 0.10  | :x:                |
+BabelLeaf must not publish through inherited Readest signing identities,
+updater keys, endpoints, application identifiers, or deployment workflows.
 
-## Reporting a Vulnerability
+## Security issues in scope
 
-Please report suspected vulnerabilities privately. Do not open a public GitHub
-issue or discussion for security-sensitive reports.
+Examples include:
 
-Use GitHub's private vulnerability reporting for this repository:
+- code execution, sandbox escape, or unauthorized native command invocation;
+- reading or writing files outside intended local scopes;
+- path traversal or unsafe archive extraction;
+- automatic or undisclosed external requests;
+- document, annotation, prompt, endpoint, or key disclosure;
+- credential storage, redirect, header, or logging flaws;
+- a bypass of the configured network capability policy;
+- denial of service caused by realistic malformed document input;
+- update, package, signing, or dependency-integrity issues;
+- a collision with Readest data, secure storage, protocol, or updater identity.
 
-<https://github.com/readest/readest/security/advisories/new>
+General feature requests, compatibility problems without a security impact, and
+questions about a third-party LLM provider's own service should use the normal
+issue tracker. A vulnerability in unmodified upstream Readest may need
+coordinated reporting to both projects.
 
-When submitting a report, include:
+## Reporting a vulnerability
 
-- A clear description of the issue and the affected component
-- Steps to reproduce, proof of concept, or a minimal test case
-- The versions, platforms, or environments you tested
-- Any suggested remediation or mitigating details, if available
+Do not open a public issue, discussion, or pull request containing
+security-sensitive details.
 
-What to expect after you report:
+Use GitHub's private vulnerability reporting for BabelLeaf:
 
-- We will aim to acknowledge receipt within 3 business days.
-- We may contact you for additional details, reproduction steps, or validation.
-- If the report is accepted, we will work on a fix and coordinate disclosure.
-- If the report is declined, we will explain why, for example if the behavior is
-  expected, unsupported, or not reproducible.
+<https://github.com/sakura99966/BabelLeaf/security/advisories/new>
 
-Please keep vulnerability details private until a fix is available and the
-maintainers have approved disclosure.
+Include, where possible:
 
-## Incident Response Plan
+- a concise impact statement and affected component;
+- the commit, platform, and build mode tested;
+- minimal reproduction steps or a proof of concept;
+- whether the behavior exists in upstream Readest;
+- a redacted network trace or log if relevant;
+- suggested mitigations or disclosure constraints.
 
-When a security vulnerability is confirmed, we follow this process:
+Do **not** submit real API keys, access tokens, private book text, copyrighted
+test files, personal annotations, unredacted local paths, or another person's
+data. Construct the smallest redistributable fixture needed to reproduce the
+problem.
 
-### 1. Triage (Day 1–2)
+The maintainers will respond on a best-effort basis while the project is
+unreleased. They may request more information, coordinate with an upstream
+project, prepare a fix, and agree on a disclosure date. Please keep the report
+private until disclosure is coordinated.
 
-- Assign a severity level (Critical / High / Medium / Low) based on impact and exploitability.
-- Identify affected versions, components, and users.
-- Assign an owner responsible for coordinating the response.
+Do not test against third-party production systems without authorization or
+access data belonging to other users.
 
-### 2. Containment (Day 1–3)
+## Response process
 
-- Assess whether an immediate mitigation or workaround can be published.
-- Limit further exposure where possible (e.g., disable affected features, update dependencies).
+For a confirmed vulnerability, maintainers should:
 
-### 3. Remediation (Day 3–14, depending on severity)
+1. Triage exploitability, affected commits/platforms, data exposure, and
+   whether upstream coordination is needed.
+2. Contain the issue by disabling the path or documenting a safe workaround
+   when practical.
+3. Add a regression test before or with the fix where safe to do so.
+4. Review related capabilities and variants rather than patching only the
+   demonstrated input.
+5. Prepare source and artifacts under BabelLeaf identities, then coordinate
+   disclosure and a GitHub Security Advisory when appropriate.
+6. Update the threat model, network policy, dependency inventory, or release
+   process to address the root cause.
 
-- Develop and internally review a fix.
-- Validate the fix does not introduce regressions.
-- Prepare a patched release and update changelog.
+Severity is judged from impact and realistic exploitability. Remote code
+execution, arbitrary local-file access, cross-origin API-key disclosure, and a
+silent bulk upload of book content are examples of potentially critical
+impact.
 
-### 4. Disclosure & Release
+## Safe-harbor intent
 
-- Coordinate disclosure timing with the reporter.
-- Publish a GitHub Security Advisory with CVE if applicable.
-- Release the patched version and notify users via release notes.
+Good-faith research that stays within the reporter's own data and systems,
+avoids privacy violations and service disruption, and follows coordinated
+disclosure will be treated constructively. This statement does not authorize
+testing against third parties or override applicable law.
 
-### 5. Post-Incident Review
-
-- Document the root cause, timeline, and resolution.
-- Update processes or controls to prevent recurrence.
-
-### Severity Definitions
-
-| Severity | Description                                                           |
-| -------- | --------------------------------------------------------------------- |
-| Critical | Remote code execution, full data compromise, or authentication bypass |
-| High     | Significant data exposure, privilege escalation, or denial of service |
-| Medium   | Limited data exposure or functionality disruption                     |
-| Low      | Minor issues with minimal security impact                             |
+This policy is based on the inherited Readest security documentation but has
+been rewritten for BabelLeaf's local-first product boundary and current
+migration status.

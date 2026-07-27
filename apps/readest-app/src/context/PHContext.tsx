@@ -5,6 +5,7 @@ import { ReactNode, useEffect } from 'react';
 import { PostHogProvider } from 'posthog-js/react';
 import { TELEMETRY_DECISION_KEY, TELEMETRY_OPT_OUT_KEY } from '@/utils/telemetry';
 import { getAppVersion } from '@/utils/version';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 // Returns true if PostHog should be opted-out at boot time, before settings
 // have loaded. Honors any explicit decision the user has made; otherwise
@@ -19,26 +20,38 @@ const shouldOptOutAtBoot = () => {
   return localStorage.getItem(TELEMETRY_OPT_OUT_KEY) !== 'false';
 };
 
-const posthogUrl =
-  process.env['NEXT_PUBLIC_POSTHOG_HOST'] ||
-  atob(process.env['NEXT_PUBLIC_DEFAULT_POSTHOG_URL_BASE64']!);
-const posthogKey =
-  process.env['NEXT_PUBLIC_POSTHOG_KEY'] ||
-  atob(process.env['NEXT_PUBLIC_DEFAULT_POSTHOG_KEY_BASE64']!);
+if (
+  isNetworkCapabilityAllowed('telemetry') &&
+  typeof window !== 'undefined' &&
+  process.env['NODE_ENV'] === 'production'
+) {
+  const posthogUrl =
+    process.env['NEXT_PUBLIC_POSTHOG_HOST'] ||
+    atob(process.env['NEXT_PUBLIC_DEFAULT_POSTHOG_URL_BASE64']!);
+  const posthogKey =
+    process.env['NEXT_PUBLIC_POSTHOG_KEY'] ||
+    atob(process.env['NEXT_PUBLIC_DEFAULT_POSTHOG_KEY_BASE64']!);
 
-if (typeof window !== 'undefined' && process.env['NODE_ENV'] === 'production' && posthogKey) {
-  posthog.init(posthogKey, {
-    api_host: posthogUrl,
-    person_profiles: 'always',
-    autocapture: false,
-    opt_out_capturing_by_default: shouldOptOutAtBoot(),
-  });
+  if (posthogKey) {
+    posthog.init(posthogKey, {
+      api_host: posthogUrl,
+      person_profiles: 'always',
+      autocapture: false,
+      opt_out_capturing_by_default: shouldOptOutAtBoot(),
+    });
+  }
 }
+
 export const CSPostHogProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
+    if (!isNetworkCapabilityAllowed('telemetry')) return;
+
     posthog.register_for_session({
       $app_version: getAppVersion(),
     });
   }, []);
+
+  if (!isNetworkCapabilityAllowed('telemetry')) return <>{children}</>;
+
   return <PostHogProvider client={posthog}>{children}</PostHogProvider>;
 };

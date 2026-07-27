@@ -5,6 +5,7 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { useTransferStore, TransferType, isFailedLikeTransfer } from '@/store/transferStore';
 import { transferManager } from '@/services/transferManager';
 import { Book } from '@/types/book';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 // The `libraryLoaded = true` default lets surfaces like SettingsMenu and
 // TransferQueuePanel initialize the manager on mount, before settings
@@ -20,6 +21,8 @@ export function useTransferQueue(libraryLoaded = true, delayInit = 0) {
   const setIsTransferQueueOpen = useTransferStore((state) => state.setIsTransferQueueOpen);
 
   useEffect(() => {
+    if (!isNetworkCapabilityAllowed('cloudSync')) return;
+
     const initManager = async () => {
       if (appService && envConfig) {
         const getLibrary = () => useLibraryStore.getState().library;

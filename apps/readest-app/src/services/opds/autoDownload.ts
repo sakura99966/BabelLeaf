@@ -18,6 +18,7 @@ import { isRetryEligible, DOWNLOAD_CONCURRENCY, MAX_RETRY_ATTEMPTS } from './typ
 import type { PendingItem, SyncResult, OPDSSubscriptionState, FailedEntry } from './types';
 import { runWithConcurrency } from '@/utils/concurrency';
 import { uniqueId } from '@/utils/misc';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 /**
  * Download a single item and import it into the library.
@@ -216,6 +217,10 @@ export async function syncSubscribedCatalogs(
   appService: AppService,
   books: Book[],
 ): Promise<SyncResult> {
+  if (!isNetworkCapabilityAllowed('opds')) {
+    return { newBooks: [], totalNewBooks: 0, errors: [] };
+  }
+
   const eligible = catalogs.filter((c) => c.autoDownload && !c.disabled);
   if (eligible.length === 0) {
     return { newBooks: [], totalNewBooks: 0, errors: [] };

@@ -1,174 +1,196 @@
-# Contribution Guidelines
+# Contributing to BabelLeaf
 
-When contributing to `Readest`, whether on GitHub or in other community spaces:
+Thank you for helping build BabelLeaf. The project is in an early migration
+stage, so small, well-tested changes that preserve the product boundary are
+especially valuable.
 
-- Be respectful, civil, and open-minded.
-- Before opening a new pull request, try searching through the [issue tracker](https://github.com/readest/readest/issues) for known issues or fixes.
-- If you want to make code changes based on your personal opinion(s), make sure you open an issue first describing the changes you want to make, and open a pull request only when your suggestions get approved by maintainers.
+Please be respectful, civil, and open-minded in issues, reviews, and other
+project spaces.
 
-## How to Contribute
+## Before starting
+
+Search the
+[BabelLeaf issue tracker](https://github.com/sakura99966/BabelLeaf/issues)
+before starting work. Open an issue first for:
+
+- architecture or data-model changes;
+- a new dependency, bundled model, font, dictionary, voice, or native binary;
+- a new network destination or capability;
+- format-support claims or large parser changes;
+- user-visible behavior that materially changes the roadmap.
+
+Small bug fixes, tests, documentation corrections, and tightly scoped
+refactors may go directly to a pull request when the intent is clear.
+
+## Product guardrails
+
+Contributions must respect the current product contract:
+
+- reading content is imported from local files;
+- application and reading data stay local by default;
+- the only planned external network capability is translation through a
+  user-configured OpenAI-compatible endpoint;
+- accounts, cloud sync, OPDS/RSS catalogs, web scraping, resource downloading,
+  online metadata/dictionaries/TTS, telemetry, and inherited update services
+  are outside the first release;
+- DRM circumvention and unlicensed content acquisition are out of scope.
+
+The Readest-derived tree still contains network-enabled features that are being
+contained. Do not treat their presence as approval to expose or extend them.
+Any proposed exception requires an issue, threat review, and an update to
+[`docs/NETWORK_POLICY.md`](docs/NETWORK_POLICY.md) before implementation.
+
+## Development environment
 
 ### Prerequisites
 
-In order to not waste your time implementing a change that has already been declined, or is generally not needed, start by [opening an issue](https://github.com/readest/readest/issues/new/choose) describing the problem you would like to solve.
+- Git with submodule support
+- Node.js 24
+- pnpm 11 (the repository pins `pnpm@11.1.1`)
+- Rust stable and Cargo for Tauri development
+- the [Tauri v2 platform prerequisites](https://v2.tauri.app/start/prerequisites/)
 
-For the best experience to build Readest for yourself, use a recent version of Node.js and Rust. Refer to the [Tauri documentation](https://v2.tauri.app/start/prerequisites/) for details on setting up the development environment prerequisites on different platforms.
+For Windows, install the WebView2 Runtime and Visual Studio Build Tools with
+the **Desktop development with C++** workload. Windows ARM64 development also
+requires the appropriate ARM64 C++ tools and Clang components.
 
-Basically you need to install or update the following development tools:
+### Clone and install
 
-- **Node.js** and **pnpm** for Next.js development
-- **Rust** and **Cargo** for Tauri development
-
-```bash
-nvm install v24
-nvm use v24
-npm install -g pnpm
-rustup update
-```
-
-## Getting Started
-
-To get started with Readest, follow these steps to clone and build the project.
-
-### 1. Clone the Repository
+Fork BabelLeaf on GitHub, then clone your fork:
 
 ```bash
-git clone https://github.com/readest/readest.git
-cd readest
-```
-
-### 2. Install Dependencies
-
-```bash
-# might need to rerun this when code is updated
+git clone --recurse-submodules https://github.com/YOUR-NAME/BabelLeaf.git
+cd BabelLeaf
+git remote add upstream https://github.com/sakura99966/BabelLeaf.git
 git submodule update --init --recursive
-pnpm install
-# copy vendors dist libs to public directory
+corepack enable
+pnpm install --frozen-lockfile
 pnpm --filter @readest/readest-app setup-vendors
 ```
 
-To confirm that all dependencies are correctly installed, run the following command:
+Confirm the native toolchain:
 
 ```bash
 pnpm tauri info
 ```
 
-This command will display information about the installed Tauri dependencies and configuration on your platform. Note that the output may vary depending on the operating system and environment setup. Please review the output specific to your platform for any potential issues.
+The internal workspace package is still named `@readest/readest-app` while the
+baseline is being migrated. This is expected and is not the public product
+name.
 
-For Windows targets, “Build Tools for Visual Studio 2022” (or a higher edition of Visual Studio) and the “Desktop development with C++” workflow must be installed. For Windows ARM64 targets, the “VS 2022 C++ ARM64 build tools” and "C++ Clang Compiler for Windows" components must be installed. And make sure `clang` can be found in the path by adding `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\Llvm\x64\bin` for example in the environment variable `Path`.
+### Run locally
 
-#### Using Nix
-
-If you have Nix installed, you can leverage the included flake to enter a
-development shell to install and run all the necessary dependencies and commands:
-
-```bash
-nix develop ./ops  # enter a dev shell for the web app
-nix develop ./ops#ios # enter a dev shell for the ios app
-nix develop ./ops#android # enter a dev shell for the android app
-```
-
-Then, simply run:
+Desktop application:
 
 ```bash
-# copy vendors dist libs to public directory
-pnpm --filter @readest/readest-app setup-vendors
-```
-
-### 4. Build for Development
-
-```bash
-# Start development for the Tauri app
 pnpm tauri dev
-# or start development for the Web app
+```
+
+Web-only frontend:
+
+```bash
 pnpm dev-web
-# preview with OpenNext build for the Web app
-pnpm preview
 ```
 
-#### Android
+The web target is useful for UI work, but a successful web build does not
+replace native Tauri testing.
 
-The following must be run once before running the Android app. Note that this is done automatically if using the nix Android devshell:
+## Making changes
+
+Create a focused branch from the latest BabelLeaf branch you intend to target:
 
 ```bash
-rm apps/readest-app/src-tauri/gen/android
-pnpm tauri android init
-pnpm tauri icon ../../data/icons/readest-book.png
-git checkout apps/readest-app/src-tauri/gen/android
+git fetch upstream
+git switch -c feat/short-description upstream/main
 ```
 
-To run the Android app:
+Keep pull requests small enough to review. Preserve unrelated user changes and
+avoid drive-by formatting or generated-file churn.
+
+For changes under `apps/readest-app`, follow its
+[`AGENTS.md`](apps/readest-app/AGENTS.md):
+
+- write a failing unit test before implementing a behavior change or bug fix;
+- keep TypeScript strict and do not introduce `any`;
+- prefer the minimum implementation needed for the requested behavior;
+- verify formatting, lint, and applicable tests before submitting.
+
+Do not commit API keys, tokens, private endpoints, copyrighted test books,
+production user data, local paths, or generated translation content. Use small,
+redistributable fixtures and document their source/license.
+
+## Verification
+
+At minimum, frontend and documentation work should pass:
 
 ```bash
-pnpm tauri android dev
-# or if you want to dev on a real device
-pnpm tauri android dev --host
+pnpm --filter @readest/readest-app test:pr:web:unit
+pnpm lint
+pnpm format:check
+pnpm --filter @readest/readest-app build
 ```
 
-#### iOS
+Changes to Tauri/Rust code also require:
 
 ```bash
-# Set up the iOS environment (run once)
-pnpm tauri ios init
-pnpm tauri icon ../../data/icons/readest-book.png
-
-pnpm tauri ios dev
-# or if you want to dev on a real device
-pnpm tauri ios dev --host
+pnpm fmt:check
+pnpm clippy:check
+pnpm --filter @readest/readest-app test:rust
 ```
 
-### 5. Build for Production
+Run focused tests while developing and add manual checks appropriate to the
+change. Format and reader work should state which DRM-free sample types,
+platforms, writing directions, and layouts were tested without uploading the
+documents.
 
-```bash
-pnpm tauri build
-pnpm tauri android build
-pnpm tauri ios build
-```
+If your platform cannot run an applicable check, say exactly which check was
+not run and why in the pull request. Do not describe an untested native package
+as verified.
 
-Please refer to our release script if you experience any issues:
-https://github.com/readest/readest/blob/main/.github/workflows/release.yml
+## Pull requests
 
+A pull request should include:
 
-### 7. More information
+- the user-visible problem and the chosen scope;
+- tests added or changed;
+- commands run and their results;
+- screenshots for meaningful UI changes;
+- platform and format coverage;
+- network, privacy, data-migration, and license impact;
+- remaining limitations or follow-up work.
 
-Please check the [wiki][link-gh-wiki] of this project for more information on development.
+Before submitting, confirm:
 
-Now you're all setup and can start implementing your changes.
+- no unintended external request is initialized or added;
+- secrets and document text cannot enter logs or telemetry;
+- source books are not overwritten by translation/OCR output;
+- new dependencies and assets have recorded licenses and attribution;
+- user-visible “supported” claims match tested behavior.
 
-## Implement your changes
+Submit pull requests to
+[sakura99966/BabelLeaf](https://github.com/sakura99966/BabelLeaf/pulls).
+Security issues must follow [`SECURITY.md`](SECURITY.md), not a public issue or
+pull request.
 
-This project is a monorepo. The code for the `readest-app` is in the `apps/readest-app` directory. Here are some useful scripts for developing the frontend only without compiling Tauri:
+## Working with upstream Readest
 
-| Command          | Description                                        |
-| ---------------- | -------------------------------------------------- |
-| `pnpm dev-web`   | Starts the development server for the web app only |
-| `pnpm build-web` | Builds the web app                                 |
+BabelLeaf is derived from [Readest](https://github.com/readest/readest) and
+retains its history and attribution. A generic reader bug fix may also benefit
+Readest; contributors are welcome to propose a clean upstream version under
+Readest's contribution process. BabelLeaf-specific privacy, identity, or
+product-boundary changes should remain clearly separated so upstream updates
+can be reviewed deliberately.
 
-### Editor-specific setup
+The baseline decision and component provenance are documented in
+[`docs/ADR-001-READEST-BASELINE.md`](docs/ADR-001-READEST-BASELINE.md) and
+[`docs/UPSTREAM_INVENTORY.md`](docs/UPSTREAM_INVENTORY.md).
 
-#### VS Code
+## License
 
-Upon opening the project, you will be prompted to install the following recommended extensions:
+By contributing, you agree that your contribution is distributed under the
+repository's [GNU Affero General Public License v3.0 or later](LICENSE), unless
+a file clearly states another compatible license. You must have the right to
+submit the code and assets you contribute.
 
-- JavaScript and TypeScript Nightly (`ms-vscode.vscode-typescript-next`)
-- VS Code ESLint extension (`dbaeumer.vscode-eslint`)
-- Biome - Code formatter and linter (`biomejs.biome`)
-- rust-analyzer (`rust-lang.rust-analyzer`) (for Tauri development only)
-
-#### Zed
-
-The only extension needed is [biome-zed](https://github.com/biomejs/biome-zed), for code formatting and linting.
-
-### When you're done
-
-Check that your code follows the project's style guidelines by running:
-
-```bash
-pnpm build
-```
-
-Please also make a manual, functional test of your changes. When all that's done, it's time to file a pull request to upstream and fill out the title and body appropriately.
-
-## Credits
-
-This documented was inspired by the contributing guidelines for [cloudflare/wrangler2](https://github.com/cloudflare/wrangler2/blob/main/CONTRIBUTING.md).
+This guide is adapted from the Readest contribution guide, which in turn
+credits the Cloudflare Wrangler contribution documentation.

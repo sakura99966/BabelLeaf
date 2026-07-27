@@ -1,5 +1,6 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, act } from '@testing-library/react';
+import type { User } from '@supabase/supabase-js';
 
 vi.mock('@/utils/supabase', () => ({
   supabase: {
@@ -18,9 +19,11 @@ vi.mock('posthog-js', () => ({
 }));
 
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { supabase } from '@/utils/supabase';
 
 describe('AuthContext memoization', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     if (typeof window !== 'undefined') {
       window.localStorage.clear();
     }
@@ -98,5 +101,72 @@ describe('AuthContext memoization', () => {
     expect(last.login).toBe(prev.login);
     expect(last.logout).toBe(prev.logout);
     expect(last.refresh).toBe(prev.refresh);
+  });
+
+  test('does not restore or refresh a remote account when account traffic is disabled', () => {
+    window.localStorage.setItem('token', 'legacy-token');
+    window.localStorage.setItem('refresh_token', 'legacy-refresh-token');
+    window.localStorage.setItem('user', JSON.stringify({ id: 'legacy-user' }));
+
+    let session: ReturnType<typeof useAuth> | undefined;
+
+    function Probe() {
+      session = useAuth();
+      return null;
+    }
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+
+    expect(session?.token).toBeNull();
+    expect(session?.user).toBeNull();
+    expect(window.localStorage.getItem('token')).toBeNull();
+    expect(window.localStorage.getItem('refresh_token')).toBeNull();
+    expect(window.localStorage.getItem('user')).toBeNull();
+    expect(supabase.auth.onAuthStateChange).not.toHaveBeenCalled();
+    expect(supabase.auth.refreshSession).not.toHaveBeenCalled();
+  });
+
+  test('keeps account actions local when account traffic is disabled', () => {
+    let session: ReturnType<typeof useAuth> | undefined;
+
+    function Probe() {
+      session = useAuth();
+      return null;
+    }
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+    vi.clearAllMocks();
+
+    act(() => {
+      session?.login('new-token', { id: 'new-user' } as User);
+    });
+
+    expect(session?.token).toBeNull();
+    expect(session?.user).toBeNull();
+    expect(window.localStorage.getItem('token')).toBeNull();
+    expect(window.localStorage.getItem('user')).toBeNull();
+
+    window.localStorage.setItem('token', 'legacy-token');
+    window.localStorage.setItem('refresh_token', 'legacy-refresh-token');
+    window.localStorage.setItem('user', JSON.stringify({ id: 'legacy-user' }));
+
+    act(() => {
+      session?.refresh();
+      session?.logout();
+    });
+
+    expect(supabase.auth.refreshSession).not.toHaveBeenCalled();
+    expect(supabase.auth.signOut).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem('token')).toBeNull();
+    expect(window.localStorage.getItem('refresh_token')).toBeNull();
+    expect(window.localStorage.getItem('user')).toBeNull();
   });
 });

@@ -1,14 +1,14 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Readest",
-  "mainBinaryName": "readest",
-  "identifier": "com.bilingify.readest",
+  "productName": "BabelLeaf",
+  "mainBinaryName": "babelleaf",
+  "identifier": "io.github.sakura99966.babelleaf",
   "version": "../package.json",
   "build": {
     "frontendDist": "../out",
     "devUrl": "http://localhost:3000",
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build && pnpm upload-sourcemaps"
+    "beforeBuildCommand": "pnpm build"
   },
   "app": {
     "windows": [],
@@ -32,6 +32,7 @@
             "$APPCACHE/**/*",
             "$TEMP/**/*",
             "**/Readest/**/*",
+            "**/BabelLeaf/**/*",
             "/private/var/mobile/Containers/Data/Application/**/*"
           ],
           "deny": []
@@ -56,7 +57,6 @@
         "type": "embedBootstrapper"
       },
       "nsis": {
-        "installerHooks": "nsis/installer-hooks.nsh",
         "installMode": "both"
       }
     },
@@ -72,7 +72,6 @@
       "minSdkVersion": 26
     },
     "iOS": {
-      "developmentTeam": "J5W48D69VR",
       "infoPlist": "./Info-ios.plist",
       "minimumSystemVersion": "15.0"
     },
@@ -127,14 +126,14 @@
         "role": "Viewer"
       }
     ],
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": false
   },
   "plugins": {
     "fs": {
       "requireLiteralLeadingDot": false
     },
     "cli": {
-      "description": "Readest CLI",
+      "description": "BabelLeaf CLI",
       "args": [
         {
           "name": "file1",
@@ -156,41 +155,6 @@
           "index": 4,
           "takesValue": true
         }
-      ]
-    },
-    "deep-link": {
-      "mobile": [
-        {
-          "scheme": ["https"],
-          "host": "web.readest.com",
-          "appLink": true
-        },
-        {
-          "scheme": ["readest"],
-          "appLink": false
-        },
-        {
-          "scheme": ["readest-onedrive"],
-          "appLink": false
-        },
-        {
-          "scheme": ["com.googleusercontent.apps.209390247301-ctpmep68ppfa56r1b8tr35e4qi4p60kq"],
-          "appLink": false
-        }
-      ],
-      "desktop": {
-        "schemes": [
-          "readest",
-          "readest-onedrive",
-          "com.googleusercontent.apps.209390247301-ctpmep68ppfa56r1b8tr35e4qi4p60kq"
-        ]
-      }
-    },
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJFMEQ1QjE2OEU1NEIzNTEKUldSUnMxU09GbHNOdmpEaWFMT1crRFpEV2VORzQ2MklxaFc0M1R0ci9xY2c1bENXS0xhM1R1L2sK",
-      "endpoints": [
-        "https://download.readest.com/releases/latest.json",
-        "https://github.com/readest/readest/releases/latest/download/latest.json"
       ]
     },
     "webview-upgrade": {

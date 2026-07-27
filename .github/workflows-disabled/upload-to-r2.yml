@@ -1,3 +1,4 @@
+# Disabled during BabelLeaf migration; see README.md in this directory.
 name: Upload Release Assets to R2
 
 on:

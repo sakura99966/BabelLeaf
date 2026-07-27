@@ -1,3 +1,4 @@
+# Disabled during BabelLeaf migration; see README.md in this directory.
 name: Deploy to vercel on merge
 on:
   push:

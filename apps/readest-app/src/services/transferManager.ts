@@ -6,6 +6,7 @@ import { isReadestCloudStorageActive } from '@/services/sync/cloudSyncProvider';
 import { TranslationFunc } from '@/hooks/useTranslation';
 import { createProgressThrottle, ProgressHandler, ProgressPayload } from '@/utils/transfer';
 import { eventDispatcher } from '@/utils/event';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 import { getTransferMessages } from './transferMessages';
 
 const TRANSFER_QUEUE_KEY = 'readest_transfer_queue';
@@ -107,6 +108,10 @@ class TransferManager {
     translationFn: TranslationFunc,
   ): Promise<void> {
     if (this.isInitialized) return;
+    if (!isNetworkCapabilityAllowed('cloudSync')) {
+      this.readyResolve();
+      return;
+    }
 
     this.appService = appService;
     this.getLibrary = getLibrary;
@@ -130,7 +135,9 @@ class TransferManager {
   }
 
   isReady(): boolean {
-    return this.isInitialized && this.appService !== null;
+    return (
+      isNetworkCapabilityAllowed('cloudSync') && this.isInitialized && this.appService !== null
+    );
   }
 
   /**
@@ -354,6 +361,7 @@ class TransferManager {
   }
 
   private async processQueue(): Promise<void> {
+    if (!isNetworkCapabilityAllowed('cloudSync')) return;
     if (this.isProcessing) return;
 
     this.isProcessing = true;

@@ -60,6 +60,10 @@ vi.mock('@/services/constants', () => ({
   READEST_NIGHTLY_UPDATER_FILE: 'https://example.com/nightly/latest.json',
 }));
 
+vi.mock('@/services/productPolicy', () => ({
+  isNetworkCapabilityAllowed: (capability: string) => capability === 'updater',
+}));
+
 import {
   checkForAppUpdates,
   checkAppReleaseNotes,

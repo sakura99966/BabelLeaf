@@ -9,6 +9,12 @@ const syncLibrary = vi.fn().mockResolvedValue({ booksSynced: 0 });
 const pushBookFile = vi.fn().mockResolvedValue({ uploaded: true });
 const pushBookCover = vi.fn().mockResolvedValue({ uploaded: true });
 const downloadBookFile = vi.fn().mockResolvedValue(true);
+const productPolicy = vi.hoisted(() => ({ cloudSyncAllowed: true }));
+
+vi.mock('@/services/productPolicy', () => ({
+  isNetworkCapabilityAllowed: (capability: string) =>
+    capability === 'cloudSync' ? productPolicy.cloudSyncAllowed : false,
+}));
 
 vi.mock('@/services/sync/file/providerRegistry', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/sync/file/providerRegistry')>();
@@ -69,6 +75,10 @@ const translationFn = (key: string, params?: Record<string, string | number>) =>
   }
   return key;
 };
+
+beforeEach(() => {
+  productPolicy.cloudSyncAllowed = true;
+});
 
 const envConfig = {
   getAppService: vi.fn(async () => ({ saveSettings: vi.fn() }) as never),
@@ -157,6 +167,13 @@ describe('runFileLibrarySyncPass', () => {
 
   test('does nothing when no backend is enabled', async () => {
     useSettingsStore.getState().setSettings({ version: 1 } as SystemSettings);
+    expect(await runFileLibrarySyncPass(envConfig, translationFn)).toBeNull();
+    expect(syncLibrary).not.toHaveBeenCalled();
+  });
+
+  test('does nothing when BabelLeaf disables cloud sync', async () => {
+    productPolicy.cloudSyncAllowed = false;
+
     expect(await runFileLibrarySyncPass(envConfig, translationFn)).toBeNull();
     expect(syncLibrary).not.toHaveBeenCalled();
   });
@@ -273,6 +290,11 @@ describe('getReadyFileSyncBackends', () => {
 
   test('excludes everything when the plan gate pauses third-party sync', () => {
     setCachedUserPlan('free');
+    expect(getReadyFileSyncBackends(settings)).toEqual([]);
+  });
+
+  test('excludes everything when BabelLeaf disables cloud sync', () => {
+    productPolicy.cloudSyncAllowed = false;
     expect(getReadyFileSyncBackends(settings)).toEqual([]);
   });
 });

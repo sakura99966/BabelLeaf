@@ -9,6 +9,7 @@ import { TbSunMoon } from 'react-icons/tb';
 import { MdRefresh } from 'react-icons/md';
 import { IconType } from 'react-icons';
 import { stubTranslation as _ } from '@/utils/misc';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 export type CommandCategory = 'settings' | 'actions' | 'navigation';
 
@@ -657,12 +658,12 @@ const actionItems = [
   },
   {
     id: 'action.about',
-    labelKey: _('About Readest'),
-    keywords: ['about', 'readest', 'version', 'info'],
+    labelKey: _('About BabelLeaf'),
+    keywords: ['about', 'babelleaf', 'version', 'info'],
   },
   {
     id: 'action.telemetry',
-    labelKey: _('Help improve Readest'),
+    labelKey: _('Help improve BabelLeaf'),
     keywords: ['telemetry', 'analytics', 'improve', 'statistics'],
   },
 ];
@@ -821,12 +822,14 @@ export const buildCommandRegistry = (options: CommandRegistryOptions): CommandIt
     }),
   );
 
-  items.push(
-    createActionItem({
-      id: 'action.telemetry',
-      action: options.toggleTelemetry,
-    }),
-  );
+  if (isNetworkCapabilityAllowed('telemetry')) {
+    items.push(
+      createActionItem({
+        id: 'action.telemetry',
+        action: options.toggleTelemetry,
+      }),
+    );
+  }
 
   return items;
 };

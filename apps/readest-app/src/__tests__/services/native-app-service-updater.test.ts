@@ -90,17 +90,17 @@ describe('NativeAppService updater gating (issue #4874)', () => {
     delete (window as { __READEST_UPDATER_DISABLED?: boolean }).__READEST_UPDATER_DISABLED;
   });
 
-  test('disables the in-app updater when Rust reports it is disabled', async () => {
+  test('does not query the updater when product policy disables it', async () => {
     updaterDisabled = true;
     const service = await initServiceWithOS('linux');
-    expect(invokeMock).toHaveBeenCalledWith('is_updater_disabled');
+    expect(invokeMock).not.toHaveBeenCalledWith('is_updater_disabled');
     expect(service.hasUpdater).toBe(false);
   });
 
-  test('keeps the in-app updater when Rust reports it is enabled', async () => {
+  test('keeps the in-app updater disabled by product policy when Rust enables it', async () => {
     updaterDisabled = false;
     const service = await initServiceWithOS('linux');
-    expect(service.hasUpdater).toBe(true);
+    expect(service.hasUpdater).toBe(false);
   });
 
   test('honors the Rust decision on macOS (env opt-out)', async () => {

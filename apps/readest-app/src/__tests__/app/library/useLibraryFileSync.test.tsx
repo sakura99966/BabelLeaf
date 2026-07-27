@@ -17,6 +17,7 @@ import type { Book } from '@/types/book';
 const routing = vi.hoisted(() => ({
   backends: [] as ('webdav' | 'gdrive' | 's3' | 'onedrive')[],
 }));
+const productPolicy = vi.hoisted(() => ({ cloudSyncAllowed: true }));
 
 const runFileLibrarySyncPass = vi.hoisted(() =>
   vi.fn(async (): Promise<{ booksSynced: number } | null> => null),
@@ -41,6 +42,10 @@ vi.mock('@/services/sync/cloudSyncProvider', () => ({
 vi.mock('@/services/sync/file/runLibrarySync', () => ({
   runFileLibrarySyncPass,
 }));
+vi.mock('@/services/productPolicy', () => ({
+  isNetworkCapabilityAllowed: (capability: string) =>
+    capability === 'cloudSync' ? productPolicy.cloudSyncAllowed : false,
+}));
 
 const { useLibraryFileSync } = await import('@/app/library/hooks/useLibraryFileSync');
 const { useLibraryStore } = await import('@/store/libraryStore');
@@ -52,6 +57,7 @@ const book = (hash: string): Book =>
   }) as Book;
 
 beforeEach(() => {
+  productPolicy.cloudSyncAllowed = true;
   vi.clearAllMocks();
   vi.useFakeTimers();
   routing.backends = [];
@@ -122,6 +128,23 @@ describe('useLibraryFileSync trigger (issue #5062 Task 8)', () => {
 
     act(() => {
       useLibraryStore.setState({ library: [book('a')], libraryLoaded: false });
+    });
+    rerender();
+
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+    });
+
+    expect(runFileLibrarySyncPass).not.toHaveBeenCalled();
+  });
+
+  it('does not fire when BabelLeaf disables cloud sync', async () => {
+    routing.backends = ['webdav'];
+    productPolicy.cloudSyncAllowed = false;
+
+    const { rerender } = renderHook(() => useLibraryFileSync());
+    act(() => {
+      useLibraryStore.setState({ library: [book('a')], libraryLoaded: true });
     });
     rerender();
 

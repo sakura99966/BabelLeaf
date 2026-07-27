@@ -46,6 +46,7 @@ import type { CustomTexture } from '@/styles/textures';
 import type { OPDSCatalog } from '@/types/opds';
 import type { Hlc, ReplicaRow } from '@/types/replica';
 import type { SystemSettings } from '@/types/settings';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 export type ReplicaKind = 'dictionary' | 'font' | 'texture' | 'opds_catalog' | 'settings';
 
@@ -385,6 +386,7 @@ const runPullForKind = async (
  * is already in flight, we skip the redundant call entirely.
  */
 const triggerIncrementalPullAll = (): void => {
+  if (!isNetworkCapabilityAllowed('cloudSync')) return;
   if (!hasCurrentUser) return;
   if (!autoSyncContext) return;
   const ctx = getReplicaSync();
@@ -543,10 +545,11 @@ export const useReplicaPull = ({
   // change (Supabase TOKEN_REFRESHED reissues the user object on
   // foreground / refresh) doesn't tear down the boot-pull effect.
   useEffect(() => {
-    hasCurrentUser = !!user;
+    hasCurrentUser = isNetworkCapabilityAllowed('cloudSync') && !!user;
   }, [user]);
 
   useEffect(() => {
+    if (!isNetworkCapabilityAllowed('cloudSync')) return;
     if (!appService) return;
     if (!user) return;
 

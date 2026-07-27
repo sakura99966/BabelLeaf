@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, cleanup, renderHook } from '@testing-library/react';
 
+const productPolicy = vi.hoisted(() => ({ cloudSyncAllowed: true }));
 const pullSpy = vi.fn<(...args: unknown[]) => Promise<void>>(async () => {});
 const getReplicaSyncSpy = vi.fn();
 const readyListeners = new Set<() => void>();
@@ -27,6 +28,10 @@ let authValue: { user: { id: string } | null } = { user: { id: 'test-user' } };
 
 vi.mock('@/services/sync/replicaPullAndApply', () => ({
   replicaPullAndApply: (...args: unknown[]) => pullSpy(...args),
+}));
+vi.mock('@/services/productPolicy', () => ({
+  isNetworkCapabilityAllowed: (capability: string) =>
+    capability === 'cloudSync' ? productPolicy.cloudSyncAllowed : false,
 }));
 
 vi.mock('@/services/sync/adapters/dictionary', () => ({
@@ -136,6 +141,7 @@ const dictionaryPullCount = (): number =>
   }).length;
 
 beforeEach(() => {
+  productPolicy.cloudSyncAllowed = true;
   vi.useFakeTimers();
   pullSpy.mockClear();
   pullSpy.mockResolvedValue(undefined);
@@ -153,6 +159,21 @@ afterEach(() => {
 });
 
 describe('useReplicaPull', () => {
+  test('does not install or pull when BabelLeaf disables cloud sync', async () => {
+    productPolicy.cloudSyncAllowed = false;
+    const manager = makeManagerMock();
+    getReplicaSyncSpy.mockReturnValue({ manager });
+
+    renderHook(() => useReplicaPull({ kinds: ['dictionary'], delayMs: 100 }));
+    await act(async () => {
+      vi.advanceTimersByTime(10_000);
+      await Promise.resolve();
+    });
+
+    expect(pullSpy).not.toHaveBeenCalled();
+    expect(manager.pullMany).not.toHaveBeenCalled();
+  });
+
   test('does not pull before delayMs elapses', () => {
     getReplicaSyncSpy.mockReturnValue({ manager: makeManagerMock() });
     renderHook(() => useReplicaPull({ kinds: ['dictionary'], delayMs: 5_000 }));

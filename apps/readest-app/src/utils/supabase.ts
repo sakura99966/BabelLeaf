@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 import { getRuntimeConfig } from '@/services/runtimeConfig';
 
 const supabaseUrl =
@@ -12,7 +13,20 @@ const supabaseAnonKey =
   process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] ||
   atob(process.env['NEXT_PUBLIC_DEFAULT_SUPABASE_KEY_BASE64']!);
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(
+  supabaseUrl,
+  supabaseAnonKey,
+  isNetworkCapabilityAllowed('account')
+    ? undefined
+    : {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          skipAutoInitialize: true,
+        },
+      },
+);
 
 export const createSupabaseClient = (accessToken?: string) => {
   return createClient(supabaseUrl, supabaseAnonKey, {

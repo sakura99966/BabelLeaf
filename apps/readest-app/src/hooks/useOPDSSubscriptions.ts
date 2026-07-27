@@ -9,6 +9,7 @@ import { syncSubscribedCatalogs } from '@/services/opds';
 import { AUTO_CHECK_INTERVAL_MS } from '@/services/opds/types';
 import { transferManager } from '@/services/transferManager';
 import { eventDispatcher } from '@/utils/event';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 export function useOPDSSubscriptions() {
   const _ = useTranslation();
@@ -19,6 +20,7 @@ export function useOPDSSubscriptions() {
 
   const checkOPDSSubscriptions = useCallback(
     async (verbose = false) => {
+      if (!isNetworkCapabilityAllowed('opds')) return;
       if (!appService || !libraryLoaded) return;
       if (isSyncingRef.current) return;
 
@@ -91,6 +93,7 @@ export function useOPDSSubscriptions() {
 
   // Auto-trigger on startup after library is loaded
   useEffect(() => {
+    if (!isNetworkCapabilityAllowed('opds')) return;
     if (!libraryLoaded) return;
     checkOPDSSubscriptions();
   }, [libraryLoaded, checkOPDSSubscriptions]);
@@ -99,6 +102,7 @@ export function useOPDSSubscriptions() {
   // on a catalog and we want to sync immediately rather than wait for the
   // next app launch).
   useEffect(() => {
+    if (!isNetworkCapabilityAllowed('opds')) return;
     const handler = () => checkOPDSSubscriptions(true);
     eventDispatcher.on('check-opds-subscriptions', handler);
     return () => eventDispatcher.off('check-opds-subscriptions', handler);
@@ -109,6 +113,7 @@ export function useOPDSSubscriptions() {
   // library when they finish downloading. The function is a no-op when no
   // catalogs have autoDownload enabled, so the timer is cheap.
   useEffect(() => {
+    if (!isNetworkCapabilityAllowed('opds')) return;
     if (!libraryLoaded) return;
     const intervalId = setInterval(() => {
       checkOPDSSubscriptions(false);

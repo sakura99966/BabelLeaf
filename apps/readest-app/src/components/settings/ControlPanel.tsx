@@ -27,6 +27,7 @@ import AnnotationToolbarCustomizer from './AnnotationToolbarCustomizer';
 import { DEFAULT_ANNOTATION_TOOLBAR_ITEMS } from '@/utils/annotationToolbar';
 import { canShareText } from '@/utils/share';
 import { optInTelemetry, optOutTelemetry } from '@/utils/telemetry';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset }) => {
   const _ = useTranslation();
@@ -540,14 +541,16 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
         />
       </BoxedList>
 
-      <BoxedList title={_('Privacy')} data-setting-id='settings.control.telemetry'>
-        <SettingsSwitchRow
-          label={_('Help improve Readest')}
-          description={isTelemetryEnabled ? _('Sharing anonymized statistics') : ''}
-          checked={isTelemetryEnabled}
-          onChange={toggleTelemetry}
-        />
-      </BoxedList>
+      {isNetworkCapabilityAllowed('telemetry') && (
+        <BoxedList title={_('Privacy')} data-setting-id='settings.control.telemetry'>
+          <SettingsSwitchRow
+            label={_('Help improve BabelLeaf')}
+            description={isTelemetryEnabled ? _('Sharing anonymized statistics') : ''}
+            checked={isTelemetryEnabled}
+            onChange={toggleTelemetry}
+          />
+        </BoxedList>
+      )}
     </div>
   );
 };

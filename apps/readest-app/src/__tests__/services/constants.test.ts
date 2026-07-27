@@ -237,6 +237,11 @@ describe('services/constants', () => {
       expect(typeof DEFAULT_SYSTEM_SETTINGS.discordRichPresenceEnabled).toBe('boolean');
     });
 
+    it('keeps updater checks and telemetry off by default', () => {
+      expect(DEFAULT_SYSTEM_SETTINGS.autoCheckUpdates).toBe(false);
+      expect(DEFAULT_SYSTEM_SETTINGS.telemetryEnabled).toBe(false);
+    });
+
     it('has screen brightness in valid range', () => {
       expect(typeof DEFAULT_SYSTEM_SETTINGS.screenBrightness).toBe('number');
       expect(DEFAULT_SYSTEM_SETTINGS.screenBrightness!).toBeGreaterThanOrEqual(-1);

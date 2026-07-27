@@ -6,8 +6,7 @@ import { PiSun, PiMoon } from 'react-icons/pi';
 import { TbSunMoon } from 'react-icons/tb';
 import { MdCloudSync, MdSync, MdSyncProblem } from 'react-icons/md';
 
-import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
-import { DOWNLOAD_READEST_URL } from '@/services/constants';
+import { isTauriAppPlatform } from '@/services/environment';
 import { setBackupDialogVisible } from '@/app/library/components/BackupWindow';
 import { setCacheManagerDialogVisible } from '@/app/library/components/CacheManagerWindow';
 import { useAuth } from '@/context/AuthContext';
@@ -109,13 +108,8 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
     setIsDropdownOpen?.(false);
   };
 
-  const showAboutReadest = () => {
+  const showAboutBabelLeaf = () => {
     setAboutDialogVisible(true);
-    setIsDropdownOpen?.(false);
-  };
-
-  const downloadReadest = () => {
-    window.open(DOWNLOAD_READEST_URL, '_blank');
     setIsDropdownOpen?.(false);
   };
 
@@ -443,8 +437,8 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
               label={_('Set PIN…')}
               tooltip={
                 appService?.isMobileApp
-                  ? _('Require a PIN (and biometrics, if available) to open Readest')
-                  : _('Require a 4-digit PIN to open Readest')
+                  ? _('Require a PIN (and biometrics, if available) to open BabelLeaf')
+                  : _('Require a 4-digit PIN to open BabelLeaf')
               }
               onClick={() => openAppLockDialog('set')}
             />
@@ -477,8 +471,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ onPullLibrary, setIsDropdow
       {user && userProfilePlan === 'free' && (
         <MenuItem label={_('Upgrade to Readest Premium')} onClick={handleUpgrade} />
       )}
-      {isWebAppPlatform() && <MenuItem label={_('Download Readest')} onClick={downloadReadest} />}
-      <MenuItem label={_('About Readest')} onClick={showAboutReadest} />
+      <MenuItem label={_('About BabelLeaf')} onClick={showAboutBabelLeaf} />
     </Menu>
   );
 };

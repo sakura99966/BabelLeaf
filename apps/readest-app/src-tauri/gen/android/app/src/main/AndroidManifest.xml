@@ -35,13 +35,6 @@
              meta-data pointing at @xml/automotive_app_desc to re-enable
              Android Auto. -->
 
-        <!-- Sentry auto-init (ContentProvider). Empty DSN => disabled. Release
-             is auto-detected from versionName; performance and PII stay at
-             their safe off/false defaults. -->
-        <meta-data android:name="io.sentry.dsn" android:value="${sentryDsn}" />
-        <meta-data android:name="io.sentry.environment" android:value="production" />
-        <meta-data android:name="io.sentry.ndk.enable" android:value="false" />
-
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
             android:launchMode="singleTask"

@@ -1,3 +1,4 @@
+# Disabled during BabelLeaf migration; see README.md in this directory.
 name: Android E2E (CDP)
 
 # On-device end-to-end tests: boots an x86_64 Android emulator (KVM), installs

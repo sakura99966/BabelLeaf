@@ -1,10 +1,13 @@
-; Readest NSIS Installer Hooks
-; Registers/unregisters the thumbnail provider DLL for Windows Explorer thumbnails
+; PARKED: inherited Readest thumbnail registration must not be used by BabelLeaf.
+; The Tauri configuration deliberately does not reference this file.
+; Before re-enabling it, provide a BabelLeaf-specific CLSID, package the matching
+; DLL, and verify install/uninstall coexistence with Readest on Windows.
+
+!error "BabelLeaf thumbnail installer hook is parked pending an isolated CLSID and native verification"
 
 !include "LogicLib.nsh"
 
-; CLSID for Readest Thumbnail Provider
-!define CLSID_READEST_THUMBNAIL "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
+; No BabelLeaf CLSID is assigned while this hook is parked.
 
 ; IThumbnailProvider Shell Extension Handler GUID  
 !define SHELL_THUMBNAIL_HANDLER "{e357fccd-a995-4576-b01f-234630154e96}"

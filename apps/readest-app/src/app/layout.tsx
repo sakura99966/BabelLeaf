@@ -7,29 +7,26 @@ import Providers from '@/components/Providers';
 
 import '../styles/globals.css';
 
-const url = 'https://web.readest.com/';
-const title = 'Readest — Where You Read, Digest and Get Insight';
+const url = 'https://github.com/sakura99966/BabelLeaf';
+const title = 'BabelLeaf — 本地优先的多语言阅读器';
 const description =
-  'Discover Readest, the ultimate online ebook reader for immersive and organized reading. ' +
-  'Enjoy seamless access to your digital library, powerful tools for highlighting, bookmarking, ' +
-  'and note-taking, and support for multiple book views. ' +
-  'Perfect for deep reading, analysis, and understanding. Explore now!';
-const previewImage = 'https://cdn.readest.com/images/open_graph_preview_read_now.png';
+  'BabelLeaf 是面向简体中文用户的本地优先阅读器，支持 EPUB、PDF、MOBI、漫画等内容，' +
+  '并为中英日文阅读、自定义大模型翻译和双语对照能力持续演进。';
 
 export const metadata: Metadata = {
   metadataBase: new URL(url),
   title: {
     default: title,
-    template: '%s | Readest',
+    template: '%s | BabelLeaf',
   },
   description,
   generator: 'Next.js',
   manifest: '/manifest.json',
-  keywords: ['epub', 'pdf', 'ebook', 'reader', 'readest', 'pwa'],
+  keywords: ['babelleaf', 'epub', 'pdf', 'mobi', 'comic', 'ebook', 'reader', 'AI translation'],
   authors: [
     {
-      name: 'readest',
-      url: 'https://github.com/readest/readest',
+      name: 'BabelLeaf contributors',
+      url,
     },
   ],
   icons: {
@@ -38,7 +35,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: 'Readest',
+    title: 'BabelLeaf',
     statusBarStyle: 'default',
   },
   openGraph: {
@@ -46,18 +43,14 @@ export const metadata: Metadata = {
     url,
     title,
     description,
-    images: [previewImage],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title,
     description,
-    images: [previewImage],
   },
   other: {
     'apple-mobile-web-app-capable': 'yes',
-    'twitter:domain': 'web.readest.com',
-    'twitter:url': url,
   },
 };
 
@@ -133,7 +126,7 @@ const shouldInjectRuntimeConfig = process.env['NEXT_PUBLIC_APP_PLATFORM'] === 'w
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
-      lang='en'
+      lang='zh-CN'
       className={process.env['NEXT_PUBLIC_APP_PLATFORM'] === 'tauri' ? 'edge-to-edge' : ''}
     >
       <head>

@@ -1,6 +1,7 @@
 import { isCJKEnv } from '@/utils/misc';
 import { getFilename } from '@/utils/path';
 import { md5Fingerprint } from '@/utils/md5';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 export type FontFormat = 'ttf' | 'otf' | 'woff' | 'woff2';
 
@@ -94,6 +95,8 @@ const getAdditionalCJKFontFaces = () => `
 `;
 
 export const mountAdditionalFonts = async (document: Document, isCJK = false) => {
+  if (!isNetworkCapabilityAllowed('remoteAssets')) return;
+
   const mountCJKFonts = isCJK || isCJKEnv();
 
   // Mount font stylesheets and @font-face rules

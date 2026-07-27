@@ -41,6 +41,7 @@ import { upgradeToKeychainIfAvailable } from '@/libs/crypto/passphrase';
 import { cryptoSession } from '@/libs/crypto/session';
 import { useAppLockStore } from '@/store/appLockStore';
 import { initSettingsSync } from '@/services/sync/replicaSettingsSync';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 // One-time, on first launch after this feature ships, decide how to handle
 // PostHog telemetry for the current install:
@@ -144,12 +145,17 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
       appService.loadSettings().then(async (settings) => {
         const globalViewSettings = settings.globalViewSettings;
         const hadSettingsFile = await hadSettingsFilePromise.catch(() => false);
-        finalizeTelemetryDecision({
-          appService,
-          settings,
-          isNewUser: !hadSettingsFile,
-          onShowPrompt: () => setShowTelemetryConsent(true),
-        });
+        if (isNetworkCapabilityAllowed('telemetry')) {
+          finalizeTelemetryDecision({
+            appService,
+            settings,
+            isNewUser: !hadSettingsFile,
+            onShowPrompt: () => setShowTelemetryConsent(true),
+          });
+        } else if (settings.telemetryEnabled) {
+          settings.telemetryEnabled = false;
+          void appService.saveSettings(settings);
+        }
         applyUILanguage(globalViewSettings.uiLanguage);
         // Seed the customTextureStore with the disk-loaded textures (preserving
         // their saved ids) so the boot-time applyBackgroundTexture below can
@@ -186,7 +192,9 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
         // local defaults to the server with a fresh HLC — overwriting
         // the cross-device authoritative values another device set.
         // Idempotent — safe to call on remount.
-        initSettingsSync(settings);
+        if (isNetworkCapabilityAllowed('cloudSync')) {
+          initSettingsSync(settings);
+        }
       });
     }
   }, [

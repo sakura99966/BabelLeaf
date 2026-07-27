@@ -3,11 +3,17 @@ import { useTransferStore, TransferItem } from '@/store/transferStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { SystemSettings } from '@/types/settings';
 
+const productPolicy = vi.hoisted(() => ({ cloudSyncAllowed: true }));
+
 vi.mock('@/utils/event', () => ({
   eventDispatcher: {
     dispatch: vi.fn(),
     dispatchSync: vi.fn(),
   },
+}));
+vi.mock('@/services/productPolicy', () => ({
+  isNetworkCapabilityAllowed: (capability: string) =>
+    capability === 'cloudSync' ? productPolicy.cloudSyncAllowed : false,
 }));
 
 import { transferManager } from '@/services/transferManager';
@@ -122,6 +128,7 @@ const flushAsync = async (ms = 5000) => {
 };
 
 beforeEach(() => {
+  productPolicy.cloudSyncAllowed = true;
   vi.useFakeTimers({ shouldAdvanceTime: true });
   resetTransferStore();
   resetTransferManager();
@@ -135,6 +142,18 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+});
+
+describe('BabelLeaf cloud transfer product policy', () => {
+  test('rejects initialization and queue operations when cloud sync is disabled', async () => {
+    productPolicy.cloudSyncAllowed = false;
+    const appService = await initManager();
+
+    expect(transferManager.isReady()).toBe(false);
+    expect(transferManager.queueUpload(makeBook())).toBeNull();
+    expect(appService['uploadBook']).not.toHaveBeenCalled();
+    expect(Object.keys(useTransferStore.getState().transfers)).toHaveLength(0);
+  });
 });
 
 describe('provider gating of book uploads', () => {

@@ -54,3 +54,9 @@ result*
 .claude/worktrees
 .claude/settings.local.json
 
+# Local upstream mirrors used for source and license evaluation.
+/.upstream/
+
+# Workspace-local pnpm store used by verification commands.
+/.pnpm-store/
+

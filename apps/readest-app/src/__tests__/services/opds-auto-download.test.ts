@@ -3,6 +3,13 @@ import type { OPDSCatalog } from '@/types/opds';
 import type { AppService } from '@/types/system';
 import type { OPDSSubscriptionState, PendingItem } from '@/services/opds/types';
 
+const productPolicy = vi.hoisted(() => ({ opdsAllowed: true }));
+
+vi.mock('@/services/productPolicy', () => ({
+  isNetworkCapabilityAllowed: (capability: string) =>
+    capability === 'opds' ? productPolicy.opdsAllowed : false,
+}));
+
 vi.mock('@/services/environment', () => ({
   isWebAppPlatform: vi.fn(() => false),
   isTauriAppPlatform: vi.fn(() => true),
@@ -80,6 +87,7 @@ describe('OPDS auto-download orchestrator', () => {
   let appService: AppService;
 
   beforeEach(() => {
+    productPolicy.opdsAllowed = true;
     vi.clearAllMocks();
     appService = createMockAppService();
   });
@@ -91,6 +99,21 @@ describe('OPDS auto-download orchestrator', () => {
     const result = await syncSubscribedCatalogs(catalogs, appService, []);
     expect(result.totalNewBooks).toBe(0);
     expect(checkFeedForNewItems).not.toHaveBeenCalled();
+  });
+
+  it('skips every catalog when BabelLeaf disables OPDS', async () => {
+    productPolicy.opdsAllowed = false;
+    const catalogs: OPDSCatalog[] = [
+      { id: 'cat-1', name: 'Test', url: 'https://example.com/opds', autoDownload: true },
+    ];
+
+    expect(await syncSubscribedCatalogs(catalogs, appService, [])).toEqual({
+      newBooks: [],
+      totalNewBooks: 0,
+      errors: [],
+    });
+    expect(checkFeedForNewItems).not.toHaveBeenCalled();
+    expect(downloadFile).not.toHaveBeenCalled();
   });
 
   it('skips disabled catalogs even with autoDownload', async () => {

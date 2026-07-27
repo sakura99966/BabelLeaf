@@ -12,6 +12,9 @@ vi.mock('@/utils/event', () => ({
     dispatch: vi.fn(),
   },
 }));
+vi.mock('@/services/productPolicy', () => ({
+  isNetworkCapabilityAllowed: vi.fn(() => true),
+}));
 
 // After the module-level mock declarations, import the SUT
 import { transferManager } from '@/services/transferManager';

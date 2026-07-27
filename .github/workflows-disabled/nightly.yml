@@ -1,3 +1,4 @@
+# Disabled during BabelLeaf migration; see README.md in this directory.
 # Nightly builds. Mirrors the build matrix and build/signing steps of
 # release.yml — keep cert/NDK/toolchain bumps, secret names, and the
 # truly-portable AppImage + portable-Windows steps in sync between the two.

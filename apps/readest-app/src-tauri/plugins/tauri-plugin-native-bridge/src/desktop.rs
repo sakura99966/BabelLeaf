@@ -217,7 +217,7 @@ impl<R: Runtime> NativeBridge<R> {
     //
     // `service` and `user` form the keychain item identity. Service is
     // the bundle id; user is a stable string ("default") so multiple
-    // Readest installs on the same machine could coexist with distinct
+    // BabelLeaf installs on the same machine could coexist with distinct
     // user values if ever needed.
 
     pub fn set_sync_passphrase(
@@ -386,7 +386,7 @@ impl<R: Runtime> NativeBridge<R> {
     }
 }
 
-const KEYRING_SERVICE: &str = "Readest Safe Storage";
+const KEYRING_SERVICE: &str = "BabelLeaf Safe Storage";
 const KEYRING_USER: &str = "default";
 
 fn keyring_entry() -> std::result::Result<keyring_core::Entry, keyring_core::Error> {

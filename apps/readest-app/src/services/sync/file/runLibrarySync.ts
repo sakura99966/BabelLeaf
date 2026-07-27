@@ -19,6 +19,7 @@ import {
 } from '@/services/sync/file/providerRegistry';
 import { createAppLocalStore } from '@/services/sync/file/appLocalStore';
 import { FileSyncEngine, type SyncLibraryResult } from '@/services/sync/file/engine';
+import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 /**
  * Whether a backend's transport can work at all right now. Web Google Drive
@@ -31,6 +32,7 @@ import { FileSyncEngine, type SyncLibraryResult } from '@/services/sync/file/eng
  * auto-sync, and the reader's per-book sync all honour it.
  */
 export const canBackendRun = (kind: FileSyncBackendKind): boolean =>
+  isNetworkCapabilityAllowed('cloudSync') &&
   !(kind === 'gdrive' && isWebAppPlatform() && !hasValidWebDriveToken());
 
 /**
@@ -43,8 +45,10 @@ export const canBackendRun = (kind: FileSyncBackendKind): boolean =>
 export const getReadyFileSyncBackends = (
   settings: SystemSettings | null | undefined,
   plan?: UserPlan,
-): FileSyncBackendKind[] =>
-  getActiveFileSyncBackends(settings, plan).filter((k) => canBackendRun(k));
+): FileSyncBackendKind[] => {
+  if (!isNetworkCapabilityAllowed('cloudSync')) return [];
+  return getActiveFileSyncBackends(settings, plan).filter((k) => canBackendRun(k));
+};
 
 /** Build one backend's engine, or null when it cannot run here. */
 const buildEngine = async (
@@ -129,6 +133,8 @@ export const runFileLibrarySyncPass = async (
   envConfig: EnvConfigType,
   _: TranslationFunc,
 ): Promise<SyncLibraryResult | null> => {
+  if (!isNetworkCapabilityAllowed('cloudSync')) return null;
+
   // Paused means paused (#4959): a downgraded account's still-enabled backends
   // must not sync, and must not fall back to Readest Cloud either.
   const backends = getActiveFileSyncBackends(useSettingsStore.getState().settings);
@@ -175,6 +181,8 @@ export const runFileLibrarySyncPass = async (
  * caller's job.
  */
 export const runFileBookUpload = async (envConfig: EnvConfigType, book: Book): Promise<boolean> => {
+  if (!isNetworkCapabilityAllowed('cloudSync')) return false;
+
   const backends = getActiveFileSyncBackends(useSettingsStore.getState().settings);
   let anyUploaded = false;
   for (const kind of backends) {
@@ -207,6 +215,8 @@ export const runFileBookDownload = async (
   envConfig: EnvConfigType,
   book: Book,
 ): Promise<boolean> => {
+  if (!isNetworkCapabilityAllowed('cloudSync')) return false;
+
   const backends = getActiveFileSyncBackends(useSettingsStore.getState().settings);
   for (const kind of backends) {
     try {
