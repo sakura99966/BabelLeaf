@@ -715,6 +715,21 @@ mod tests {
     use super::compute_updater_disabled;
 
     #[test]
+    fn disabled_updater_config_deserializes_at_startup() {
+        let tauri_config: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).expect("valid Tauri config");
+        let updater_config = tauri_config
+            .pointer("/plugins/updater")
+            .cloned()
+            .expect("desktop updater config must be an object");
+        let updater: tauri_plugin_updater::Config =
+            serde_json::from_value(updater_config).expect("valid updater plugin config");
+
+        assert!(updater.pubkey.is_empty());
+        assert!(updater.endpoints.is_empty());
+    }
+
+    #[test]
     fn env_opt_out_disables_on_any_desktop() {
         // READEST_DISABLE_UPDATER is an explicit opt-out on every desktop OS.
         assert!(compute_updater_disabled(true, false, false, false));

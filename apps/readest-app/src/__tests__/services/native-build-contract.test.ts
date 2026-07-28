@@ -50,4 +50,25 @@ describe('BabelLeaf native build contract', () => {
     expect(new Set(fileAssociationNames).size).toBe(fileAssociationNames.length);
     expect(fileAssociationNames.every((name) => name.startsWith('BabelLeaf.'))).toBe(true);
   });
+
+  test('keeps the disabled desktop updater configuration valid at startup', () => {
+    const tauriConfig = JSON.parse(readSource('src-tauri/tauri.conf.json')) as {
+      bundle: { createUpdaterArtifacts: boolean };
+      plugins: {
+        updater?: {
+          endpoints?: unknown;
+          pubkey?: unknown;
+        };
+      };
+    };
+    const tauriEnvironment = readSource('.env.tauri');
+    const updaterConfig = tauriConfig.plugins.updater;
+
+    expect(tauriConfig.bundle.createUpdaterArtifacts).toBe(false);
+    expect(tauriEnvironment).toContain('NEXT_PUBLIC_DISABLE_UPDATER=true');
+    expect(tauriEnvironment).toContain('READEST_DISABLE_UPDATER=true');
+    expect(updaterConfig).toBeDefined();
+    expect(updaterConfig?.pubkey).toBe('');
+    expect(updaterConfig?.endpoints).toEqual([]);
+  });
 });

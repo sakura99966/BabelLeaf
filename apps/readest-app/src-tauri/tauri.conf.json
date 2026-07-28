@@ -160,6 +160,10 @@
     "webview-upgrade": {
       "minUpgradeMajor": 121,
       "minSupportedMajor": 92
+    },
+    "updater": {
+      "pubkey": "",
+      "endpoints": []
     }
   }
 }
