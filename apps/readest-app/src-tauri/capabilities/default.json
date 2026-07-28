@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": ["main", "updater", "reader-*"],
+  "windows": ["main", "reader-*"],
   "permissions": [
     "core:default",
     "fs:default",
@@ -84,30 +84,6 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "https://*.readest.com"
-        },
-        {
-          "url": "https://github.com/readest/*"
-        },
-        {
-          "url": "https://*.deepl.com"
-        },
-        {
-          "url": "https://*.cloudflarestorage.com"
-        },
-        {
-          "url": "https://edge.microsoft.com"
-        },
-        {
-          "url": "https://translate.toil.cc"
-        },
-        {
-          "url": "https://*.microsofttranslator.com"
-        },
-        {
-          "url": "https://translate.googleapis.com"
-        },
-        {
           "url": "http://*:*"
         },
         {
@@ -121,7 +97,6 @@
         }
       ]
     },
-    "websocket:default",
     "dialog:default",
     "os:default",
     "core:window:default",
@@ -143,55 +118,15 @@
     "core:webview:allow-create-webview-window",
     "core:path:allow-resolve-directory",
     "log:default",
-    "shell:default",
     "process:default",
     "process:allow-exit",
     "process:allow-restart",
-    "oauth:allow-start",
-    "oauth:allow-cancel",
-    "sign-in-with-apple:default",
     "opener:default",
     {
       "identifier": "opener:allow-open-url",
       "allow": [
         {
           "url": "alipays:*"
-        }
-      ]
-    },
-    {
-      "identifier": "shell:allow-spawn",
-      "allow": [
-        {
-          "name": "start-readest",
-          "cmd": "cmd",
-          "args": [
-            "/C",
-            "start",
-            "",
-            {
-              "validator": "^.*Readest(.*)\\.exe$"
-            }
-          ]
-        },
-        {
-          "name": "chmod-appimage",
-          "cmd": "chmod",
-          "args": [
-            "+x",
-            {
-              "validator": "^.*Readest(.*)\\.AppImage$"
-            }
-          ]
-        },
-        {
-          "name": "launch-appimage",
-          "cmd": "setsid",
-          "args": [
-            {
-              "validator": "^.*Readest(.*)\\.AppImage$"
-            }
-          ]
         }
       ]
     },
@@ -208,14 +143,7 @@
     "turso:default",
     "native-tts:default",
     "native-bridge:default",
-    "sentry:default",
-    "allow-start-server",
-    "allow-download-file",
-    "allow-upload-file",
-    "allow-get-environment-variable",
     "allow-get-executable-dir",
-    "allow-set-webview-info",
-    "allow-is-updater-disabled",
     "allow-allow-paths-in-scopes",
     "allow-read-dir",
     "allow-parse-epub-metadata",
@@ -223,15 +151,7 @@
     "allow-parse-epub-full",
     "allow-parse-mobi-metadata",
     "allow-extract-mobi-cover-full",
-    "allow-auth-with-safari",
-    "allow-start-apple-sign-in",
     "allow-set-traffic-lights",
-    "allow-show-lookup-popover",
-    "allow-update-book-presence",
-    "allow-clear-book-presence",
-    "allow-clip-url",
-    "allow-spawn-fresh-browser",
-    "allow-verify-update-signature",
-    "allow-install-nightly-update"
+    "allow-show-lookup-popover"
   ]
 }

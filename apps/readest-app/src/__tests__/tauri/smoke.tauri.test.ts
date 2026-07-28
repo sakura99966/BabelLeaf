@@ -14,27 +14,8 @@ describe('Tauri Smoke Tests', () => {
     expect(execDir.length).toBeGreaterThan(0);
   });
 
-  it('should invoke get_environment_variable for HOME', async () => {
-    const home = (await invoke('get_environment_variable', { name: 'HOME' })) as string;
-    expect(typeof home).toBe('string');
-    expect(home.length).toBeGreaterThan(0);
-  });
-
-  it('should return empty string for non-existent env var', async () => {
-    const result = await invoke('get_environment_variable', {
-      name: '__TAURI_SMOKE_TEST_NONEXISTENT__',
-    });
-    expect(result).toBe('');
-  });
-
-  it('should invoke get_environment_variable for PATH', async () => {
-    const pathVar = (await invoke('get_environment_variable', { name: 'PATH' })) as string;
-    expect(typeof pathVar).toBe('string');
-    expect(pathVar).toContain('/');
-  });
-
   it('should get executable dir that contains the app name', async () => {
     const execDir = (await invoke('get_executable_dir')) as string;
-    expect(execDir.toLowerCase()).toMatch(/readest|target/);
+    expect(execDir.toLowerCase()).toMatch(/babelleaf|target/);
   });
 });

@@ -38,11 +38,10 @@ import {
 import { getOSPlatform, isContentURI, isFileURI, isValidURL } from '@/utils/misc';
 import { getDirPath, getFilename } from '@/utils/path';
 import { NativeFile, RemoteFile } from '@/utils/file';
-import { copyURIToPath, getStorefrontRegionCode, saveImageToGallery } from '@/utils/bridge';
+import { copyURIToPath, saveImageToGallery } from '@/utils/bridge';
 import { galleryFileName } from '@/utils/image';
 import { copyFiles } from '@/utils/files';
 import { detectViewTransitionGroup, detectViewTransitionsAPI } from '@/utils/viewTransition';
-import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 import { BaseAppService } from './appService';
 import { DatabaseOpts, DatabaseService } from '@/types/database';
@@ -60,7 +59,6 @@ declare global {
   interface Window {
     __READEST_IS_EINK?: boolean;
     __READEST_IS_APPIMAGE?: boolean;
-    __READEST_UPDATER_DISABLED?: boolean;
   }
 }
 
@@ -566,11 +564,6 @@ export class NativeAppService extends BaseAppService {
   override hasRoundedWindow = false;
   override hasSafeAreaInset = OS_TYPE === 'ios' || OS_TYPE === 'android';
   override hasHaptics = OS_TYPE === 'ios' || OS_TYPE === 'android';
-  override hasUpdater =
-    isNetworkCapabilityAllowed('updater') &&
-    OS_TYPE !== 'ios' &&
-    !process.env['NEXT_PUBLIC_DISABLE_UPDATER'] &&
-    !window.__READEST_UPDATER_DISABLED;
   // orientation lock is not supported on iPad
   override hasOrientationLock =
     (OS_TYPE === 'ios' && getOSPlatform() === 'ios') || OS_TYPE === 'android';
@@ -588,8 +581,6 @@ export class NativeAppService extends BaseAppService {
   override supportsViewTransitionsAPI = OS_TYPE !== 'linux' && detectViewTransitionsAPI();
   override supportsViewTransitionGroup = OS_TYPE !== 'linux' && detectViewTransitionGroup();
   override distChannel = DIST_CHANNEL;
-  override storefrontRegionCode: string | null = null;
-  override isOnlineCatalogsAccessible = true;
 
   private execDir?: string = undefined;
   private customRootDir?: string = undefined;
@@ -604,25 +595,6 @@ export class NativeAppService extends BaseAppService {
   override async init() {
     const execDir = await invoke<string>('get_executable_dir');
     this.execDir = execDir;
-    // Report the WebView User-Agent so Sentry can tag crashes with the
-    // engine/version (the injected browser SDK's UA context isn't forwarded).
-    try {
-      await invoke('set_webview_info', { userAgent: navigator.userAgent });
-    } catch (err) {
-      console.warn('[nativeAppService] set_webview_info failed:', err);
-    }
-    // Ask Rust whether the in-app updater must stay hidden (READEST_DISABLE_UPDATER,
-    // Flatpak, or a Linux deb/rpm/pacman install that Tauri can't self-update). The
-    // command is the reliable source of truth; the `__READEST_UPDATER_DISABLED`
-    // init-script global isn't dependable on every Linux/WebKitGTK setup (#4874).
-    if (this.isDesktopApp && isNetworkCapabilityAllowed('updater')) {
-      try {
-        const updaterDisabled = await invoke<boolean>('is_updater_disabled');
-        this.hasUpdater = this.hasUpdater && !updaterDisabled;
-      } catch (err) {
-        console.warn('[nativeAppService] is_updater_disabled failed:', err);
-      }
-    }
     if (
       process.env['NEXT_PUBLIC_PORTABLE_APP'] ||
       (await this.fs.exists(`${execDir}/${SETTINGS_FILENAME}`, 'None'))
@@ -642,22 +614,7 @@ export class NativeAppService extends BaseAppService {
         execDir,
       });
     }
-    if (this.isIOSApp) {
-      this.isOnlineCatalogsAccessible = this.distChannel !== 'appstore';
-      try {
-        const res = await getStorefrontRegionCode();
-        if (res?.regionCode) {
-          this.storefrontRegionCode = res.regionCode;
-        }
-      } catch (err) {
-        // Storefront.current is nil on simulators without a signed-in
-        // App Store account, and may also fail on real devices with no
         // StoreKit configuration. Treat as "unknown region" — we leave
-        // storefrontRegionCode as null and let downstream features that
-        // depend on region degrade gracefully.
-        console.warn('[nativeAppService] getStorefrontRegionCode failed:', err);
-      }
-    }
     await this.prepareBooksDir();
     await this.runMigrations();
   }
@@ -667,7 +624,7 @@ export class NativeAppService extends BaseAppService {
       const settings = await this.loadSettings();
       const lastMigrationVersion = settings.migrationVersion || 0;
 
-      await super.runMigrations(lastMigrationVersion, settings);
+      await super.runMigrations(lastMigrationVersion);
 
       if (lastMigrationVersion < 20251029) {
         try {

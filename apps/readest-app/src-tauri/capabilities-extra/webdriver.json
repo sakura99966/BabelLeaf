@@ -29,7 +29,6 @@
     "core:window:default",
     "core:path:allow-resolve-directory",
     "log:default",
-    "shell:default",
     "process:default",
     "turso:default",
     "native-tts:default",

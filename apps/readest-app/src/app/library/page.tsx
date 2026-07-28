@@ -7,31 +7,25 @@ import { useState, useRef, useEffect, Suspense, useCallback } from 'react';
 import { ReadonlyURLSearchParams, useSearchParams } from 'next/navigation';
 
 import { Book } from '@/types/book';
-import { AppService, DeleteAction } from '@/types/system';
+import { AppService } from '@/types/system';
 import {
   buildBookLookupIndex,
   collectKnownSourcePaths,
   normalizeFilePathForIndex,
   selectNewImportableFiles,
 } from '@/services/bookService';
-import { navigateToLibrary, navigateToLogin, navigateToReader } from '@/utils/nav';
+import { navigateToLibrary, navigateToReader } from '@/utils/nav';
 import { getBookWithUpdatedMetadata, listFormater } from '@/utils/book';
 import { getImportErrorMessage } from '@/services/errors';
 import { ingestFile } from '@/services/ingestService';
 import { eventDispatcher } from '@/utils/event';
-import { ProgressPayload } from '@/utils/transfer';
-import { throttle } from '@/utils/throttle';
-import { transferManager } from '@/services/transferManager';
-import { isReadestCloudStorageActive } from '@/services/sync/cloudSyncProvider';
 import { getDirPath, getFilename, joinPaths } from '@/utils/path';
 import { parseOpenWithFiles } from '@/helpers/openWith';
 import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
-import { checkForAppUpdates, checkAppReleaseNotes } from '@/helpers/updater';
 import { impactFeedback } from '@tauri-apps/plugin-haptics';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 
 import { useEnv } from '@/context/EnvContext';
-import { useAuth } from '@/context/AuthContext';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -41,14 +35,8 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { useUICSS } from '@/hooks/useUICSS';
 import { useDemoBooks } from './hooks/useDemoBooks';
-import { useBooksSync } from './hooks/useBooksSync';
-import { useLibraryFileSync } from './hooks/useLibraryFileSync';
-import { useBookTransferActions } from './hooks/useBookTransferActions';
 import { useAutoImportFolders } from './hooks/useAutoImportFolders';
-import { useInboxDrainer } from '@/hooks/useInboxDrainer';
-import { useOPDSSubscriptions } from '@/hooks/useOPDSSubscriptions';
 import { useBookDataStore } from '@/store/bookDataStore';
-import { useTransferStore } from '@/store/transferStore';
 import { useBackgroundTexture } from '@/hooks/useBackgroundTexture';
 import { getLibraryViewSettings } from '@/helpers/settings';
 import { useAppUrlIngress } from '@/hooks/useAppUrlIngress';
@@ -56,8 +44,6 @@ import { useOpenWithBooks } from '@/hooks/useOpenWithBooks';
 import { useOpenAnnotationLink } from '@/hooks/useOpenAnnotationLink';
 import { useOpenBookLink } from '@/hooks/useOpenBookLink';
 import { useReadingWidget } from '@/hooks/useReadingWidget';
-import { useOpenShareLink } from '@/hooks/useOpenShareLink';
-import { useClipUrlIngress } from '@/hooks/useClipUrlIngress';
 import { useKeyDownActions } from '@/hooks/useKeyDownActions';
 import { SelectedFile, useFileSelector } from '@/hooks/useFileSelector';
 import { lockScreenOrientation, selectDirectory } from '@/utils/bridge';
@@ -75,17 +61,10 @@ import { BookMetadata } from '@/libs/document';
 import { AboutWindow } from '@/components/AboutWindow';
 import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp';
 import { BookDetailModal } from '@/components/metadata';
-import { UpdaterWindow } from '@/components/UpdaterWindow';
-import { CatalogDialog } from './components/OPDSDialog';
-import { FeedsView } from './components/feeds/FeedsView';
-import AddFeedModal from './components/feeds/AddFeedModal';
-import { fetchAndParseFeed } from '@/services/rss/feedClient';
-import { createFeedBook, ensureFeedBookCover } from '@/services/rss/feedBook';
 import { MigrateDataWindow } from './components/MigrateDataWindow';
 import { BackupWindow } from './components/BackupWindow';
 import { CacheManagerWindow } from './components/CacheManagerWindow';
 import { useDragDropImport } from './hooks/useDragDropImport';
-import { useTransferQueue } from '@/hooks/useTransferQueue';
 import { useAppRouter } from '@/hooks/useAppRouter';
 import { Toast } from '@/components/Toast';
 import {
@@ -104,19 +83,12 @@ import FailedImportsDialog, { FailedImport } from './components/FailedImportsDia
 import ImportFromFolderDialog, {
   ImportFromFolderResult,
 } from './components/ImportFromFolderDialog';
-import ImportFromUrlDialog from './components/ImportFromUrlDialog';
 import NowPlayingBar from './components/NowPlayingBar';
 import { ttsSessionManager } from '@/services/tts';
-import { convertToEpubWithWorker } from '@/services/send/conversion/conversionWorker';
-import { getClipOptions } from '@/services/send/clipOptions';
-import { invoke } from '@tauri-apps/api/core';
 import useShortcuts from '@/hooks/useShortcuts';
-import { useReplicaPull } from '@/hooks/useReplicaPull';
 import { useCustomFonts } from '@/hooks/useCustomFonts';
 import DropIndicator from '@/components/DropIndicator';
 import SettingsDialog from '@/components/settings/SettingsDialog';
-import ModalPortal from '@/components/ModalPortal';
-import TransferQueuePanel from './components/TransferQueuePanel';
 
 /** Skip tiny non-book artifacts during folder auto-scan (matches the manual import dialog default). */
 const AUTO_IMPORT_MIN_SIZE_BYTES = 20 * 1024;
@@ -162,12 +134,9 @@ const LibraryPageWithSearchParams = () => {
 const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchParams | null }) => {
   const router = useAppRouter();
   const { envConfig, appService } = useEnv();
-  const { token, user } = useAuth();
   const {
     library: libraryBooks,
     libraryLoaded: libraryLoadedFromDisk,
-    isSyncing,
-    syncProgress,
     updateBook,
     updateBooks,
     setLibrary,
@@ -188,26 +157,16 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   // a whole-store subscription re-renders the entire library tree on every
   // transfer progress tick (~10/sec per active upload), freezing the app
   // during a bulk cloud upload (issue #5047).
-  const isTransferQueueOpen = useTransferStore((state) => state.isTransferQueueOpen);
 
   // Library page pulls user replicas (dictionaries, custom fonts,
   // background textures, OPDS catalogs, bundled settings). Deferred
   // 10s; module-scoped dedup means a later navigation to the reader
   // won't re-pull the same kind.
-  useReplicaPull({
-    kinds: ['dictionary', 'font', 'texture', 'opds_catalog', 'settings'],
-  });
   // Hydrate the custom-font store from persisted settings so the Font
   // panel sees imported fonts even when opened straight from the
   // library — the replica pull above is auth-gated and the reader's
   // FoliateViewer hydration never runs without a book open.
   useCustomFonts();
-  const [showCatalogManager, setShowCatalogManager] = useState(
-    searchParams?.get('opds') === 'true',
-  );
-  const [showFeeds, setShowFeeds] = useState(false);
-  const [showAddFeed, setShowAddFeed] = useState(false);
-  const [showImportFromUrl, setShowImportFromUrl] = useState(false);
   const [importMenuAnchor, setImportMenuAnchor] = useState<HTMLElement | null>(null);
   const [loading, setLoading] = useState(false);
   // Seed from the library store: if we already have books in memory (the
@@ -237,9 +196,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     groupBy: typeof LibraryGroupByType.Series | typeof LibraryGroupByType.Author;
     groupName: string;
   } | null>(null);
-  const [booksTransferProgress, setBooksTransferProgress] = useState<{
-    [key: string]: number | null;
-  }>({});
   const [pendingNavigationBookIds, setPendingNavigationBookIds] = useState<string[] | null>(null);
   const isInitiating = useRef(false);
 
@@ -298,38 +254,16 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   useOpenAnnotationLink();
   useOpenBookLink();
   useReadingWidget();
-  useOpenShareLink();
-  useClipUrlIngress();
-  useTransferQueue(libraryLoaded);
-
-  const { pullLibrary, pushLibrary } = useBooksSync();
-  // Library-scoped auto-sync for the active third-party cloud provider (WebDAV /
-  // Google Drive): keeps library.json current on import / delete / book-close,
-  // parity with useBooksSync. No-op when no provider is enabled.
-  useLibraryFileSync();
-  const { checkOPDSSubscriptions } = useOPDSSubscriptions();
-  useInboxDrainer();
   const { isDragging } = useDragDropImport();
 
-  usePullToRefresh(
-    scrollRef,
-    async () => {
-      if (!user) {
-        navigateToLogin(router);
-        return;
-      }
-      await pullLibrary(false, true);
-      checkOPDSSubscriptions(true);
-    },
-    async () => {
-      if (!user) {
-        navigateToLogin(router);
-        return;
-      }
-      await pullLibrary(true, true);
-      checkOPDSSubscriptions(true);
-    },
-  );
+  const reloadLocalLibrary = useCallback(async () => {
+    const service = appService ?? (await envConfig.getAppService());
+    const library = await service.loadLibraryBooks();
+    setLibrary(library);
+    setLibraryLoaded(true);
+  }, [appService, envConfig, setLibrary]);
+
+  usePullToRefresh(scrollRef, reloadLocalLibrary, reloadLocalLibrary);
   useShortcuts({
     onToggleFullscreen: async () => {
       if (isTauriAppPlatform()) {
@@ -427,19 +361,10 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   });
 
   useEffect(() => {
-    const doCheckAppUpdates = async () => {
-      if (appService?.hasUpdater && settings.autoCheckUpdates) {
-        await checkForAppUpdates(_, true, settings.updateChannel);
-      } else if (appService?.hasUpdater === false) {
-        checkAppReleaseNotes();
-      }
-    };
     if (settings.alwaysOnTop) {
       tauriHandleSetAlwaysOnTop(settings.alwaysOnTop);
     }
-    doCheckAppUpdates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appService?.hasUpdater, settings]);
+  }, [settings.alwaysOnTop]);
 
   useEffect(() => {
     if (appService?.isMobileApp) {
@@ -517,9 +442,8 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
               file,
               books: libraryBooks,
               transient: temp,
-              forceUpload: !!appService.isMobile && !!user,
             },
-            { appService, settings, isLoggedIn: !!user },
+            { appService, settings, isLoggedIn: false },
           );
           if (book) {
             bookIds.push(book.hash);
@@ -563,35 +487,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     return false;
   };
 
-  const handleShowFeeds = () => {
-    setShowAddFeed(true);
-  };
-
-  const handleAddFeedSubmit = async (url: string) => {
-    const parsed = await fetchAndParseFeed(url);
-    const book = createFeedBook(url, parsed);
-    if (appService) {
-      book.coverImageUrl = await ensureFeedBookCover(appService, book);
-    }
-    await useLibraryStore.getState().updateBooks(envConfig, [book]);
-    eventDispatcher.dispatch('toast', {
-      type: 'success',
-      message: _('Subscribed to "{{title}}"', { title: book.title }),
-      timeout: 3000,
-    });
-  };
-
-  const handleShowOPDSDialog = () => {
-    setShowCatalogManager(true);
-  };
-
-  const handleDismissOPDSDialog = () => {
-    setShowCatalogManager(false);
-    const params = new URLSearchParams(searchParams?.toString());
-    params.delete('opds');
-    navigateToLibrary(router, `${params.toString()}`);
-  };
-
   useEffect(() => {
     if (pendingNavigationBookIds) {
       const bookIds = pendingNavigationBookIds;
@@ -605,20 +500,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   useEffect(() => {
     if (isInitiating.current) return;
     isInitiating.current = true;
-
-    const initLogin = async () => {
-      const appService = await envConfig.getAppService();
-      const settings = await appService.loadSettings();
-      if (token && user) {
-        if (!settings.keepLogin) {
-          settings.keepLogin = true;
-          setSettings(settings);
-          saveSettings(envConfig, settings);
-        }
-      } else if (settings.keepLogin) {
-        router.push('/auth');
-      }
-    };
 
     // Reuse the in-store library only when it was actually loaded from disk.
     // Gating on `length > 0` was unsafe: a transient "Open with" entry made the
@@ -681,7 +562,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       return false;
     };
 
-    initLogin();
     initLibrary();
     return () => {
       setCheckOpenWithBooks(false);
@@ -820,7 +700,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
             groupId: resolvedGroupId,
             groupName: resolvedGroupName,
           },
-          { appService, settings: liveSettings, isLoggedIn: !!user, appBooksPrefix },
+          { appService, settings: liveSettings, isLoggedIn: false, appBooksPrefix },
         );
         if (!book) return null;
         successfulImports.push(book.title);
@@ -853,8 +733,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       const finalAppService = await envConfig.getAppService();
       await finalAppService.saveLibraryBooks(finalLibrary);
     }
-
-    pushLibrary();
 
     if (!options.silent && failedImports.length > 1) {
       setFailedImportsModal(failedImports);
@@ -956,55 +834,21 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     scanAndImport: autoImportFromWatchedFolders,
   });
 
-  const updateBookTransferProgress = throttle((bookHash: string, progress: ProgressPayload) => {
-    if (progress.total === 0) return;
-    const progressPct = (progress.progress / progress.total) * 100;
-    setBooksTransferProgress((prev) => ({
-      ...prev,
-      [bookHash]: progressPct,
-    }));
-  }, 500);
-
-  const { handleBookUpload, handleBookDownload } = useBookTransferActions(
-    envConfig,
-    appService,
-    updateBook,
-    updateBookTransferProgress,
-  );
-
-  const handleBookDelete = (deleteAction: DeleteAction) => {
-    return async (book: Book, syncBooks = true) => {
-      const deletionMessages = {
-        both: _('Book deleted: {{title}}', { title: book.title }),
-        cloud: _('Deleted cloud backup of the book: {{title}}', { title: book.title }),
-        local: _('Deleted local copy of the book: {{title}}', { title: book.title }),
-        purge: _('Purged book data: {{title}}', { title: book.title }),
-      };
-      const deletionFailMessages = {
-        both: _('Failed to delete book: {{title}}', { title: book.title }),
-        cloud: _('Failed to delete cloud backup of the book: {{title}}', { title: book.title }),
-        local: _('Failed to delete local copy of the book: {{title}}', { title: book.title }),
-        purge: _('Failed to purge book data: {{title}}', { title: book.title }),
-      };
-
+  const deleteLocalBook = (purgeData: boolean) => {
+    return async (book: Book) => {
       try {
         // Handle local deletion immediately. Purge mirrors 'both' (tombstone +
         // queued cloud delete) but hands 'purge' to deleteBook, which also wipes
         // the entire Books/<hash>/ folder (config/nav/cover) — issue #4615.
-        if (deleteAction === 'local' || deleteAction === 'both' || deleteAction === 'purge') {
-          await appService?.deleteBook(book, deleteAction === 'purge' ? 'purge' : 'local');
-          if (deleteAction === 'both' || deleteAction === 'purge') {
-            book.deletedAt = Date.now();
-            book.downloadedAt = null;
-            book.coverDownloadedAt = null;
-          }
-          await updateBook(envConfig, book);
-          if (ttsSessionManager.getSessionByHash(book.hash)) {
-            await ttsSessionManager.stopActive('deleted');
-          }
-          clearBookData(book.hash);
-          if (syncBooks) pushLibrary();
+        await appService?.deleteBook(book, purgeData ? 'purge' : 'local');
+        book.deletedAt = Date.now();
+        book.downloadedAt = null;
+        book.coverDownloadedAt = null;
+        await updateBook(envConfig, book);
+        if (ttsSessionManager.getSessionByHash(book.hash)) {
+          await ttsSessionManager.stopActive('deleted');
         }
+        clearBookData(book.hash);
 
         // Cloud deletion. The transfer queue only speaks to Readest storage, so a
         // book whose cloud copy lives on the selected third-party provider must
@@ -1013,33 +857,28 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         // remote directory on its next run, so the removal is already covered.
         // ("Remove from Cloud Only" is not offered for those providers — see
         // BookDetailModal.)
-        if (deleteAction === 'cloud' || deleteAction === 'both' || deleteAction === 'purge') {
-          if (isReadestCloudStorageActive(useSettingsStore.getState().settings)) {
-            const transferId = transferManager.queueDelete(book, 1, true);
-            if (!transferId) {
-              throw new Error('Failed to queue cloud deletion');
-            }
-          } else {
-            book.uploadedAt = null;
-            await updateBook(envConfig, book);
-          }
-        }
-
         eventDispatcher.dispatch('toast', {
           type: 'info',
           timeout: 1000,
-          message: deletionMessages[deleteAction],
+          message: purgeData
+            ? _('Purged book data: {{title}}', { title: book.title })
+            : _('Book deleted: {{title}}', { title: book.title }),
         });
         return true;
       } catch {
         eventDispatcher.dispatch('toast', {
-          message: deletionFailMessages[deleteAction],
+          message: purgeData
+            ? _('Failed to purge book data: {{title}}', { title: book.title })
+            : _('Failed to delete book: {{title}}', { title: book.title }),
           type: 'error',
         });
         return false;
       }
     };
   };
+
+  const handleBookDelete = deleteLocalBook(false);
+  const handleBookPurge = deleteLocalBook(true);
 
   const handleUpdateMetadata = async (book: Book, metadata: BookMetadata) => {
     // Build a NEW book object instead of mutating `book` in place. <BookCover>
@@ -1060,26 +899,10 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         // computeCoverHash returns null for a '_blank' deletion — we skip the
         // bump there (cover deletion is intentionally not synced; peers keep
         // their cover until a new one is set).
-        const newCoverHash = (await appService?.computeCoverHash(updatedBook)) ?? null;
-        if (newCoverHash && newCoverHash !== book.coverHash) {
-          // For a book already in the cloud, re-upload the cover FIRST and only
-          // advertise the new version if it succeeded — otherwise peers would
-          // try to fetch a cover that isn't there. A not-yet-uploaded book
-          // carries the new cover on its first full upload, so the bump is safe.
-          let coverUploaded = true;
-          if (user && updatedBook.uploadedAt) {
-            try {
-              await appService?.uploadBookCover(updatedBook);
-            } catch (uploadError) {
-              console.warn('Failed to upload updated cover:', uploadError);
-              coverUploaded = false;
-            }
-          }
-          if (coverUploaded) {
-            updatedBook.coverHash = newCoverHash;
-            updatedBook.coverUpdatedAt = Date.now();
-          }
-        }
+        // For a book already in the cloud, re-upload the cover FIRST and only
+        // advertise the new version if it succeeded — otherwise peers would
+        // try to fetch a cover that isn't there. A not-yet-uploaded book
+        // carries the new cover on its first full upload, so the bump is safe.
       } catch (error) {
         console.warn('Failed to update cover image:', error);
       }
@@ -1105,37 +928,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       const groupId = searchParams?.get('group') || '';
       importBooks(result.files, groupId);
     });
-  };
-
-  const handleImportBookFromUrl = async (url: string) => {
-    // Tauri-only. Routes through the Rust `clip_url` command which spawns
-    // a hidden Tauri webview, loads the URL with the real browser engine
-    // (correct TLS fingerprint, runs the page's JS, executes any
-    // Cloudflare challenge), then captures `document.documentElement
-    // .outerHTML` and returns it. End to end this is exactly the local-
-    // file path — no inbox, no upload-then-download, no server round-trip
-    // — `importBooks` is the same call drag-drop uses.
-    if (!isTauriAppPlatform()) return;
-    console.log('[clip] start', { url });
-    setIsSelectMode(false);
-    const t0 = performance.now();
-    const html = await invoke<string>('clip_url', { url, options: getClipOptions(_) });
-    console.log('[clip] fetched', {
-      bytes: html.length,
-      ms: Math.round(performance.now() - t0),
-    });
-    const t1 = performance.now();
-    const book = await convertToEpubWithWorker({ kind: 'page', html, url });
-    console.log('[clip] epub built', {
-      title: book.title,
-      author: book.author || undefined,
-      bytes: book.file.size,
-      ms: Math.round(performance.now() - t1),
-    });
-    const groupId = searchParams?.get('group') || '';
-    console.log('[clip] importing locally', { name: book.file.name, groupId: groupId || null });
-    await importBooks([{ file: book.file }], groupId);
-    console.log('[clip] done');
   };
 
   const handleImportBooksFromDirectory = async (dirPath?: string) => {
@@ -1543,30 +1335,16 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         <LibraryHeader
           isSelectMode={isSelectMode}
           isSelectAll={isSelectAll}
-          onPullLibrary={pullLibrary}
           onImportBooksFromFiles={handleImportBooksFromFiles}
           onImportBooksFromDirectory={
             appService?.canReadExternalDir ? handleImportBooksFromDirectory : undefined
           }
-          onImportBookFromUrl={isTauriAppPlatform() ? () => setShowImportFromUrl(true) : undefined}
-          onOpenCatalogManager={handleShowOPDSDialog}
-          onOpenFeeds={handleShowFeeds}
           onToggleSelectMode={() => handleSetSelectMode(!isSelectMode)}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
         />
-        <progress
-          aria-label={_('Library Sync Progress')}
-          aria-hidden={isSyncing ? 'false' : 'true'}
-          className={clsx(
-            'progress progress-success absolute bottom-0 left-0 right-0 h-1 translate-y-[2px] transition-opacity duration-200 sm:translate-y-[4px]',
-            isSyncing ? 'opacity-100' : 'opacity-0',
-          )}
-          value={syncProgress * 100}
-          max='100'
-        />
       </div>
-      {(loading || isSyncing) && (
+      {loading && (
         <div className='fixed inset-0 z-50 flex items-center justify-center'>
           <Spinner loading />
         </div>
@@ -1633,15 +1411,11 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                 isSelectNone={isSelectNone}
                 onScrollerRef={handleScrollerRef}
                 handleImportBooks={setImportMenuAnchor}
-                handleBookUpload={handleBookUpload}
-                handleBookDownload={handleBookDownload}
-                handleBookDelete={handleBookDelete('both')}
-                handleBookPurge={handleBookDelete('purge')}
+                handleBookDelete={handleBookDelete}
+                handleBookPurge={handleBookPurge}
                 handleSetSelectMode={handleSetSelectMode}
                 handleShowDetailsBook={handleShowDetailsBook}
                 handleLibraryNavigation={handleLibraryNavigation}
-                booksTransferProgress={booksTransferProgress}
-                handlePushLibrary={pushLibrary}
               />
             </div>
           </div>
@@ -1659,9 +1433,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           onImportBooksFromDirectory={
             appService?.canReadExternalDir ? handleImportBooksFromDirectory : undefined
           }
-          onImportBookFromUrl={isTauriAppPlatform() ? () => setShowImportFromUrl(true) : undefined}
-          onOpenCatalogManager={handleShowOPDSDialog}
-          onOpenFeeds={handleShowFeeds}
         />
       )}
       <NowPlayingBar isSelectMode={isSelectMode} />
@@ -1670,39 +1441,17 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           isOpen={!!showDetailsBook}
           book={showDetailsBook}
           onClose={() => setShowDetailsBook(null)}
-          handleBookUpload={handleBookUpload}
-          handleBookDownload={handleBookDownload}
-          handleBookDelete={handleBookDelete('both')}
-          // Readest storage only. A third-party provider mirrors the library, so
-          // removing just its cloud copy is not expressible: the next sync would
-          // upload the still-local book straight back (#5084).
-          handleBookDeleteCloudBackup={
-            isReadestCloudStorageActive(settings) ? handleBookDelete('cloud') : undefined
-          }
-          handleBookDeleteLocalCopy={handleBookDelete('local')}
-          handleBookPurge={handleBookDelete('purge')}
+          handleBookDelete={handleBookDelete}
+          handleBookPurge={handleBookPurge}
           handleBookMetadataUpdate={handleUpdateMetadata}
         />
       )}
-      {isTransferQueueOpen && (
-        <ModalPortal>
-          <TransferQueuePanel />
-        </ModalPortal>
-      )}
       <AboutWindow />
       <KeyboardShortcutsHelp />
-      <UpdaterWindow />
       <MigrateDataWindow />
-      <BackupWindow onPullLibrary={pullLibrary} />
+      <BackupWindow onPullLibrary={reloadLocalLibrary} />
       <CacheManagerWindow />
       {isSettingsDialogOpen && <SettingsDialog bookKey={''} />}
-      {showCatalogManager && <CatalogDialog onClose={handleDismissOPDSDialog} />}
-      {showFeeds && <FeedsView onClose={() => setShowFeeds(false)} />}
-      <AddFeedModal
-        isOpen={showAddFeed}
-        onClose={() => setShowAddFeed(false)}
-        onSubmit={handleAddFeedSubmit}
-      />
       {failedImportsModal && (
         <FailedImportsDialog
           failedImports={failedImportsModal}
@@ -1753,11 +1502,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           }}
         />
       )}
-      <ImportFromUrlDialog
-        isOpen={showImportFromUrl}
-        onClose={() => setShowImportFromUrl(false)}
-        onSubmit={handleImportBookFromUrl}
-      />
       <Toast />
     </div>
   );

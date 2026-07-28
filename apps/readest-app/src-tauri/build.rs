@@ -11,13 +11,7 @@ fn main() {
     // Keep this list in sync with the generate_handler! list in lib.rs.
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
-            "start_server",
-            "download_file",
-            "upload_file",
-            "get_environment_variable",
             "get_executable_dir",
-            "set_webview_info",
-            "is_updater_disabled",
             "allow_paths_in_scopes",
             "read_dir",
             "parse_epub_metadata",
@@ -25,16 +19,8 @@ fn main() {
             "parse_epub_full",
             "parse_mobi_metadata",
             "extract_mobi_cover_full",
-            "auth_with_safari",
-            "start_apple_sign_in",
             "set_traffic_lights",
             "show_lookup_popover",
-            "update_book_presence",
-            "clear_book_presence",
-            "clip_url",
-            "spawn_fresh_browser",
-            "verify_update_signature",
-            "install_nightly_update",
         ]),
     ))
     .expect("failed to run tauri-build");

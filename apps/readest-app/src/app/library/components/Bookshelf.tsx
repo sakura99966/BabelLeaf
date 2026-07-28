@@ -48,9 +48,6 @@ import {
   withTimeRemainingLast,
 } from '../utils/libraryUtils';
 import { eventDispatcher } from '@/utils/event';
-import { getLocalBookFilename } from '@/utils/book';
-import { MIMETYPES, EXTS } from '@/libs/document';
-import { makeSafeFilename } from '@/utils/misc';
 
 import { useSpatialNavigation } from '../hooks/useSpatialNavigation';
 import DeleteConfirmAlert from '@/components/DeleteConfirmAlert';
@@ -58,8 +55,6 @@ import Spinner from '@/components/Spinner';
 import ModalPortal from '@/components/ModalPortal';
 import BookshelfItem, { generateBookshelfItems } from './BookshelfItem';
 import SelectModeActions from './SelectModeActions';
-import ShareBookDialog from './ShareBookDialog';
-import { useAuth } from '@/context/AuthContext';
 import GroupingModal from './GroupingModal';
 import SetStatusAlert from './SetStatusAlert';
 import RecentShelf, { RECENT_SHELF_BOOK_COUNT } from './RecentShelf';
@@ -72,18 +67,11 @@ interface BookshelfProps {
   isSelectNone: boolean;
   onScrollerRef: (el: HTMLDivElement | null) => void;
   handleImportBooks: (anchor: HTMLElement) => void;
-  handleBookDownload: (
-    book: Book,
-    options?: { redownload?: boolean; queued?: boolean },
-  ) => Promise<boolean>;
-  handleBookUpload: (book: Book, syncBooks?: boolean) => Promise<boolean>;
-  handleBookDelete: (book: Book, syncBooks?: boolean) => Promise<boolean>;
-  handleBookPurge: (book: Book, syncBooks?: boolean) => Promise<boolean>;
+  handleBookDelete: (book: Book) => Promise<boolean>;
+  handleBookPurge: (book: Book) => Promise<boolean>;
   handleSetSelectMode: (selectMode: boolean) => void;
   handleShowDetailsBook: (book: Book) => void;
   handleLibraryNavigation: (targetGroup: string) => void;
-  handlePushLibrary: () => Promise<void>;
-  booksTransferProgress: { [key: string]: number | null };
 }
 
 /**
@@ -174,15 +162,11 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   isSelectNone,
   onScrollerRef,
   handleImportBooks,
-  handleBookUpload,
-  handleBookDownload,
   handleBookDelete,
   handleBookPurge,
   handleSetSelectMode,
   handleShowDetailsBook,
   handleLibraryNavigation,
-  handlePushLibrary,
-  booksTransferProgress,
 }) => {
   const _ = useTranslation();
   const router = useRouter();
@@ -440,9 +424,8 @@ const Bookshelf: React.FC<BookshelfProps> = ({
         break;
       }
       const batch = books.slice(i, i + concurrency);
-      await Promise.all(batch.map((book) => deleteBook(book, false)));
+      await Promise.all(batch.map((book) => deleteBook(book)));
     }
-    handlePushLibrary();
     setSelectedBooks([]);
     setShowDeleteAlert(false);
     setShowSelectModeActions(true);
@@ -467,113 +450,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   const showStatusSelection = () => {
     setShowSelectModeActions(false);
     setShowStatusAlert(true);
-  };
-
-  const sendSelectedBook = async () => {
-    // "Send" hands the actual book file (epub/pdf/...) to the OS share
-    // sheet (UIActivityViewController on iOS, Intent.ACTION_SEND on
-    // Android, NSSharingServicePicker on macOS) so the user can fire it
-    // off to Mail / Messages / WeChat / AirDrop / etc. Backed by
-    // tauri-plugin-sharekit via appService.saveFile({ share: true }).
-    //
-    // This is intentionally distinct from the per-item "Share Book"
-    // context menu, which uploads the book to the readest backend and
-    // generates a public link. "Send" is offline file egress; "Share
-    // Book" is remote collaboration. They share zero infra.
-    //
-    // Linux has no system share sheet, and Windows is intentionally
-    // disabled (issue #4343 — WebView2's native share UI blocks the main
-    // thread waiting on cancel/complete callbacks that may never fire).
-    // We hide the button entirely on those platforms (see sendEnabled
-    // in the JSX) so users don't see an action that can't be honoured.
-
-    const ids = getSelectedBooks();
-    if (ids.length !== 1) return;
-    const book = filteredBooks.find((b) => b.hash === ids[0]);
-    if (!book || !appService) return;
-
-    // Anchor the macOS share popover to the selected book's cover, not
-    // to the Send button — the user just tapped/clicked the book, so
-    // their visual focus is on the cover. We look the cover up via the
-    // `data-book-hash` attribute that BookshelfItem stamps on its root
-    // div. The rect must be captured *before* setShowSelectModeActions
-    // tears the popup down (the bookshelf itself stays mounted, but we
-    // still want to grab it up front to keep the share-call site
-    // simple). preferredEdge='bottom' maps to NSMinYEdge, which in
-    // WKWebView's flipped coord space is the rect's top edge, so the
-    // popover renders above the cover (and only auto-flips below when
-    // there's no room above). On iOS / Android the share sheet is modal
-    // and ignores sharePosition, so this work is harmless there.
-    const coverEl = document.querySelector<HTMLElement>(`[data-book-hash="${book.hash}"]`);
-    const anchorRect = coverEl?.getBoundingClientRect();
-    const sharePosition = anchorRect
-      ? {
-          x: anchorRect.left + anchorRect.width / 2,
-          y: anchorRect.top + anchorRect.height / 2,
-          preferredEdge: 'bottom' as const,
-        }
-      : undefined;
-
-    setShowSelectModeActions(false);
-    handleSetSelectMode(false);
-
-    try {
-      // Resolve the file the same way bookContent.resolveBookContentSource
-      // does, but via the public AppService surface (the underlying `fs`
-      // is protected): managed copy under Books/<hash>/ first, then the
-      // device-local in-place import path. Cloud-only books or remote
-      // URL books can't be shared without first downloading them.
-      const managedPath = getLocalBookFilename(book);
-      let path: string;
-      let base: 'Books' | 'None';
-      if (await appService.exists(managedPath, 'Books')) {
-        path = managedPath;
-        base = 'Books';
-      } else if (book.filePath && (await appService.exists(book.filePath, 'None'))) {
-        path = book.filePath;
-        base = 'None';
-      } else {
-        eventDispatcher.dispatch('toast', {
-          type: 'warning',
-          message: _('Book file is not available locally'),
-          timeout: 2500,
-        });
-        return;
-      }
-      const ext = EXTS[book.format] ?? 'bin';
-      const mimeType = MIMETYPES[book.format]?.[0] ?? 'application/octet-stream';
-      const baseName = makeSafeFilename(book.sourceTitle || book.title || book.hash);
-      const shareFilename = `${baseName}.${ext}`;
-
-      // Native (Tauri) only — the Share button is hidden on web because
-      // browsers can't surface a real "share to <app>" sheet for an
-      // arbitrary local file. Hand the already-on-disk file straight to
-      // the OS share sheet via `options.filePath`. Without it,
-      // saveFile() falls back to writing a temp copy under
-      // BaseDirectory.Temp, which on Android resolves to
-      // /data/local/tmp/ — the app sandbox has no write permission
-      // there and the call fails with EACCES ("failed to open file at
-      // path: /data/local/tmp/...epub Permission denied (os error
-      // 13)"). Passing the absolute path also avoids re-buffering the
-      // whole epub/pdf into memory just to have saveFile write it back
-      // to disk.
-      const absoluteFilePath = await appService.resolveFilePath(path, base);
-      // `null` content: there's nothing to write — the file already lives at
-      // `filePath`, which the native share path reads directly.
-      await appService.saveFile(shareFilename, null, {
-        share: true,
-        mimeType,
-        filePath: absoluteFilePath,
-        sharePosition,
-      });
-    } catch (err) {
-      console.error('Failed to send book file:', err);
-      eventDispatcher.dispatch('toast', {
-        type: 'error',
-        message: _('Failed to send book'),
-        timeout: 2500,
-      });
-    }
   };
 
   const updateBooksStatus = async (status: ReadingStatus | undefined) => {
@@ -635,31 +511,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
     };
   }, []);
 
-  const { user } = useAuth();
-  const [shareDialogBook, setShareDialogBook] = useState<Book | null>(null);
-
-  useEffect(() => {
-    const handleShareIntent = (event: CustomEvent) => {
-      const book = (event.detail as { book?: Book } | undefined)?.book;
-      if (!book) return;
-      if (!user) {
-        // Logged-out users can't share their own files; route through the
-        // login flow instead. The /auth route preserves a return path.
-        eventDispatcher.dispatch('toast', {
-          type: 'info',
-          message: _('Sign in to share books'),
-          timeout: 2500,
-        });
-        return;
-      }
-      setShareDialogBook(book);
-    };
-    eventDispatcher.on('show-share-dialog', handleShareIntent);
-    return () => {
-      eventDispatcher.off('show-share-dialog', handleShareIntent);
-    };
-  }, [user, _]);
-
   // OverlayScrollbars + Virtuoso integration: Virtuoso manages its own
   // scroller; OverlayScrollbars wraps it for overlay scrollbar rendering.
   const osRootRef = useRef<HTMLDivElement>(null);
@@ -702,11 +553,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   // last book; list mode doesn't have an import tile.
   const gridTotalCount = hasItems ? sortedBookshelfItems.length + 1 : 0;
 
-  // Recently-read shelf: shares the availability-aware open path with per-item
-  // taps so cloud-only synced books download before opening. `openBook` is
-  // memoized inside the hook, keeping `openRecentBook` -> `recentShelfHeader`
-  // -> `listContext` identities stable (no full-grid re-render churn).
-  const { openBook } = useOpenBook({ setLoading, handleBookDownload });
+  const { openBook } = useOpenBook({ setLoading });
   const openRecentBook = useCallback((book: Book) => openBook(book), [openBook]);
 
   // Flat recency slice of the whole library, independent of the main shelf's
@@ -734,8 +581,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           autoColumns={settings.libraryAutoColumns}
           fixedColumns={settings.libraryColumns}
           onOpenBook={openRecentBook}
-          handleBookUpload={handleBookUpload}
-          handleBookDownload={handleBookDownload}
           showBookDetailsModal={handleShowDetailsBook}
           showTimeRemaining={showTimeRemaining}
         />
@@ -747,8 +592,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       settings.libraryAutoColumns,
       settings.libraryColumns,
       openRecentBook,
-      handleBookUpload,
-      handleBookDownload,
       handleShowDetailsBook,
       showTimeRemaining,
     ],
@@ -823,16 +666,10 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           setLoading={setLoading}
           toggleSelection={toggleSelection}
           handleGroupBooks={groupSelectedBooks}
-          handleBookUpload={handleBookUpload}
-          handleBookDownload={handleBookDownload}
-          handleBookDelete={handleBookDelete}
           handleSetSelectMode={handleSetSelectMode}
           handleShowDetailsBook={handleShowDetailsBook}
           handleLibraryNavigation={handleLibraryNavigation}
           handleUpdateReadingStatus={handleUpdateReadingStatus}
-          transferProgress={
-            'hash' in item ? booksTransferProgress[(item as Book).hash] || null : null
-          }
           showTimeRemaining={showTimeRemaining}
         />
       );
@@ -845,13 +682,9 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       viewMode,
       coverFit,
       isSelectMode,
-      booksTransferProgress,
       iconSize15,
       handleImportBooks,
       toggleSelection,
-      handleBookUpload,
-      handleBookDownload,
-      handleBookDelete,
       handleSetSelectMode,
       handleShowDetailsBook,
       handleLibraryNavigation,
@@ -921,15 +754,10 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           // upstream (issue #4343 — deadlocks the main thread), and web
           // browsers don't expose a real "send file to <app>" sheet, so
           // the button is hidden on those platforms.
-          sendEnabled={
-            !!appService &&
-            (appService.isIOSApp || appService.isAndroidApp || appService.isMacOSApp)
-          }
           onOpen={openSelectedBooks}
           onGroup={groupSelectedBooks}
           onDetails={openBookDetails}
           onStatus={showStatusSelection}
-          onSend={sendSelectedBook}
           onDelete={deleteSelectedBooks}
           onCancel={() => handleSetSelectMode(false)}
         />
@@ -984,11 +812,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           onUpdateStatus={updateBooksStatus}
         />
       )}
-      <ShareBookDialog
-        isOpen={!!shareDialogBook}
-        book={shareDialogBook}
-        onClose={() => setShareDialogBook(null)}
-      />
     </div>
   );
 };

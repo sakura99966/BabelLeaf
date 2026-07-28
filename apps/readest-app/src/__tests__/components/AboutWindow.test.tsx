@@ -14,15 +14,6 @@ vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (key: string) => key,
 }));
 
-vi.mock('@/store/settingsStore', () => ({
-  useSettingsStore: () => ({ settings: { updateChannel: 'stable' } }),
-}));
-
-vi.mock('@/helpers/updater', () => ({
-  checkForAppUpdates: vi.fn(),
-  checkAppReleaseNotes: vi.fn(),
-}));
-
 vi.mock('@/utils/ua', () => ({
   parseWebViewInfo: () => 'WebView test',
 }));

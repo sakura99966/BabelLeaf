@@ -1,12 +1,8 @@
 packages:
   - apps/*
-  - apps/readest-app/workers/send-email
-  - apps/readest-app/workers/iap-reconcile
-  - apps/readest-app/extensions/*
   - packages/foliate-js
 
 allowBuilds:
-  '@sentry/cli': true
   core-js: true
   edgedriver: true
   esbuild: true

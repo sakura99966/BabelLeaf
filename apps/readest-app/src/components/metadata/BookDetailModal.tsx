@@ -5,11 +5,9 @@ import { Book } from '@/types/book';
 import { getBookWithUpdatedMetadata } from '@/utils/book';
 import { BookMetadata } from '@/libs/document';
 import { useEnv } from '@/context/EnvContext';
-import { useAuth } from '@/context/AuthContext';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useMetadataEdit } from './useMetadataEdit';
-import { DeleteAction } from '@/types/system';
 import { eventDispatcher } from '@/utils/event';
 import { isWebAppPlatform } from '@/services/environment';
 import DeleteConfirmAlert from '@/components/DeleteConfirmAlert';
@@ -34,7 +32,7 @@ interface BookDetailModalProps {
 
 // Purge is no longer a standalone menu action — it is an opt-in toggle on the
 // standard ('both') delete confirmation, so the menu only triggers these three.
-type DeleteMenuAction = Exclude<DeleteAction, 'purge'>;
+type DeleteMenuAction = 'both' | 'local';
 
 interface DeleteConfig {
   title: string;
@@ -47,17 +45,13 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
   book,
   isOpen,
   onClose,
-  handleBookDownload,
-  handleBookUpload,
   handleBookDelete,
-  handleBookDeleteCloudBackup,
   handleBookDeleteLocalCopy,
   handleBookPurge,
   handleBookMetadataUpdate,
 }) => {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
-  const { user } = useAuth();
   const { safeAreaInsets } = useThemeStore();
   const [activeDeleteAction, setActiveDeleteAction] = useState<DeleteMenuAction | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,11 +88,6 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
       message: _('Are you sure to delete the selected book?'),
       handler: handleBookDelete,
       showPurgeToggle: !!handleBookPurge,
-    },
-    cloud: {
-      title: _('Confirm Deletion'),
-      message: _('Are you sure to delete the cloud backup of the selected book?'),
-      handler: handleBookDeleteCloudBackup,
     },
     local: {
       title: _('Confirm Deletion'),
@@ -181,16 +170,7 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
   };
 
   const handleDelete = () => handleDeleteAction('both');
-  const handleDeleteCloudBackup = () => handleDeleteAction('cloud');
   const handleDeleteLocalCopy = () => handleDeleteAction('local');
-
-  const handleShare = () => {
-    // Close this modal first, then hand off to the share dialog hosted by
-    // Bookshelf (it owns the login gate + ShareBookDialog). Mirrors how the
-    // bookshelf context menu dispatches the same event.
-    handleClose();
-    eventDispatcher.dispatch('show-share-dialog', { book });
-  };
 
   const handleBookExport = async () => {
     setIsLoading(true);
@@ -206,25 +186,9 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
     }, 0);
   };
 
-  const handleRedownload = async () => {
-    handleClose();
-    if (handleBookDownload) {
-      handleBookDownload(book, { redownload: true, queued: false });
-    }
-  };
-
-  const handleReupload = async () => {
-    handleClose();
-    if (handleBookUpload) {
-      handleBookUpload(book);
-    }
-  };
-
   // Sharing uploads the book to the Readest backend and mints a public link, so
   // it needs a signed-in user and a resolvable on-disk file. `fileSize` is only
   // non-null when getBookFileSize could actually open the local file.
-  const shareEnabled = !!user && fileSize !== null;
-
   const currentDeleteConfig = activeDeleteAction ? deleteConfigs[activeDeleteAction] : null;
 
   return (
@@ -263,16 +227,10 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
                 book={displayBook}
                 metadata={bookMeta}
                 fileSize={fileSize}
-                shareEnabled={shareEnabled}
+                shareEnabled={false}
                 onEdit={handleBookMetadataUpdate ? handleEditMetadata : undefined}
                 onDelete={handleBookDelete ? handleDelete : undefined}
-                onDeleteCloudBackup={
-                  handleBookDeleteCloudBackup ? handleDeleteCloudBackup : undefined
-                }
                 onDeleteLocalCopy={handleBookDeleteLocalCopy ? handleDeleteLocalCopy : undefined}
-                onDownload={handleBookDownload ? handleRedownload : undefined}
-                onUpload={handleBookUpload ? handleReupload : undefined}
-                onShare={handleShare}
                 onExport={handleBookExport}
               />
             )}

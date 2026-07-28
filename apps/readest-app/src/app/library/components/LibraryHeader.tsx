@@ -25,12 +25,8 @@ import ViewMenu from './ViewMenu';
 interface LibraryHeaderProps {
   isSelectMode: boolean;
   isSelectAll: boolean;
-  onPullLibrary: () => void;
   onImportBooksFromFiles: () => void;
   onImportBooksFromDirectory?: () => void;
-  onImportBookFromUrl?: () => void;
-  onOpenCatalogManager: () => void;
-  onOpenFeeds: () => void;
   onToggleSelectMode: () => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -39,12 +35,8 @@ interface LibraryHeaderProps {
 const LibraryHeader: React.FC<LibraryHeaderProps> = ({
   isSelectMode,
   isSelectAll,
-  onPullLibrary,
   onImportBooksFromFiles,
   onImportBooksFromDirectory,
-  onImportBookFromUrl,
-  onOpenCatalogManager,
-  onOpenFeeds,
   onToggleSelectMode,
   onSelectAll,
   onDeselectAll,
@@ -163,9 +155,6 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
               <ImportMenu
                 onImportBooksFromFiles={onImportBooksFromFiles}
                 onImportBooksFromDirectory={onImportBooksFromDirectory}
-                onImportBookFromUrl={onImportBookFromUrl}
-                onOpenCatalogManager={onOpenCatalogManager}
-                onOpenFeeds={onOpenFeeds}
               />
             </Dropdown>
             {isMobile ? null : (
@@ -217,7 +206,7 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
               buttonClassName='btn btn-ghost h-8 min-h-8 w-8 p-0'
               toggleButton={<MdOutlineMenu role='none' size={iconSize18} />}
             >
-              <SettingsMenu onPullLibrary={onPullLibrary} />
+              <SettingsMenu />
             </Dropdown>
             {appService?.hasWindowBar && (
               <WindowButtons

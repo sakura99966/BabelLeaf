@@ -7,7 +7,6 @@ import {
   MdInfoOutline,
   MdCheckCircleOutline,
 } from 'react-icons/md';
-import { IoShareSocialOutline } from 'react-icons/io5';
 import { LuFolderPlus } from 'react-icons/lu';
 import { useKeyDownActions } from '@/hooks/useKeyDownActions';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -21,7 +20,6 @@ interface SelectModeActionsProps {
   // so the affordance would be misleading. Note: this is *file send* (hands
   // the book file to the OS share sheet), distinct from "Share Book" in
   // the per-item context menu, which generates a remote share link.
-  sendEnabled?: boolean;
   onOpen: () => void;
   onGroup: () => void;
   onDetails: () => void;
@@ -30,7 +28,6 @@ interface SelectModeActionsProps {
   // cover (located via its data-book-hash attribute), not to this
   // button — the user's visual focus is on the cover they just tapped.
   // On iOS / Android the share sheet is modal and ignores position.
-  onSend: () => void;
   onDelete: () => void;
   onCancel: () => void;
   // Reports the popup's rendered height (including its safe-area padding) so the
@@ -42,12 +39,10 @@ interface SelectModeActionsProps {
 const SelectModeActions: React.FC<SelectModeActionsProps> = ({
   selectedBooks,
   safeAreaBottom,
-  sendEnabled = true,
   onOpen,
   onGroup,
   onDetails,
   onStatus,
-  onSend,
   onDelete,
   onCancel,
   onHeightChange,
@@ -134,20 +129,6 @@ const SelectModeActions: React.FC<SelectModeActionsProps> = ({
           <MdInfoOutline />
           <div>{_('Details')}</div>
         </button>
-        {sendEnabled && (
-          <button
-            onClick={onSend}
-            className={clsx(
-              'flex flex-col items-center justify-center gap-1',
-              // Wraps to the start of the second row on narrow viewports.
-              'max-[500px]:col-start-1',
-              (!hasSingleSelection || !hasValidBooks) && 'btn-disabled opacity-50',
-            )}
-          >
-            <IoShareSocialOutline />
-            <div>{_('Send')}</div>
-          </button>
-        )}
         <button
           onClick={onDelete}
           className={clsx(
@@ -157,7 +138,7 @@ const SelectModeActions: React.FC<SelectModeActionsProps> = ({
             // under the 4-col grid. With Send present, the layout is
             // {Send, Delete, Cancel} starting at col-start-1, so Delete
             // naturally lands in col-start-2 without an override.
-            !sendEnabled && 'max-[500px]:col-start-2',
+            'max-[500px]:col-start-2',
             !hasSelection && 'btn-disabled opacity-50',
           )}
         >

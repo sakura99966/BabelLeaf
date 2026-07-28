@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
@@ -10,7 +10,6 @@ describe('BabelLeaf desktop identity contract', () => {
     const nativeBridge = readSource('src-tauri/plugins/tauri-plugin-native-bridge/src/desktop.rs');
     const nativeApp = readSource('src-tauri/src/lib.rs');
     const nativeBuild = readSource('src-tauri/build.rs');
-    const sentryConfig = readSource('src-tauri/src/sentry_config.rs');
     const androidGradle = readSource('src-tauri/gen/android/app/build.gradle.kts');
     const androidManifest = readSource('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
     const parkedNsisHook = readSource('src-tauri/nsis/installer-hooks.nsh');
@@ -23,11 +22,9 @@ describe('BabelLeaf desktop identity contract', () => {
     expect(nativeBridge).toContain('const KEYRING_SERVICE: &str = "BabelLeaf Safe Storage";');
     expect(nativeApp).toContain('.title("BabelLeaf")');
     expect(nativeApp).not.toContain('sentry::init(');
+    expect(nativeApp).not.toContain('sentry_config');
     expect(nativeBuild).not.toContain('propagate_sentry_dsn');
-    expect(sentryConfig).not.toContain('SENTRY_DSN');
-    expect(sentryConfig).toMatch(
-      /pub extern "C" fn readest_sentry_dsn\(\)[\s\S]*?std::ptr::null\(\)/,
-    );
+    expect(existsSync(resolve(process.cwd(), 'src-tauri/src/sentry_config.rs'))).toBe(false);
     expect(androidGradle).not.toMatch(/SENTRY_DSN|sentryDsn|sentry-android/);
     expect(androidManifest).not.toContain('io.sentry');
     expect(parkedNsisHook).toContain('!error');
@@ -54,7 +51,7 @@ describe('BabelLeaf desktop identity contract', () => {
     expect(appLock).toContain('Unlock BabelLeaf');
     expect(appLock).not.toContain('Unlock Readest');
     expect(commandRegistry).toContain("labelKey: _('About BabelLeaf')");
-    expect(controlPanel).toContain("isNetworkCapabilityAllowed('telemetry')");
+    expect(controlPanel).not.toContain('telemetry');
     expect(controlPanel).not.toContain('Help improve Readest');
   });
 });

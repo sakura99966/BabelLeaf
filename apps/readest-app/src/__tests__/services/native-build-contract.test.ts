@@ -51,24 +51,23 @@ describe('BabelLeaf native build contract', () => {
     expect(fileAssociationNames.every((name) => name.startsWith('BabelLeaf.'))).toBe(true);
   });
 
-  test('keeps the disabled desktop updater configuration valid at startup', () => {
+  test('does not package the removed desktop updater', () => {
     const tauriConfig = JSON.parse(readSource('src-tauri/tauri.conf.json')) as {
       bundle: { createUpdaterArtifacts: boolean };
-      plugins: {
-        updater?: {
-          endpoints?: unknown;
-          pubkey?: unknown;
-        };
-      };
+      plugins: Record<string, unknown>;
     };
+    const appPackage = JSON.parse(readSource('package.json')) as {
+      dependencies: Record<string, string>;
+    };
+    const appManifest = readSource('src-tauri/Cargo.toml');
+    const rustEntry = readSource('src-tauri/src/lib.rs');
     const tauriEnvironment = readSource('.env.tauri');
-    const updaterConfig = tauriConfig.plugins.updater;
 
     expect(tauriConfig.bundle.createUpdaterArtifacts).toBe(false);
-    expect(tauriEnvironment).toContain('NEXT_PUBLIC_DISABLE_UPDATER=true');
-    expect(tauriEnvironment).toContain('READEST_DISABLE_UPDATER=true');
-    expect(updaterConfig).toBeDefined();
-    expect(updaterConfig?.pubkey).toBe('');
-    expect(updaterConfig?.endpoints).toEqual([]);
+    expect(tauriConfig.plugins).not.toHaveProperty('updater');
+    expect(appPackage.dependencies).not.toHaveProperty('@tauri-apps/plugin-updater');
+    expect(appManifest).not.toContain('tauri-plugin-updater');
+    expect(rustEntry).not.toContain('tauri_plugin_updater');
+    expect(tauriEnvironment).not.toContain('DISABLE_UPDATER');
   });
 });
