@@ -51,6 +51,10 @@ result*
 # Workspace-local pnpm store used by verification commands.
 /.pnpm-store/
 
+# Local installer smoke-test logs and release binaries.
+/apps/readest-app/artifacts/
+/release/
+
 # Local recovery snapshots created when Git metadata is unavailable.
 /_local_checkpoints/
 

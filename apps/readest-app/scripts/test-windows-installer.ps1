@@ -7,6 +7,7 @@ param(
     [string]$ExpectedMainBinaryName = "babelleaf",
     [string]$ExpectedBundleIdentifier = "io.github.sakura99966.babelleaf",
     [switch]$PreflightOnly,
+    [switch]$IsolatedProfile,
     [ValidateRange(5, 300)]
     [int]$StartupTimeoutSeconds = 60
 )
@@ -56,6 +57,18 @@ if ([string]::IsNullOrWhiteSpace($BundleDirectory)) {
 }
 if ([string]::IsNullOrWhiteSpace($ArtifactsDirectory)) {
     $ArtifactsDirectory = Join-Path $appRoot "artifacts\windows-installer-smoke"
+}
+
+$isolatedProfileRoot = $null
+if ($IsolatedProfile -and -not $PreflightOnly) {
+    New-Item -ItemType Directory -Path $ArtifactsDirectory -Force | Out-Null
+    $artifactsRoot = (Resolve-Path -LiteralPath $ArtifactsDirectory).Path
+    $isolatedProfileRoot = Join-Path $artifactsRoot "profile-$([Guid]::NewGuid().ToString('N'))"
+    New-Item -ItemType Directory -Path (Join-Path $isolatedProfileRoot "appdata") -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $isolatedProfileRoot "localappdata") -Force | Out-Null
+    $env:APPDATA = Join-Path $isolatedProfileRoot "appdata"
+    $env:LOCALAPPDATA = Join-Path $isolatedProfileRoot "localappdata"
+    Write-Host "Using isolated user-data profile: $isolatedProfileRoot"
 }
 
 $uninstallRegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$productName"
@@ -336,6 +349,14 @@ if ($null -ne $primaryFailure) {
 }
 if ($null -ne $cleanupFailure) {
     throw $cleanupFailure
+}
+
+if ($null -ne $isolatedProfileRoot -and (Test-Path -LiteralPath $isolatedProfileRoot)) {
+    try {
+        Remove-Item -LiteralPath $isolatedProfileRoot -Recurse -Force -ErrorAction Stop
+    } catch {
+        throw "Failed to remove the isolated user-data profile '$isolatedProfileRoot': $($_.Exception.Message)"
+    }
 }
 
 Write-Host "Windows NSIS installer smoke test passed."
