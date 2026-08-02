@@ -54,6 +54,13 @@ function quoteForCmd(value) {
 }
 
 function run(command, args) {
+  const environment = {
+    ...process.env,
+    // Git hooks must not try to mutate node_modules while running non-interactively.
+    // A missing or stale dependency remains visible as the underlying command's error.
+    pnpm_config_verify_deps_before_run:
+      process.env.pnpm_config_verify_deps_before_run ?? 'false',
+  };
   const isWindowsCommandFile =
     process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command);
 
@@ -61,6 +68,7 @@ function run(command, args) {
     const commandLine = [quoteForCmd(command), ...args.map(quoteForCmd)].join(' ');
     return spawn(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', commandLine], {
       cwd: repositoryRoot,
+      env: environment,
       stdio: 'inherit',
       windowsHide: true,
     });
@@ -68,6 +76,7 @@ function run(command, args) {
 
   return spawn(command, args, {
     cwd: repositoryRoot,
+    env: environment,
     stdio: 'inherit',
     windowsHide: true,
   });
