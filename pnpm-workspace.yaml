@@ -54,3 +54,5 @@ overrides:
   ws: '>=8.21.0'
   '@emnapi/core': 1.8.1
   '@emnapi/runtime': 1.8.1
+
+verifyDepsBeforeRun: false

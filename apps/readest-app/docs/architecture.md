@@ -8,8 +8,9 @@ remain usable by future macOS, Android, and iOS packages.
 
 The application has no hosted backend. Content is imported from local files
 and application state is stored locally. The only supported external request
-is a translation explicitly initiated by the user and sent to an endpoint the
-user configured.
+is a translation explicitly initiated by the user and sent to an application-
+controlled provider endpoint. The current cloud preset is DeepSeek's official
+endpoint; users supply an API key but cannot enter an arbitrary URL or model.
 
 ## Runtime structure
 
@@ -104,8 +105,11 @@ Translation is a reader feature, not a general chat assistant.
 Supported provider classes are:
 
 - Ollama, normally on a loopback address; and
-- an OpenAI-compatible API whose base URL, model, and API key are supplied by
-  the user.
+- the built-in DeepSeek V4 adapter with an application-controlled official
+  endpoint and model. The user supplies only the API key.
+
+Additional providers must be added as named adapters with fixed official
+endpoints, provider-specific secure storage, capability entries, and tests.
 
 Opening or importing a book does not initiate translation. A translation
 request starts only from an explicit reader action. The request contains the
