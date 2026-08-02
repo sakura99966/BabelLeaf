@@ -24,7 +24,7 @@
   },
   "lint-staged": {
     "**/*.{js,jsx,ts,tsx,css,json}": [
-      "biome format --write --no-errors-on-unmatched"
+      "biome format --write --no-errors-on-unmatched --line-ending=auto"
     ]
   }
 }
