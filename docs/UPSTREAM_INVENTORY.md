@@ -9,7 +9,7 @@ assets, models, or behavior is included in BabelLeaf.
 | Component | Source / revision | License recorded in source | BabelLeaf use |
 | --- | --- | --- | --- |
 | [Readest](https://github.com/readest/readest) | `8c212e5b8b019e40e162a7e20cb90f336a308f13` | AGPL-3.0-or-later | Active React/Next.js + Tauri v2 application and reading baseline |
-| [Koodo Reader](https://github.com/koodo-reader/koodo-reader) | BabelLeaf baseline `93bd8ebbc613906ca730717dfa3261e2ea93327d` | AGPL-3.0 | Historical Electron baseline retained in branch `codex/koodo-baseline` and Git history; not the current tree |
+| [Koodo Reader](https://github.com/koodo-reader/koodo-reader) | BabelLeaf baseline `93bd8ebbc613906ca730717dfa3261e2ea93327d` | AGPL-3.0 | Historical Electron baseline retained in main Git history; not the current tree |
 
 The baseline migration merge is `2bc0b11d`. Readest and Koodo remotes are
 configured as read-only upstreams for review; BabelLeaf publishes to

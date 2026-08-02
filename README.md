@@ -169,8 +169,8 @@ launch, and uninstall the package in a clean Windows user or virtual machine.
 The active tree derives from
 [Readest](https://github.com/readest/readest) commit
 `8c212e5b8b019e40e162a7e20cb90f336a308f13`. Migration merge `2bc0b11d`
-preserves the earlier BabelLeaf/Koodo history. The last Koodo baseline remains
-reachable on branch `codex/koodo-baseline` at
+preserves the earlier BabelLeaf/Koodo history. The pre-Readest BabelLeaf/Koodo
+baseline remains reachable in main history at
 `93bd8ebbc613906ca730717dfa3261e2ea93327d`.
 
 Koodo is a cross-platform Electron desktop reader; it was not rejected as

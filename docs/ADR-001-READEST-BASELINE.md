@@ -12,7 +12,7 @@ defined. The scope has since become more specific:
 - local file import rather than an online catalog or scraping workflow;
 - local library state without accounts or cloud synchronization in the near
   term;
-- user-configured large-language-model translation as the only intended
+- explicit DeepSeek V4 or loopback Ollama translation as the only intended
   external network feature;
 - text books first, followed by a desktop-first comic OCR and typesetting
   workflow;
@@ -41,13 +41,12 @@ Use Readest commit
 `8c212e5b8b019e40e162a7e20cb90f336a308f13` as the current application
 baseline.
 
-The migration was established on branch `codex/readest-migration` with merge
-commit `2bc0b11d`. The merge preserves both source histories while keeping the
-Readest tree as the working tree for the new baseline.
+The migration was established with merge commit `2bc0b11d`. The merge preserves
+both source histories while keeping the Readest tree as the working tree for
+the new baseline.
 
 Keep the pre-migration Koodo state reachable through:
 
-- branch `codex/koodo-baseline`;
 - commit `93bd8ebbc613906ca730717dfa3261e2ea93327d`;
 - the second-parent history of the migration merge.
 

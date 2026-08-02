@@ -133,7 +133,7 @@ NSIS 安装包内含 WebView2 离线安装程序。Tauri 也会将网页资源�
 
 ## 源码历史
 
-当前代码树源自 [Readest](https://github.com/readest/readest) 提交 `8c212e5b8b019e40e162a7e20cb90f336a308f13`。迁移合并提交 `2bc0b11d` 保留了 BabelLeaf 早期基于 Koodo 的历史。最后一个 Koodo 基线仍保存在分支 `codex/koodo-baseline`，对应提交 `93bd8ebbc613906ca730717dfa3261e2ea93327d`。
+当前代码树源自 [Readest](https://github.com/readest/readest) 提交 `8c212e5b8b019e40e162a7e20cb90f336a308f13`。迁移合并提交 `2bc0b11d` 保留了 BabelLeaf 早期基于 Koodo 的历史。迁移前的 BabelLeaf/Koodo 基线仍可在 main 历史中通过提交 `93bd8ebbc613906ca730717dfa3261e2ea93327d` 找到。
 
 Koodo 是跨平台 Electron 桌面阅读器，并非仅支持 Windows。项目选择 Readest，是因为其 Tauri v2 结构为桌面端和移动端共享应用提供了更直接的演进路径。
 
