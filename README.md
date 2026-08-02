@@ -110,6 +110,21 @@ pnpm install --frozen-lockfile
 pnpm --filter @readest/readest-app setup-vendors
 ```
 
+### Local workspace cleanup
+
+Development builds create large, ignored directories such as `target/`,
+`node_modules/`, `.next/`, `out/`, `public/vendor/`, and ignored generated
+subdirectories under `src-tauri/gen/`. They are reproducible and may be
+removed when disk space is needed. Do not delete the tracked mobile scaffolding
+files under `src-tauri/gen/`. The optional `.upstream/` directory is only a
+disposable local research mirror.
+After removing dependencies or vendor assets, restore them with:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter @readest/readest-app setup-vendors
+```
+
 The internal workspace package and Rust library retain several upstream
 Readest identifiers for compatibility. User-visible product identity, bundle
 IDs, credential namespaces, and release configuration use BabelLeaf.

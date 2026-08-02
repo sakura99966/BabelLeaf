@@ -38,10 +38,11 @@ release.
 
 ## Local evaluation mirrors
 
-The ignored `.upstream/` directory contains shallow/local source mirrors used
-for architecture and license evaluation. They are not committed, are not
-submodules, and are not evidence that a GitHub fork exists. A new checkout is
-not expected to contain them.
+When present, the ignored `.upstream/` directory contains shallow/local source
+mirrors used for architecture and license evaluation. They are not committed,
+are not submodules, and are not evidence that a GitHub fork exists. They are
+disposable local research data rather than build input, so a new checkout is
+not expected to contain them and they may be deleted after evaluation.
 
 | Repository | Local evaluation snapshot | License recorded in that snapshot | Evaluation purpose | Integration state |
 | --- | --- | --- | --- | --- |

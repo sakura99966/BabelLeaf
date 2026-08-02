@@ -86,6 +86,20 @@ pnpm install --frozen-lockfile
 pnpm --filter @readest/readest-app setup-vendors
 ```
 
+### 清理本地工作目录
+
+开发和构建会产生 `target/`、`node_modules/`、`.next/`、`out/`、
+`public/vendor/` 以及 `src-tauri/gen/` 下的忽略生成子目录。这些内容均可重新生成，
+磁盘空间不足时可以删除。`src-tauri/gen/` 中受版本控制的移动端脚手架文件不得删除。
+可选的 `.upstream/` 仅用于本地源码评估，也可在评估结束后删除。
+
+删除依赖或供应商资源后，使用以下命令恢复：
+
+```bash
+pnpm install --frozen-lockfile
+pnpm --filter @readest/readest-app setup-vendors
+```
+
 为减少上游兼容性风险，内部 workspace 包名和 Rust 库仍保留部分 Readest 标识。用户可见产品名称、Bundle ID、凭据命名空间和发布配置均使用 BabelLeaf。
 
 启动桌面应用：

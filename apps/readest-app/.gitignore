@@ -41,6 +41,8 @@ Entitlements*.plist
 
 # local confs
 tauri.*.conf.json
+# This configuration is used by the tracked Windows installer smoke-test scripts.
+!src-tauri/tauri.windows.smoke.conf.json
 
 # vercel
 .vercel
