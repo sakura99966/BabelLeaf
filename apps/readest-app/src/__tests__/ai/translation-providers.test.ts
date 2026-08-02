@@ -22,6 +22,17 @@ import {
   DeepSeekProvider,
 } from '@/services/ai/providers/DeepSeekProvider';
 import { OllamaProvider } from '@/services/ai/providers/OllamaProvider';
+import {
+  ANTHROPIC_API_BASE_URL,
+  ANTHROPIC_API_VERSION,
+  ANTHROPIC_TRANSLATION_MODEL,
+  AnthropicProvider,
+} from '@/services/ai/providers/AnthropicProvider';
+import {
+  OPENAI_API_BASE_URL,
+  OPENAI_TRANSLATION_MODEL,
+  OpenAIProvider,
+} from '@/services/ai/providers/OpenAIProvider';
 import type { AISettings } from '@/services/ai/types';
 
 describe('translation-only AI providers', () => {
@@ -93,6 +104,53 @@ describe('translation-only AI providers', () => {
       `${DEEPSEEK_API_BASE_URL}/models`,
       expect.objectContaining({
         headers: { Authorization: 'Bearer secret' },
+      }),
+    );
+  });
+
+  test('OpenAI uses the fixed official endpoint and pinned translation model', async () => {
+    const provider = new OpenAIProvider({
+      ...DEFAULT_AI_SETTINGS,
+      provider: 'openai',
+      openaiApiKey: 'secret',
+    });
+
+    expect(provider.name).toBe('OpenAI');
+    expect(createOpenAICompatible).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'openai',
+        baseURL: OPENAI_API_BASE_URL,
+        apiKey: 'secret',
+      }),
+    );
+    provider.getModel();
+    expect(chatModel).toHaveBeenCalledWith(OPENAI_TRANSLATION_MODEL);
+  });
+
+  test('Anthropic sends the Messages API request without exposing a custom endpoint', async () => {
+    const provider = new AnthropicProvider({
+      ...DEFAULT_AI_SETTINGS,
+      provider: 'anthropic',
+      anthropicApiKey: 'secret',
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ content: [{ type: 'text', text: '译文' }] }),
+    });
+
+    await expect(provider.generateText({ system: 'system', prompt: 'Hello' })).resolves.toBe(
+      '译文',
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${ANTHROPIC_API_BASE_URL}/v1/messages`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'x-api-key': 'secret',
+          'anthropic-version': ANTHROPIC_API_VERSION,
+        }),
+        body: expect.stringContaining(ANTHROPIC_TRANSLATION_MODEL),
       }),
     );
   });

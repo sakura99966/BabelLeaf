@@ -10,6 +10,8 @@ const makeSettings = (): SystemSettings =>
       ollamaBaseUrl: 'http://127.0.0.1:11434',
       ollamaModel: 'qwen2.5',
       deepseekApiKey: 'must-not-reach-disk',
+      openaiApiKey: 'openai-secret',
+      anthropicApiKey: 'anthropic-secret',
       openrouterApiKey: 'legacy-secret',
       openrouterBaseUrl: 'https://legacy.example.test/v1',
       openrouterModel: 'legacy-model',
@@ -23,6 +25,8 @@ describe('settings persistence', () => {
     const sanitized = sanitizeSettingsForPersistence(settings);
 
     expect(sanitized.aiSettings.deepseekApiKey).toBeUndefined();
+    expect(sanitized.aiSettings.openaiApiKey).toBeUndefined();
+    expect(sanitized.aiSettings.anthropicApiKey).toBeUndefined();
     expect(sanitized.aiSettings.openrouterApiKey).toBeUndefined();
     expect(sanitized.aiSettings.openrouterBaseUrl).toBeUndefined();
     expect(sanitized.aiSettings.openrouterModel).toBeUndefined();
@@ -41,6 +45,8 @@ describe('settings persistence', () => {
       [unknown, unknown, unknown]
     >) {
       expect(String(json)).not.toContain('must-not-reach-disk');
+      expect(String(json)).not.toContain('openai-secret');
+      expect(String(json)).not.toContain('anthropic-secret');
       expect(String(json)).not.toContain('legacy-secret');
       expect(String(json)).not.toContain('legacy.example.test');
     }

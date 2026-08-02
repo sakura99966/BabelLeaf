@@ -42,6 +42,8 @@ export const BACKUP_SETTINGS_BLACKLIST = [
  */
 export const BACKUP_SETTINGS_CREDENTIAL_FIELDS = [
   'aiSettings.deepseekApiKey',
+  'aiSettings.openaiApiKey',
+  'aiSettings.anthropicApiKey',
   'aiSettings.openrouterApiKey',
 ] as const;
 

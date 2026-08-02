@@ -7,26 +7,28 @@ workflow. Its purpose is to translate selected text and reader-level content
 without adding an account system, synchronization service, or generic remote
 gateway.
 
-### DeepSeek V4 setup and execution
+### Named provider setup and execution
 
-1. The user selects **DeepSeek V4** in the AI Translation settings panel.
-2. The user enters only a DeepSeek API key. BabelLeaf stores the key in the
-   platform secure store on native builds and does not write it to ordinary
-   settings files, backups, logs, or translation caches.
-3. BabelLeaf uses the fixed official API endpoint
-   `https://api.deepseek.com` and the built-in `deepseek-v4-flash` translation
-   model. Neither value is user-editable in the current release.
+1. The user selects a named provider in the AI Translation settings panel:
+   **DeepSeek V4**, **OpenAI**, **Anthropic Claude**, or local **Ollama**.
+2. Cloud providers require only their API key. BabelLeaf stores each key in a
+   provider-specific platform secure-store namespace and does not write keys to
+   ordinary settings files, backups, logs, or translation caches.
+3. Cloud provider endpoints and default translation models are application
+   controlled. The user cannot enter an arbitrary URL or model. Ollama remains
+   the only user-configured endpoint and is restricted to HTTP loopback.
 4. Selecting text and opening the translation popup immediately submits the
    translation request. The popup displays the returned translation or a
-   direct failure message; the user does not enter a prompt, URL, or model.
+   direct failure message; the user does not enter a prompt or endpoint.
 5. Every request includes the product-owned literary translation instruction:
    preserve meaning, tone, paragraph structure, names, formatting, and
    punctuation; return only the translation without explanations or Markdown.
 
-The current implementation uses DeepSeek's OpenAI-compatible API format. A
-legacy custom OpenAI-compatible API key is never migrated to DeepSeek, because
-doing so could send a credential intended for another service to the DeepSeek
-endpoint.
+The DeepSeek and OpenAI adapters use an OpenAI-compatible chat protocol. The
+Anthropic adapter uses the Messages API protocol and its provider-specific
+headers. A legacy custom OpenAI-compatible API key is never migrated to any
+named provider, because doing so could send a credential intended for another
+service to the wrong endpoint.
 
 ### Local alternative
 
@@ -34,11 +36,10 @@ Ollama remains an optional local provider. Its URL is constrained to loopback
 origins by the native capability policy. It requires a local server and model;
 it does not require a BabelLeaf-managed cloud account.
 
-## Future provider architecture
+## Provider adapter contract
 
-OpenAI, Anthropic Claude, and any later providers will be added through named
-provider adapters. Each adapter must define all of the following in the
-application:
+Any later provider must be added through a named provider adapter. Each
+adapter must define all of the following in the application:
 
 - the official API base address and protocol adapter;
 - a vetted default translation model and the fixed system instruction;
@@ -54,11 +55,18 @@ credential semantics, and a provider-specific adapter prevents endpoint
 mistakes, reduces exposed network scope, and keeps mobile porting behavior
 consistent.
 
-## Out of scope for the current release
+## P1 foundation and remaining product work
+
+The repository now contains a versioned local translation-artifact schema and a
+bounded, pauseable, cancellable chapter/book job queue. These services are
+platform-neutral foundations; they are not yet wired to a reader-side batch
+screen or an aligned bilingual renderer.
+
+The following end-user features remain out of scope for the current release:
 
 - manual prompt editing and arbitrary endpoint/model fields;
 - automatic background translation;
-- chapter or full-book batch translation;
+- chapter or full-book batch translation workflow;
 - bilingual aligned layouts, translation memory, glossary editing, and human
   review;
 - scanned-PDF OCR translation and comic text detection, cleanup, and

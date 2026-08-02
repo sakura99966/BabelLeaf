@@ -19,6 +19,8 @@ const makeSettings = (overrides: Partial<SystemSettings> = {}): SystemSettings =
       ollamaBaseUrl: 'http://127.0.0.1:11434',
       ollamaModel: 'qwen2.5',
       deepseekApiKey: 'secret',
+      openaiApiKey: 'openai-secret',
+      anthropicApiKey: 'anthropic-secret',
     },
     ...overrides,
   }) as SystemSettings;
@@ -37,12 +39,16 @@ describe('portable local settings backup', () => {
     expect(output.version).toBeUndefined();
     expect(output.migrationVersion).toBeUndefined();
     expect(output.aiSettings.deepseekApiKey).toBeUndefined();
+    expect(output.aiSettings.openaiApiKey).toBeUndefined();
+    expect(output.aiSettings.anthropicApiKey).toBeUndefined();
   });
 
   test('never includes the translation key', () => {
     const output = sanitizeSettingsForBackup(makeSettings());
 
     expect(output.aiSettings.deepseekApiKey).toBeUndefined();
+    expect(output.aiSettings.openaiApiKey).toBeUndefined();
+    expect(output.aiSettings.anthropicApiKey).toBeUndefined();
   });
 
   test('preserves current device paths while restoring portable preferences', () => {

@@ -310,3 +310,29 @@ jobs:
           path: apps/readest-app/artifacts/windows-installer-smoke/
           if-no-files-found: ignore
           retention-days: 7
+
+  ci_gate:
+    name: required-checks
+    if: ${{ always() }}
+    needs: [rust_lint, check_app, test_app, build_tauri_app, windows_installer_smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: verify required job results
+        env:
+          RUST_LINT_RESULT: ${{ needs.rust_lint.result }}
+          CHECK_APP_RESULT: ${{ needs.check_app.result }}
+          TEST_APP_RESULT: ${{ needs.test_app.result }}
+          BUILD_TAURI_RESULT: ${{ needs.build_tauri_app.result }}
+          WINDOWS_SMOKE_RESULT: ${{ needs.windows_installer_smoke.result }}
+        run: |
+          # rust_lint is intentionally allowed to skip when no native files changed.
+          if [ "$RUST_LINT_RESULT" != "success" ] && [ "$RUST_LINT_RESULT" != "skipped" ]; then
+            echo "rust_lint: $RUST_LINT_RESULT"
+            exit 1
+          fi
+          for result in "$CHECK_APP_RESULT" "$TEST_APP_RESULT" "$BUILD_TAURI_RESULT" "$WINDOWS_SMOKE_RESULT"; do
+            if [ "$result" != "success" ]; then
+              echo "required job result: $result"
+              exit 1
+            fi
+          done

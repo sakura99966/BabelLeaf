@@ -1,7 +1,18 @@
 import type { TranslationProvider } from '../types';
-import { deepSeekTranslator, ollamaTranslator, type LLMTranslatorName } from './llm';
+import {
+  anthropicTranslator,
+  deepSeekTranslator,
+  ollamaTranslator,
+  openAITranslator,
+  type LLMTranslatorName,
+} from './llm';
 
-const availableTranslators = [deepSeekTranslator, ollamaTranslator] as const;
+const availableTranslators = [
+  deepSeekTranslator,
+  openAITranslator,
+  anthropicTranslator,
+  ollamaTranslator,
+] as const;
 
 export type TranslatorName = LLMTranslatorName;
 

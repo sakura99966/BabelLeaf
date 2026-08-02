@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { PiCheckCircle, PiSpinner, PiWarningCircle } from 'react-icons/pi';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -20,15 +20,37 @@ const AIPanel: React.FC = () => {
   const { envConfig } = useEnv();
   const { settings, setSettings, saveSettings } = useSettingsStore();
   const configured = { ...DEFAULT_AI_SETTINGS, ...settings.aiSettings };
-  const configuredProvider: ActiveAIProviderName =
-    configured.provider === 'ollama' ? 'ollama' : 'deepseek';
+  const configuredProvider: ActiveAIProviderName = [
+    'deepseek',
+    'ollama',
+    'openai',
+    'anthropic',
+  ].includes(configured.provider as ActiveAIProviderName)
+    ? (configured.provider as ActiveAIProviderName)
+    : 'deepseek';
 
   const [provider, setProvider] = useState<ActiveAIProviderName>(configuredProvider);
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState(configured.ollamaBaseUrl);
   const [ollamaModel, setOllamaModel] = useState(configured.ollamaModel);
-  const [apiKey, setApiKey] = useState(getTranslationApiKey());
+  const [apiKey, setApiKey] = useState(() =>
+    configuredProvider === 'deepseek' ||
+    configuredProvider === 'openai' ||
+    configuredProvider === 'anthropic'
+      ? getTranslationApiKey(configuredProvider)
+      : '',
+  );
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+
+  useEffect(() => {
+    setApiKey(
+      provider === 'deepseek' || provider === 'openai' || provider === 'anthropic'
+        ? getTranslationApiKey(provider)
+        : '',
+    );
+    setConnectionStatus('idle');
+    setErrorMessage('');
+  }, [provider]);
 
   const persist = useCallback(
     async (patch: Partial<AISettings>) => {
@@ -41,6 +63,8 @@ const AIPanel: React.FC = () => {
       // Credentials and retired custom-endpoint values are runtime-only and
       // must never be written to the regular settings file.
       delete nextAISettings.deepseekApiKey;
+      delete nextAISettings.openaiApiKey;
+      delete nextAISettings.anthropicApiKey;
       delete nextAISettings.openrouterApiKey;
       delete nextAISettings.openrouterBaseUrl;
       delete nextAISettings.openrouterModel;
@@ -61,8 +85,9 @@ const AIPanel: React.FC = () => {
   };
 
   const persistApiKey = async () => {
+    if (provider === 'ollama') return;
     try {
-      await saveTranslationApiKey(apiKey);
+      await saveTranslationApiKey(apiKey, provider);
       setConnectionStatus('idle');
       setErrorMessage('');
     } catch (error) {
@@ -81,7 +106,9 @@ const AIPanel: React.FC = () => {
         provider,
         ollamaBaseUrl: ollamaBaseUrl.trim(),
         ollamaModel: ollamaModel.trim(),
-        deepseekApiKey: apiKey.trim(),
+        deepseekApiKey: provider === 'deepseek' ? apiKey.trim() : undefined,
+        openaiApiKey: provider === 'openai' ? apiKey.trim() : undefined,
+        anthropicApiKey: provider === 'anthropic' ? apiKey.trim() : undefined,
       };
       const connected = await getAIProvider(testSettings).healthCheck();
       setConnectionStatus(connected ? 'success' : 'error');
@@ -96,7 +123,7 @@ const AIPanel: React.FC = () => {
     <div className='my-4 w-full space-y-6'>
       <BoxedList
         title={_('AI Translation')}
-        description={_('Configure built-in DeepSeek V4 translation or a local Ollama server.')}
+        description={_('Configure a named cloud translation provider or a local Ollama server.')}
         data-setting-id='settings.ai.provider'
       >
         <SettingsRow label={_('DeepSeek V4')} asLabel>
@@ -115,6 +142,24 @@ const AIPanel: React.FC = () => {
             className='radio'
             checked={provider === 'ollama'}
             onChange={() => selectProvider('ollama')}
+          />
+        </SettingsRow>
+        <SettingsRow label={_('OpenAI')} asLabel>
+          <input
+            type='radio'
+            name='translation-ai-provider'
+            className='radio'
+            checked={provider === 'openai'}
+            onChange={() => selectProvider('openai')}
+          />
+        </SettingsRow>
+        <SettingsRow label={_('Anthropic Claude')} asLabel>
+          <input
+            type='radio'
+            name='translation-ai-provider'
+            className='radio'
+            checked={provider === 'anthropic'}
+            onChange={() => selectProvider('anthropic')}
           />
         </SettingsRow>
       </BoxedList>
@@ -148,9 +193,15 @@ const AIPanel: React.FC = () => {
         </BoxedList>
       ) : (
         <BoxedList
-          title={_('DeepSeek V4')}
+          title={
+            provider === 'deepseek'
+              ? _('DeepSeek V4')
+              : provider === 'openai'
+                ? _('OpenAI')
+                : _('Anthropic Claude')
+          }
           description={_(
-            'BabelLeaf uses the official DeepSeek endpoint and a built-in translation model. Enter only your API key.',
+            'BabelLeaf uses the official provider endpoint and built-in translation model. Enter only your API key.',
           )}
         >
           <div className='flex flex-col gap-2 py-3 pe-4'>
@@ -162,11 +213,11 @@ const AIPanel: React.FC = () => {
               onChange={(event) => {
                 const value = event.target.value;
                 setApiKey(value);
-                setTranslationApiKeyForSession(value);
+                setTranslationApiKeyForSession(value, provider);
               }}
               onBlur={() => void persistApiKey()}
               autoComplete='off'
-              data-setting-id='settings.ai.deepseekApiKey'
+              data-setting-id={`settings.ai.${provider}ApiKey`}
             />
           </div>
         </BoxedList>

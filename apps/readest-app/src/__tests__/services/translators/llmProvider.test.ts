@@ -36,8 +36,13 @@ describe('LLM translation providers', () => {
     generateText.mockResolvedValueOnce({ text: '你好' }).mockResolvedValueOnce({ text: '世界' });
   });
 
-  it('exposes DeepSeek V4 and local Ollama translators', () => {
-    expect(getTranslators().map((provider) => provider.name)).toEqual(['deepseek', 'ollama']);
+  it('exposes named cloud adapters and local Ollama', () => {
+    expect(getTranslators().map((provider) => provider.name)).toEqual([
+      'deepseek',
+      'openai',
+      'anthropic',
+      'ollama',
+    ]);
   });
 
   it('translates with the selected DeepSeek V4 model while preserving blank inputs', async () => {
@@ -70,5 +75,14 @@ describe('LLM translation providers', () => {
 
     expect(isTranslatorAvailable(getTranslator('deepseek')!)).toBe(false);
     expect(isTranslatorAvailable(getTranslator('ollama')!)).toBe(true);
+  });
+
+  it('requires a provider-specific key for OpenAI and Anthropic', () => {
+    getSettings.mockReturnValue({ aiSettings: { provider: 'openai' } });
+    getTranslationApiKey.mockReturnValue('');
+    expect(isTranslatorAvailable(getTranslator('openai')!)).toBe(false);
+
+    getSettings.mockReturnValue({ aiSettings: { provider: 'anthropic' } });
+    expect(isTranslatorAvailable(getTranslator('anthropic')!)).toBe(false);
   });
 });

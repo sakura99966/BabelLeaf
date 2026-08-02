@@ -23,7 +23,7 @@ import {
   DEFAULT_VIEW_SETTINGS_CONFIG,
 } from './constants';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
-import { loadTranslationApiKey } from './ai/translationApiKey';
+import { loadTranslationApiKeys } from './ai/translationApiKey';
 import { getTargetLang, isCJKEnv } from '@/utils/misc';
 import { safeLoadJSON, safeSaveJSON } from './persistence';
 
@@ -151,20 +151,21 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
         settings.aiSettings.openrouterBaseUrl ||
         settings.aiSettings.openrouterModel,
     );
-  const hasUnsupportedAIProvider =
-    settings.aiSettings.provider !== 'deepseek' && settings.aiSettings.provider !== 'ollama';
+  const hasUnsupportedAIProvider = !new Set(['deepseek', 'ollama', 'openai', 'anthropic']).has(
+    settings.aiSettings.provider,
+  );
   if (hasUnsupportedAIProvider) {
     // A key configured for an arbitrary endpoint must not be reused against
     // DeepSeek. The user explicitly enters a DeepSeek key after the upgrade.
     settings.aiSettings.provider = 'deepseek';
   }
-  await loadTranslationApiKey();
+  await loadTranslationApiKeys();
   settings = sanitizeSettingsForPersistence(settings);
   if (hasLegacyCustomProviderSettings || hasUnsupportedAIProvider) {
     await safeSaveJSON(ctx.fs, SETTINGS_FILENAME, 'Settings', settings);
   }
 
-  const supportedTranslationProviders = new Set(['deepseek', 'ollama']);
+  const supportedTranslationProviders = new Set(['deepseek', 'ollama', 'openai', 'anthropic']);
   if (!supportedTranslationProviders.has(settings.globalReadSettings.translationProvider)) {
     settings.globalReadSettings.translationProvider = 'deepseek';
   }
@@ -193,6 +194,8 @@ export function sanitizeSettingsForPersistence(settings: SystemSettings): System
     },
   };
   delete sanitized.aiSettings.deepseekApiKey;
+  delete sanitized.aiSettings.openaiApiKey;
+  delete sanitized.aiSettings.anthropicApiKey;
   delete sanitized.aiSettings.openrouterApiKey;
   delete sanitized.aiSettings.openrouterBaseUrl;
   delete sanitized.aiSettings.openrouterModel;

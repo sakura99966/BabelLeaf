@@ -17,13 +17,15 @@ request that the user explicitly starts.
 A translation request may use only:
 
 - a loopback service such as Ollama; or
-- the built-in DeepSeek V4 preset at `https://api.deepseek.com`.
+- a named cloud preset at one of the following fixed official endpoints:
+  `https://api.deepseek.com`, `https://api.openai.com`, or
+  `https://api.anthropic.com`.
 
-The DeepSeek endpoint and translation model are application-controlled. The
-user supplies only the API key. When DeepSeek is selected, the text included in
-the request leaves the device and is governed by DeepSeek's terms and privacy
-policy. BabelLeaf does not initiate such traffic during startup, import, or
-ordinary reading.
+Cloud endpoints and translation models are application-controlled. The user
+supplies only the provider API key. When a cloud provider is selected, the text
+included in the request leaves the device and is governed by that provider's
+terms and privacy policy. BabelLeaf does not initiate such traffic during
+startup, import, or ordinary reading.
 
 ## Capability matrix
 
@@ -31,7 +33,7 @@ ordinary reading.
 | --- | --- |
 | Local document import and rendering | Allowed |
 | Local application assets and Tauri IPC | Allowed |
-| DeepSeek V4 or loopback Ollama translation | Allowed after explicit setup and user action |
+| DeepSeek V4, OpenAI, Anthropic Claude, or loopback Ollama translation | Allowed after explicit setup and user action |
 | Accounts and authentication | Denied |
 | Cloud file, progress, annotation, or settings synchronization | Denied |
 | OPDS/RSS catalogs, scraping, web clipping, and resource download | Denied |
@@ -51,9 +53,9 @@ paths.
 
 ## Translation transport requirements
 
-1. DeepSeek V4 is disabled until the user supplies its API key. The official
-   endpoint and default translation model are fixed in the application; no URL
-   or model entry is exposed.
+1. Each cloud preset is disabled until the user supplies its provider API key.
+   Its official endpoint and default translation model are fixed in the
+   application; no URL or model entry is exposed.
 2. Ollama is available only through an explicitly configured loopback URL and
    local model.
 3. Opening or importing a book must not send its content anywhere.
@@ -107,7 +109,7 @@ The current cleanup removes inherited implementations and entry points for:
 Automated contracts reject the return of key files, dependencies, native
 commands, permissions, identifiers, and fixed service endpoints.
 
-Tauri's HTTP and CSP permissions are restricted to the official DeepSeek API
+Tauri's HTTP and CSP permissions are restricted to the named official cloud APIs
 and loopback Ollama origins. Adding a provider requires a named adapter,
 fixed official endpoint configuration, provider-specific credential handling,
 tests, and an explicit capability review. A generic user-configured remote

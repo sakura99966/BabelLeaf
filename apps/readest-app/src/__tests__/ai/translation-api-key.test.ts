@@ -70,4 +70,20 @@ describe('translation API key storage', () => {
     expect(getTranslationApiKey()).toBe('');
     expect(bridge.setSecureItem).not.toHaveBeenCalled();
   });
+
+  test('keeps provider credentials in separate secure-store namespaces', async () => {
+    platform.tauri = true;
+
+    await saveTranslationApiKey('openai-secret', 'openai');
+    await saveTranslationApiKey('anthropic-secret', 'anthropic');
+
+    expect(bridge.setSecureItem).toHaveBeenNthCalledWith(1, {
+      key: 'babelleaf.translation.openai.api-key',
+      value: 'openai-secret',
+    });
+    expect(bridge.setSecureItem).toHaveBeenNthCalledWith(2, {
+      key: 'babelleaf.translation.anthropic.api-key',
+      value: 'anthropic-secret',
+    });
+  });
 });
