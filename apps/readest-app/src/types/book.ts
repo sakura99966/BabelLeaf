@@ -334,6 +334,10 @@ export interface TranslatorConfig {
   translateTargetLang: string;
   showTranslateSource: boolean;
   ttsReadAloudText: string;
+  /** Last logical page shown by the durable bilingual translation workbench. */
+  translationWorkbenchPage?: number;
+  /** Stable source segment selected for reader-side navigation. */
+  translationWorkbenchSegmentId?: string;
 }
 
 export interface NoteExportConfig {

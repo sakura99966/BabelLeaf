@@ -60,10 +60,15 @@ if ([string]::IsNullOrWhiteSpace($ArtifactsDirectory)) {
 }
 
 $isolatedProfileRoot = $null
+$isolatedInstallDirectory = $null
 if ($IsolatedProfile -and -not $PreflightOnly) {
     New-Item -ItemType Directory -Path $ArtifactsDirectory -Force | Out-Null
-    $artifactsRoot = (Resolve-Path -LiteralPath $ArtifactsDirectory).Path
-    $isolatedProfileRoot = Join-Path $artifactsRoot "profile-$([Guid]::NewGuid().ToString('N'))"
+    # NSIS resolves its `$LOCALAPPDATA` variable through the Windows shell,
+    # not through the environment variable overridden below. Keep the profile
+    # in the system temp directory and pass an explicit `/D` install path so
+    # the installer and this test use the same isolated location.
+    $isolatedProfileRoot = Join-Path $env:TEMP "BabelLeaf-installer-profile-$([Guid]::NewGuid().ToString('N'))"
+    $isolatedInstallDirectory = Join-Path $isolatedProfileRoot "install"
     New-Item -ItemType Directory -Path (Join-Path $isolatedProfileRoot "appdata") -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $isolatedProfileRoot "localappdata") -Force | Out-Null
     $env:APPDATA = Join-Path $isolatedProfileRoot "appdata"
@@ -77,6 +82,7 @@ $appLocalDataDirectory = Join-Path $env:LOCALAPPDATA $bundleIdentifier
 $sentinelPath = Join-Path $appConfigDirectory "installer-smoke-user-data.txt"
 
 $applicationProcess = $null
+$applicationPath = $null
 $installDirectory = $null
 $installationAttempted = $false
 $profileWasClean = $false
@@ -128,29 +134,49 @@ function Collect-FailureArtifacts {
 }
 
 function Stop-SmokeApplication {
-    if ($null -eq $script:applicationProcess) {
-        return
-    }
-
-    try {
-        $script:applicationProcess.Refresh()
-        if ($script:applicationProcess.HasExited) {
-            return
-        }
-
-        if ($script:applicationProcess.CloseMainWindow()) {
-            if ($script:applicationProcess.WaitForExit(10000)) {
-                return
+    if ($null -ne $script:applicationProcess) {
+        try {
+            $script:applicationProcess.Refresh()
+            if (-not $script:applicationProcess.HasExited) {
+                if ($script:applicationProcess.CloseMainWindow()) {
+                    $script:applicationProcess.WaitForExit(10000) | Out-Null
+                }
+                if (-not $script:applicationProcess.HasExited) {
+                    Stop-Process -Id $script:applicationProcess.Id -Force -ErrorAction Stop
+                    $script:applicationProcess.WaitForExit(10000) | Out-Null
+                }
+            }
+        } catch {
+            if (-not $script:applicationProcess.HasExited) {
+                throw
             }
         }
+    }
 
-        Stop-Process -Id $script:applicationProcess.Id -Force -ErrorAction Stop
-        $script:applicationProcess.WaitForExit(10000) | Out-Null
-    } catch {
-        if ($script:applicationProcess.HasExited) {
-            return
+    if (-not [string]::IsNullOrWhiteSpace($script:applicationPath)) {
+        # Tauri can leave a second process for the same executable while the
+        # main window process is closing. Stop every exact-path instance before
+        # invoking the NSIS uninstaller so the binary is not left behind.
+        for ($attempt = 0; $attempt -lt 10; $attempt++) {
+            $remaining = @(
+                Get-Process -ErrorAction SilentlyContinue | ForEach-Object {
+                    try {
+                        if ($_.Path -eq $script:applicationPath) {
+                            $_
+                        }
+                    } catch {
+                        # Protected/system processes may not expose Path.
+                    }
+                }
+            )
+            if ($remaining.Count -eq 0) {
+                break
+            }
+            foreach ($process in $remaining) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            }
+            Start-Sleep -Milliseconds 500
         }
-        throw
     }
 }
 
@@ -200,11 +226,21 @@ try {
     }
     $profileWasClean = $true
 
-    $installDirectory = Join-Path $env:LOCALAPPDATA $productName
+    if ($null -ne $isolatedInstallDirectory) {
+        $installDirectory = $isolatedInstallDirectory
+    } else {
+        $installDirectory = Join-Path $env:LOCALAPPDATA $productName
+    }
     $installationAttempted = $true
+    $installerArguments = @("/S", "/NS")
+    if ($null -ne $isolatedInstallDirectory) {
+        # `/D` must be the final NSIS argument. The temp path has no spaces,
+        # so it can be passed without quoting through Start-Process.
+        $installerArguments += "/D=$isolatedInstallDirectory"
+    }
     $installerProcess = Start-Process `
         -FilePath $installerPath `
-        -ArgumentList @("/S", "/NS") `
+        -ArgumentList $installerArguments `
         -Wait `
         -PassThru
     if ($installerProcess.ExitCode -ne 0) {

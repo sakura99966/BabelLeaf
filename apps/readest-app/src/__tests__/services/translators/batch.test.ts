@@ -1,4 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { DocumentLoader } from '@/libs/document';
 import type { BookDoc } from '@/libs/document';
 import type { FileSystem } from '@/types/system';
 import {
@@ -56,6 +59,28 @@ const makeBook = (): BookDoc =>
   }) as BookDoc;
 
 describe('translation batch services', () => {
+  test('extracts stable segments from the real EPUB and TXT fixtures', async () => {
+    const fixture = async (name: string, type: string) => {
+      const bytes = readFileSync(resolve(__dirname, '../../fixtures/data', name));
+      return (await new DocumentLoader(new File([bytes], name, { type })).open()).book;
+    };
+
+    const epubItems = await extractTranslationItems(
+      await fixture('sample-alice.epub', 'application/epub+zip'),
+      { maxSegments: 40 },
+    );
+    const txtItems = await extractTranslationItems(
+      await fixture('sample-alice.txt', 'text/plain'),
+      { maxSegments: 40 },
+    );
+
+    expect(epubItems.length).toBeGreaterThan(0);
+    expect(txtItems.length).toBeGreaterThan(0);
+    expect(epubItems.every((item) => item.sourceLocator?.startsWith('epubcfi('))).toBe(true);
+    expect(txtItems.every((item) => item.sourceLocator?.startsWith('epubcfi('))).toBe(true);
+    expect(txtItems.some((item) => item.text.includes('Alice'))).toBe(true);
+  }, 30000);
+
   test('extracts stable bounded chapter segments and skips non-linear sections', async () => {
     const items = await extractTranslationItems(makeBook());
     const chapterItems = await extractTranslationItems(makeBook(), { sectionIndices: [0] });

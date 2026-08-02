@@ -9,9 +9,21 @@ interface BilingualTranslationViewProps {
   previousLabel: string;
   nextLabel: string;
   layout?: 'stacked' | 'columns';
+  locateLabel?: string;
+  initialPage?: number;
+  pageKey?: string;
+  selectedPairId?: string;
+  onPageChange?: (page: number) => void;
+  onLocatePair?: (pair: BilingualTranslationPair) => void;
 }
 
-const PAIRS_PER_PAGE = 100;
+export const BILINGUAL_PAIRS_PER_PAGE = 100;
+
+export const getBilingualPageCount = (pairCount: number): number =>
+  Math.max(1, Math.ceil(Math.max(0, pairCount) / BILINGUAL_PAIRS_PER_PAGE));
+
+export const clampBilingualPage = (page: number, pageCount: number): number =>
+  Math.max(0, Math.min(Math.max(0, pageCount - 1), Math.floor(Number.isFinite(page) ? page : 0)));
 
 /** Render aligned source/translation pairs without modifying the source book. */
 const BilingualTranslationView: React.FC<BilingualTranslationViewProps> = ({
@@ -22,33 +34,69 @@ const BilingualTranslationView: React.FC<BilingualTranslationViewProps> = ({
   previousLabel,
   nextLabel,
   layout = 'stacked',
+  locateLabel,
+  initialPage = 0,
+  pageKey = 'default',
+  selectedPairId,
+  onPageChange,
+  onLocatePair,
 }) => {
-  const [page, setPage] = useState(0);
+  const pageCount = getBilingualPageCount(pairs.length);
+  const [page, setPage] = useState(() => clampBilingualPage(initialPage, pageCount));
 
   useEffect(() => {
-    setPage(0);
-  }, [pairs.length, pairs[0]?.id]);
+    setPage(clampBilingualPage(initialPage, pageCount));
+  }, [initialPage, pageCount, pageKey]);
+
+  useEffect(() => {
+    setPage((current) => {
+      const clamped = clampBilingualPage(current, pageCount);
+      if (clamped !== current) onPageChange?.(clamped);
+      return clamped;
+    });
+  }, [onPageChange, pageCount]);
 
   if (pairs.length === 0) {
     return <p className='text-base-content/60 py-4 text-sm'>{emptyLabel}</p>;
   }
 
-  const pageCount = Math.ceil(pairs.length / PAIRS_PER_PAGE);
-  const visiblePairs = pairs.slice(page * PAIRS_PER_PAGE, (page + 1) * PAIRS_PER_PAGE);
+  const visiblePairs = pairs.slice(
+    page * BILINGUAL_PAIRS_PER_PAGE,
+    (page + 1) * BILINGUAL_PAIRS_PER_PAGE,
+  );
+  const changePage = (nextPage: number) => {
+    const next = clampBilingualPage(nextPage, pageCount);
+    setPage(next);
+    onPageChange?.(next);
+  };
 
   return (
     <div className='space-y-3'>
       {visiblePairs.map((pair) => (
         <article
           key={pair.id}
-          className={
+          data-translation-segment-id={pair.id}
+          data-source-locator={pair.sourceLocator}
+          className={`${
             layout === 'columns'
               ? 'grid gap-3 rounded-lg border border-base-300 p-3 sm:grid-cols-2'
               : 'rounded-lg border border-base-300 p-3'
-          }
+          }${selectedPairId === pair.id ? ' ring-2 ring-primary/50' : ''}`}
         >
           <div className='min-w-0'>
-            <div className='text-base-content/60 mb-1 text-xs'>{sourceLabel}</div>
+            <div className='text-base-content/60 mb-1 flex items-center justify-between gap-2 text-xs'>
+              <span>{sourceLabel}</span>
+              {onLocatePair && (
+                <button
+                  type='button'
+                  className='btn btn-ghost btn-xs'
+                  onClick={() => onLocatePair(pair)}
+                  disabled={!pair.sourceLocator}
+                >
+                  {locateLabel}
+                </button>
+              )}
+            </div>
             <p className='whitespace-pre-wrap break-words text-sm' lang={pair.sourceLang}>
               {pair.sourceText}
             </p>
@@ -66,7 +114,7 @@ const BilingualTranslationView: React.FC<BilingualTranslationViewProps> = ({
           <button
             type='button'
             className='btn btn-ghost btn-sm'
-            onClick={() => setPage((current) => Math.max(0, current - 1))}
+            onClick={() => changePage(page - 1)}
             disabled={page === 0}
             aria-label={previousLabel}
           >
@@ -78,7 +126,7 @@ const BilingualTranslationView: React.FC<BilingualTranslationViewProps> = ({
           <button
             type='button'
             className='btn btn-ghost btn-sm'
-            onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+            onClick={() => changePage(page + 1)}
             disabled={page === pageCount - 1}
             aria-label={nextLabel}
           >

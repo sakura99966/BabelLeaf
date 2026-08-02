@@ -5,6 +5,7 @@ import { useFileSelector } from '@/hooks/useFileSelector';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
 import { getLocale } from '@/utils/misc';
+import { saveViewSettings } from '@/helpers/settings';
 import Dialog from '@/components/Dialog';
 import BilingualTranslationView from './BilingualTranslationView';
 import {
@@ -18,6 +19,7 @@ import {
   toBilingualTranslationResult,
   TRANSLATION_PROMPT_VERSION,
   TranslationArtifactStore,
+  type BilingualTranslationPair,
   type TranslationArtifact,
   type TranslationJobKind,
   type TranslationJobSnapshot,
@@ -39,9 +41,9 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   onClose,
 }) => {
   const _ = useTranslation();
-  const { appService } = useEnv();
+  const { appService, envConfig } = useEnv();
   const { getBookData } = useBookDataStore();
-  const { getViewSettings } = useReaderStore();
+  const { getView, getViewSettings } = useReaderStore();
   const { selectFiles } = useFileSelector(appService, _);
   const bookData = getBookData(bookKey);
   const viewSettings = getViewSettings(bookKey);
@@ -62,6 +64,9 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   const [chapterIndex, setChapterIndex] = useState(0);
   const [loadingArtifact, setLoadingArtifact] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPairId, setSelectedPairId] = useState<string | undefined>(
+    viewSettings?.translationWorkbenchSegmentId,
+  );
 
   const resetController = useCallback(() => {
     unsubscribeRef.current?.();
@@ -109,6 +114,11 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     },
     [],
   );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedPairId(viewSettings?.translationWorkbenchSegmentId);
+  }, [bookHash, isOpen, provider, targetLang, viewSettings?.translationWorkbenchSegmentId]);
 
   const handleStart = async () => {
     if (!artifact || !bookData?.bookDoc || controllerRef.current) return;
@@ -222,6 +232,41 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     if (!saved) setError(_('Unable to save file'));
   };
 
+  const persistWorkbenchPage = useCallback(
+    (page: number) => {
+      void saveViewSettings(
+        envConfig,
+        bookKey,
+        'translationWorkbenchPage',
+        page,
+        true,
+        false,
+      ).catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      });
+    },
+    [bookKey, envConfig],
+  );
+
+  const handleLocatePair = useCallback(
+    (pair: BilingualTranslationPair) => {
+      if (!pair.sourceLocator) return;
+      getView(bookKey)?.goTo(pair.sourceLocator);
+      setSelectedPairId(pair.id);
+      void saveViewSettings(
+        envConfig,
+        bookKey,
+        'translationWorkbenchSegmentId',
+        pair.id,
+        true,
+        false,
+      ).catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      });
+    },
+    [bookKey, envConfig, getView],
+  );
+
   const bilingual = artifact ? toBilingualTranslationResult(artifact) : null;
   const sections = bookData?.bookDoc?.sections ?? [];
   const running = snapshot?.status === 'running' || snapshot?.status === 'queued';
@@ -334,6 +379,12 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
             previousLabel={_('Previous')}
             nextLabel={_('Next')}
             layout='columns'
+            locateLabel={_('Locate')}
+            initialPage={viewSettings?.translationWorkbenchPage ?? 0}
+            pageKey={`${bookHash}:${provider}:${targetLang}`}
+            selectedPairId={selectedPairId}
+            onPageChange={persistWorkbenchPage}
+            onLocatePair={handleLocatePair}
           />
         )}
       </div>
