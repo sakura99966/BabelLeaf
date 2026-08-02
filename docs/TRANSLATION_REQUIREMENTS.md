@@ -55,20 +55,28 @@ credential semantics, and a provider-specific adapter prevents endpoint
 mistakes, reduces exposed network scope, and keeps mobile porting behavior
 consistent.
 
-## P1 foundation and remaining product work
+## 0.2 delivered translation workflow
 
 The repository now contains a versioned local translation-artifact schema and a
-bounded, pauseable, cancellable chapter/book job queue. These services are
-platform-neutral foundations; they are not yet wired to a reader-side batch
-screen or an aligned bilingual renderer.
+bounded, pauseable, cancellable chapter/book job queue. Version 0.2 wires these
+services to a reader-side translation workbench opened from the reader view
+menu. The workbench extracts bounded text segments from supported text-bearing
+book sections, runs user-started translation with bounded concurrency, shows
+progress, supports pause/resume/cancel, and checkpoints completed or failed
+segments locally without changing the source document.
 
-The following end-user features remain out of scope for the current release:
+The workbench also renders completed source/translation pairs in an aligned
+bilingual layout and supports portable JSON sidecar export/import. Sidecars
+are validated against the current book hash, provider, and target language;
+they contain no API keys. The existing reader translation toggle remains the
+low-latency viewport workflow, while the workbench is the durable chapter/book
+workflow.
+
+The following end-user features remain out of scope for the 0.2 release:
 
 - manual prompt editing and arbitrary endpoint/model fields;
 - automatic background translation;
-- chapter or full-book batch translation workflow;
-- bilingual aligned layouts, translation memory, glossary editing, and human
-  review;
+- translation memory, glossary editing, and an interactive human-review editor;
 - scanned-PDF OCR translation and comic text detection, cleanup, and
   typesetting.
 

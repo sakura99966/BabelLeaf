@@ -1,8 +1,9 @@
-import type { FileSystem } from '@/types/system';
+import type { AppService, FileSystem } from '@/types/system';
 import { safeLoadJSON, safeSaveJSON } from '@/services/persistence';
 
 export const TRANSLATION_ARTIFACT_SCHEMA_VERSION = 1 as const;
 export const TRANSLATION_ARTIFACT_DIR = 'translation-artifacts';
+export const TRANSLATION_PROMPT_VERSION = 'translation-v1';
 
 export type TranslationSegmentStatus = 'pending' | 'translated' | 'reviewed' | 'failed';
 
@@ -36,6 +37,17 @@ export interface TranslationArtifactKey {
   bookHash: string;
   provider: string;
   targetLang: string;
+}
+
+/**
+ * The cache store is deliberately compatible with AppService. It uses only
+ * local text-file operations, so the same implementation works on desktop,
+ * mobile and the browser-backed development service.
+ */
+export interface TranslationArtifactStorage
+  extends Pick<FileSystem, 'createDir' | 'readFile' | 'writeFile' | 'exists'> {
+  removeFile?: FileSystem['removeFile'];
+  deleteFile?: AppService['deleteFile'];
 }
 
 const SEGMENT_STATUSES = new Set<TranslationSegmentStatus>([
@@ -181,7 +193,7 @@ export const getTranslationArtifactPath = (key: TranslationArtifactKey): string 
 
 /** Persistent local-only store. The Cache base keeps artifacts out of backups. */
 export class TranslationArtifactStore {
-  constructor(private readonly fs: FileSystem) {}
+  constructor(private readonly fs: TranslationArtifactStorage) {}
 
   async load(key: TranslationArtifactKey): Promise<TranslationArtifact | null> {
     const filename = getTranslationArtifactPath({ ...key });
@@ -197,7 +209,12 @@ export class TranslationArtifactStore {
   async remove(key: TranslationArtifactKey): Promise<void> {
     const filename = getTranslationArtifactPath({ ...key });
     for (const candidate of [filename, `${filename}.bak`]) {
-      if (await this.fs.exists(candidate, 'Cache')) await this.fs.removeFile(candidate, 'Cache');
+      if (!(await this.fs.exists(candidate, 'Cache'))) continue;
+      if (this.fs.removeFile) {
+        await this.fs.removeFile(candidate, 'Cache');
+      } else if (this.fs.deleteFile) {
+        await this.fs.deleteFile(candidate, 'Cache');
+      }
     }
   }
 }

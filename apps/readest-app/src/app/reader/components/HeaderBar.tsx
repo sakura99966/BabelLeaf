@@ -31,6 +31,7 @@ import SettingsToggler from './SettingsToggler';
 import TranslationToggler from './TranslationToggler';
 import ViewMenu from './ViewMenu';
 import SyncInfoDialog from './SyncInfoDialog';
+import TranslationWorkbenchDialog from './TranslationWorkbenchDialog';
 
 interface HeaderBarProps {
   bookKey: string;
@@ -74,6 +75,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMetaHashDialogOpen, setIsMetaHashDialogOpen] = useState(false);
+  const [isTranslationWorkbenchOpen, setIsTranslationWorkbenchOpen] = useState(false);
   const [headerWidth, setHeaderWidth] = useState(0);
   const view = getView(bookKey);
   const iconSize18 = useResponsiveSize(18);
@@ -294,6 +296,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             <ViewMenu
               bookKey={bookKey}
               onShowMetaHashDialog={() => setIsMetaHashDialogOpen(true)}
+              onOpenTranslationWorkbench={() => setIsTranslationWorkbenchOpen(true)}
             />
           </Dropdown>
           {isMetaHashDialogOpen && (
@@ -304,6 +307,15 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
                 storedMetaHash={bookData?.book?.metaHash}
                 lastSyncedAt={lastSyncedAt}
                 onClose={() => setIsMetaHashDialogOpen(false)}
+              />
+            </ModalPortal>
+          )}
+          {isTranslationWorkbenchOpen && (
+            <ModalPortal>
+              <TranslationWorkbenchDialog
+                bookKey={bookKey}
+                isOpen={isTranslationWorkbenchOpen}
+                onClose={() => setIsTranslationWorkbenchOpen(false)}
               />
             </ModalPortal>
           )}

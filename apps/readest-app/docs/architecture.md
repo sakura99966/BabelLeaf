@@ -117,8 +117,11 @@ selected reading unit, uses bounded concurrency, supports cancellation, and
 stores reusable output locally without storing the API key in the translation
 cache.
 
-Future chapter, book, and comic translation must use versioned sidecar data
-instead of overwriting source documents.
+Chapter and book translation uses versioned artifact data and portable sidecars
+instead of overwriting source documents. The 0.2 workbench extracts bounded
+text segments, runs an explicitly started pauseable/cancellable job, persists
+checkpoints locally, and renders aligned source/translation pairs. Comic OCR,
+image cleanup, and translated typesetting remain future work.
 
 ## Dictionaries and speech
 

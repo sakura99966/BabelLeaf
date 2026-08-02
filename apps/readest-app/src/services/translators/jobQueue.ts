@@ -11,6 +11,8 @@ export type TranslationJobItemStatus = 'pending' | 'running' | 'completed' | 'fa
 export interface TranslationJobItem {
   id: string;
   text: string;
+  chapterId?: string;
+  sourceLocator?: string;
   translatedText?: string;
   status: TranslationJobItemStatus;
   error?: string;
@@ -39,7 +41,10 @@ export interface TranslationJobInput {
   provider: string;
   sourceLang: string;
   targetLang: string;
-  items: Array<Pick<TranslationJobItem, 'id' | 'text'>>;
+  items: Array<
+    Pick<TranslationJobItem, 'id' | 'text'> &
+      Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator'>>
+  >;
   concurrency?: number;
 }
 

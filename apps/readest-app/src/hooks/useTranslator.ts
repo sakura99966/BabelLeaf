@@ -45,7 +45,7 @@ export function useTranslator({
   const translate = useCallback(
     async (
       input: string[],
-      options?: { source?: string; target?: string; useCache?: boolean },
+      options?: { source?: string; target?: string; useCache?: boolean; signal?: AbortSignal },
     ): Promise<string[]> => {
       const sourceLanguage = options?.source || sourceLang;
       const targetLanguage = options?.target || targetLang || getLocale();
@@ -98,6 +98,7 @@ export function useTranslator({
           textsNeedingTranslation,
           sourceLanguage,
           targetLanguage,
+          options?.signal,
         );
 
         await Promise.all(

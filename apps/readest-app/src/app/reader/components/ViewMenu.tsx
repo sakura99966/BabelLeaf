@@ -36,9 +36,14 @@ interface ViewMenuProps {
   bookKey: string;
   setIsDropdownOpen?: (open: boolean) => void;
   onShowMetaHashDialog?: () => void;
+  onOpenTranslationWorkbench?: () => void;
 }
 
-const ViewMenu: React.FC<ViewMenuProps> = ({ bookKey, setIsDropdownOpen }) => {
+const ViewMenu: React.FC<ViewMenuProps> = ({
+  bookKey,
+  setIsDropdownOpen,
+  onOpenTranslationWorkbench,
+}) => {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
   const { getBookData } = useBookDataStore();
@@ -84,6 +89,11 @@ const ViewMenu: React.FC<ViewMenuProps> = ({ bookKey, setIsDropdownOpen }) => {
     setIsDropdownOpen?.(false);
     setSettingsDialogBookKey(bookKey);
     setSettingsDialogOpen(true);
+  };
+
+  const openTranslationWorkbench = () => {
+    setIsDropdownOpen?.(false);
+    onOpenTranslationWorkbench?.();
   };
 
   const cycleThemeMode = () => {
@@ -340,6 +350,8 @@ const ViewMenu: React.FC<ViewMenuProps> = ({ bookKey, setIsDropdownOpen }) => {
       )}
 
       <MenuItem label={_('Font & Layout')} shortcut='Shift+F' onClick={openFontLayoutMenu} />
+
+      <MenuItem label={_('Translation')} onClick={openTranslationWorkbench} />
 
       <MenuItem
         label={_('Scrolled Mode')}
