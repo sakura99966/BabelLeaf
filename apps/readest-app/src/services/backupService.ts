@@ -41,6 +41,7 @@ export const BACKUP_SETTINGS_BLACKLIST = [
  * Runtime-only credential paths that must never enter an unencrypted backup.
  */
 export const BACKUP_SETTINGS_CREDENTIAL_FIELDS = [
+  'aiSettings.deepseekApiKey',
   'aiSettings.openrouterApiKey',
 ] as const;
 

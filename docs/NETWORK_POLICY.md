@@ -12,17 +12,18 @@ remain release gates.
 
 BabelLeaf accepts reading content through local import and stores application
 state locally. The only intended external network operation is a translation
-request that the user explicitly starts and sends to an endpoint the user
-configured.
+request that the user explicitly starts.
 
-A translation endpoint may be:
+A translation request may use only:
 
 - a loopback service such as Ollama; or
-- a remote OpenAI-compatible HTTPS service selected by the user.
+- the built-in DeepSeek V4 preset at `https://api.deepseek.com`.
 
-When a remote endpoint is used, the text included in that request leaves the
-device and is governed by the selected provider's terms and privacy policy.
-BabelLeaf does not implicitly trust or endorse a provider.
+The DeepSeek endpoint and translation model are application-controlled. The
+user supplies only the API key. When DeepSeek is selected, the text included in
+the request leaves the device and is governed by DeepSeek's terms and privacy
+policy. BabelLeaf does not initiate such traffic during startup, import, or
+ordinary reading.
 
 ## Capability matrix
 
@@ -30,7 +31,7 @@ BabelLeaf does not implicitly trust or endorse a provider.
 | --- | --- |
 | Local document import and rendering | Allowed |
 | Local application assets and Tauri IPC | Allowed |
-| User-configured LLM translation | Allowed after explicit setup and user action |
+| DeepSeek V4 or loopback Ollama translation | Allowed after explicit setup and user action |
 | Accounts and authentication | Denied |
 | Cloud file, progress, annotation, or settings synchronization | Denied |
 | OPDS/RSS catalogs, scraping, web clipping, and resource download | Denied |
@@ -50,24 +51,23 @@ paths.
 
 ## Translation transport requirements
 
-1. Translation is disabled until the user supplies the required endpoint,
-   model, and credentials.
-2. Opening or importing a book must not send its content anywhere.
-3. Only `http` and `https` endpoints are accepted. URL credentials and
-   unsupported schemes are rejected.
-4. Remote plain HTTP requires a clear warning. Loopback HTTP is permitted for
-   local services.
-5. Redirects must not silently forward credentials or text to another origin.
-6. Input and output sizes, timeouts, concurrency, retries, and cancellation
+1. DeepSeek V4 is disabled until the user supplies its API key. The official
+   endpoint and default translation model are fixed in the application; no URL
+   or model entry is exposed.
+2. Ollama is available only through an explicitly configured loopback URL and
+   local model.
+3. Opening or importing a book must not send its content anywhere.
+4. Redirects must not silently forward credentials or text to another origin.
+5. Input and output sizes, timeouts, concurrency, retries, and cancellation
    must be bounded.
-7. The interface must identify the reading unit being sent and whether the
-   endpoint is local or remote.
-8. API keys must use a BabelLeaf-specific secure-storage namespace and must not
+6. The interface must identify the reading unit being sent and whether the
+   provider is local or remote.
+7. API keys must use a BabelLeaf-specific secure-storage namespace and must not
    appear in ordinary settings, caches, logs, diagnostics, or exports.
-9. Translation output may be cached locally, but the original book must never
+8. Translation output may be cached locally, but the original book must never
    be overwritten.
-10. Provider failure must be reported directly. There is no inherited proxy or
-    automatic fallback provider.
+9. Provider failure must be reported directly. There is no inherited proxy or
+   automatic fallback provider.
 
 Future background chapter or full-book jobs require an explicit user-created
 job and remain subject to the same visibility, cancellation, and data-handling
@@ -107,11 +107,11 @@ The current cleanup removes inherited implementations and entry points for:
 Automated contracts reject the return of key files, dependencies, native
 commands, permissions, identifiers, and fixed service endpoints.
 
-Tauri's HTTP and CSP permissions must accept dynamic destinations because the
-translation endpoint is user-defined. That platform permission is not itself
-authorization for arbitrary feature code to access the network. The source
-tree, provider registry, settings model, and runtime tests collectively define
-the narrower boundary.
+Tauri's HTTP and CSP permissions are restricted to the official DeepSeek API
+and loopback Ollama origins. Adding a provider requires a named adapter,
+fixed official endpoint configuration, provider-specific credential handling,
+tests, and an explicit capability review. A generic user-configured remote
+endpoint is not permitted.
 
 ## Release gates
 

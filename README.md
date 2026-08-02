@@ -19,7 +19,7 @@ the project.
 - Books, reading progress, annotations, dictionaries, settings, and
   translation caches stay on the device.
 - Network access is limited to translation explicitly requested by the user
-  through a configured OpenAI-compatible endpoint or Ollama.
+  through the built-in DeepSeek V4 preset or loopback Ollama.
 - Accounts, cloud synchronization, OPDS/RSS catalogs, web clipping, resource
   scraping, public sharing, billing, telemetry, online metadata, online
   dictionaries, cloud TTS, and inherited update services are not part of the
@@ -42,8 +42,8 @@ BabelLeaf is pre-release software. The repository currently provides:
 - imported local dictionaries and supported operating-system dictionary
   integration;
 - native or browser speech engines without an online speech fallback;
-- selection and reading-unit translation through Ollama or a
-  user-configured OpenAI-compatible API.
+- selection and reading-unit translation through the built-in DeepSeek V4
+  preset or local Ollama.
 
 Format recognition is not a compatibility guarantee for every file variant.
 Testing must use legally obtained, DRM-free documents.
@@ -53,6 +53,8 @@ The following major features remain planned:
 - bilingual original/translation layouts and durable alignment;
 - chapter and full-book translation jobs, glossary enforcement, translation
   memory, review, and portable sidecar results;
+- preset adapters for additional LLM providers, beginning with OpenAI and
+  Anthropic Claude, with an API-key-only setup flow;
 - separate handling for text-layer and scanned PDFs;
 - local comic OCR, text-region detection, inpainting, translated typesetting,
   and editable overlays;
@@ -61,7 +63,8 @@ The following major features remain planned:
 
 See [Architecture](apps/readest-app/docs/architecture.md) for runtime
 boundaries and [Upstream Inventory](docs/UPSTREAM_INVENTORY.md) for source and
-license provenance.
+license provenance. The current and future translation contract is documented
+in [Translation Requirements](docs/TRANSLATION_REQUIREMENTS.md).
 
 ## Architecture
 
@@ -73,8 +76,8 @@ Next.js / React interface
         +-- local dictionaries and native/system speech
         +-- explicit translation adapters
                 |
+                +-- DeepSeek V4 (fixed official endpoint and model)
                 +-- Ollama
-                +-- user-configured OpenAI-compatible API
         |
         +-- Tauri v2 platform boundary
                 +-- Windows

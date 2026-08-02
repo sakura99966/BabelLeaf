@@ -1,8 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import {
-  mergeRestoredSettings,
-  sanitizeSettingsForBackup,
-} from '@/services/backupService';
+import { mergeRestoredSettings, sanitizeSettingsForBackup } from '@/services/backupService';
 import type { SystemSettings } from '@/types/settings';
 
 const makeSettings = (overrides: Partial<SystemSettings> = {}): SystemSettings =>
@@ -18,12 +15,10 @@ const makeSettings = (overrides: Partial<SystemSettings> = {}): SystemSettings =
     libraryViewMode: 'grid',
     libraryColumns: 4,
     aiSettings: {
-      provider: 'openrouter',
+      provider: 'deepseek',
       ollamaBaseUrl: 'http://127.0.0.1:11434',
       ollamaModel: 'qwen2.5',
-      openrouterApiKey: 'secret',
-      openrouterBaseUrl: 'https://llm.example/v1',
-      openrouterModel: 'translation-model',
+      deepseekApiKey: 'secret',
     },
     ...overrides,
   }) as SystemSettings;
@@ -41,13 +36,13 @@ describe('portable local settings backup', () => {
     expect(output.screenBrightness).toBeUndefined();
     expect(output.version).toBeUndefined();
     expect(output.migrationVersion).toBeUndefined();
-    expect(output.aiSettings.openrouterApiKey).toBeUndefined();
+    expect(output.aiSettings.deepseekApiKey).toBeUndefined();
   });
 
   test('never includes the translation key', () => {
     const output = sanitizeSettingsForBackup(makeSettings());
 
-    expect(output.aiSettings.openrouterApiKey).toBeUndefined();
+    expect(output.aiSettings.deepseekApiKey).toBeUndefined();
   });
 
   test('preserves current device paths while restoring portable preferences', () => {

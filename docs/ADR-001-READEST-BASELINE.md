@@ -118,8 +118,8 @@ review.
    installers, and release configuration.
 2. Introduce a deny-by-default capability policy and remove all unintended
    startup/background network activity.
-3. Replace inherited translation providers with one user-configured
-   OpenAI-compatible adapter and a narrow native transport.
+3. Replace inherited translation providers with the built-in DeepSeek V4
+   adapter, loopback Ollama, and a narrow native transport.
 4. Establish Windows native build and local-import regression coverage.
 5. Validate representative, legally obtained, DRM-free documents before
    describing any format as release-supported.

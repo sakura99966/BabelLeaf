@@ -1,20 +1,18 @@
 import { describe, expect, test, vi } from 'vitest';
-import {
-  sanitizeSettingsForPersistence,
-  saveSettings,
-} from '@/services/settingsService';
+import { sanitizeSettingsForPersistence, saveSettings } from '@/services/settingsService';
 import type { SystemSettings } from '@/types/settings';
 import type { FileSystem } from '@/types/system';
 
 const makeSettings = (): SystemSettings =>
   ({
     aiSettings: {
-      provider: 'openrouter',
+      provider: 'deepseek',
       ollamaBaseUrl: 'http://127.0.0.1:11434',
       ollamaModel: 'qwen2.5',
-      openrouterApiKey: 'must-not-reach-disk',
-      openrouterBaseUrl: 'https://llm.example/v1',
-      openrouterModel: 'translation-model',
+      deepseekApiKey: 'must-not-reach-disk',
+      openrouterApiKey: 'legacy-secret',
+      openrouterBaseUrl: 'https://legacy.example.test/v1',
+      openrouterModel: 'legacy-model',
     },
   }) as SystemSettings;
 
@@ -24,8 +22,12 @@ describe('settings persistence', () => {
 
     const sanitized = sanitizeSettingsForPersistence(settings);
 
+    expect(sanitized.aiSettings.deepseekApiKey).toBeUndefined();
     expect(sanitized.aiSettings.openrouterApiKey).toBeUndefined();
-    expect(settings.aiSettings.openrouterApiKey).toBe('must-not-reach-disk');
+    expect(sanitized.aiSettings.openrouterBaseUrl).toBeUndefined();
+    expect(sanitized.aiSettings.openrouterModel).toBeUndefined();
+    expect(settings.aiSettings.deepseekApiKey).toBe('must-not-reach-disk');
+    expect(settings.aiSettings.openrouterApiKey).toBe('legacy-secret');
   });
 
   test('never writes the plaintext translation API key to settings files', async () => {
@@ -35,8 +37,12 @@ describe('settings persistence', () => {
     await saveSettings(fs, makeSettings());
 
     expect(writeFile).toHaveBeenCalledTimes(2);
-    for (const [, , json] of writeFile.mock.calls as unknown as Array<[unknown, unknown, unknown]>) {
+    for (const [, , json] of writeFile.mock.calls as unknown as Array<
+      [unknown, unknown, unknown]
+    >) {
       expect(String(json)).not.toContain('must-not-reach-disk');
+      expect(String(json)).not.toContain('legacy-secret');
+      expect(String(json)).not.toContain('legacy.example.test');
     }
   });
 });

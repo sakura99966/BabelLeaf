@@ -16,7 +16,7 @@
       "capabilities": ["default", "desktop-capability"],
       "csp": {
         "default-src": "'self' 'unsafe-inline' blob: data: customprotocol: asset: http://asset.localhost http://rangefile.localhost ipc: http://ipc.localhost",
-        "connect-src": "'self' blob: data: asset: http://asset.localhost http://rangefile.localhost ipc: http://ipc.localhost http://*:* https://*:*",
+        "connect-src": "'self' blob: data: asset: http://asset.localhost http://rangefile.localhost ipc: http://ipc.localhost https://api.deepseek.com http://127.0.0.1:* http://localhost:*",
         "img-src": "'self' blob: data: asset: http://asset.localhost",
         "style-src": "'self' 'unsafe-inline' blob: asset: http://asset.localhost",
         "font-src": "'self' blob: data: asset: http://asset.localhost tauri:",

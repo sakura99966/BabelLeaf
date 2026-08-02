@@ -554,7 +554,7 @@ const aiPanelItems = [
   {
     id: 'settings.ai.provider',
     labelKey: _('AI Translation Provider'),
-    keywords: ['ai', 'translation', 'provider', 'ollama', 'openai', 'llm'],
+    keywords: ['ai', 'translation', 'provider', 'deepseek', 'ollama', 'llm'],
     section: 'AI Translation',
   },
   {
@@ -570,22 +570,10 @@ const aiPanelItems = [
     section: 'Ollama',
   },
   {
-    id: 'settings.ai.openrouterApiKey',
-    labelKey: _('OpenAI-compatible API Key'),
-    keywords: ['openai', 'compatible', 'api', 'key', 'token', 'secret'],
-    section: 'OpenAI-compatible',
-  },
-  {
-    id: 'settings.ai.openrouterBaseUrl',
-    labelKey: _('OpenAI-compatible Base URL'),
-    keywords: ['base', 'url', 'endpoint', 'openai', 'compatible'],
-    section: 'OpenAI-compatible',
-  },
-  {
-    id: 'settings.ai.openrouterModel',
-    labelKey: _('OpenAI-compatible Model'),
-    keywords: ['model', 'openai', 'compatible', 'llm'],
-    section: 'OpenAI-compatible',
+    id: 'settings.ai.deepseekApiKey',
+    labelKey: _('DeepSeek API Key'),
+    keywords: ['deepseek', 'v4', 'api', 'key', 'token', 'secret'],
+    section: 'DeepSeek V4',
   },
 ];
 

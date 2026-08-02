@@ -10,7 +10,7 @@ import { polish, preprocess } from '@/services/translators';
 import { getLocale } from '@/utils/misc';
 
 export function useTranslator({
-  provider = 'ollama',
+  provider = 'deepseek',
   sourceLang = 'AUTO',
   targetLang = 'EN',
   enablePolishing = true,

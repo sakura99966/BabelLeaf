@@ -1,7 +1,7 @@
 import { isTauriAppPlatform } from '@/services/environment';
 import { clearSecureItem, getSecureItem, setSecureItem } from '@/utils/bridge';
 
-const TRANSLATION_API_KEY_ID = 'babelleaf.translation.openai-compatible.api-key';
+const TRANSLATION_API_KEY_ID = 'babelleaf.translation.deepseek.api-key';
 
 let sessionApiKey = '';
 
@@ -12,17 +12,22 @@ export function getTranslationApiKey(): string {
 }
 
 /**
- * Load the OpenAI-compatible translation credential into process memory.
- *
- * A plaintext value is accepted only for one-time migration from old settings.
- * Native builds move it into the operating system's secure store. Browser
- * development keeps it only for the current page lifetime.
+ * Makes an edited key available to the active renderer immediately. The
+ * settings panel persists it to secure storage on blur, avoiding a native
+ * secure-store write for every keystroke while preserving click-to-translate.
  */
-export async function loadTranslationApiKey(legacyPlaintextKey?: string): Promise<string> {
-  const legacyKey = normalize(legacyPlaintextKey);
+export function setTranslationApiKeyForSession(value: string): void {
+  sessionApiKey = normalize(value);
+}
 
+/**
+ * Load the DeepSeek credential into process memory. Native builds read it from
+ * the operating system secure store; browser development keeps it only for the
+ * current page lifetime. Legacy custom-endpoint keys are intentionally not
+ * migrated because they must never be sent to DeepSeek automatically.
+ */
+export async function loadTranslationApiKey(): Promise<string> {
   if (!isTauriAppPlatform()) {
-    if (legacyKey) sessionApiKey = legacyKey;
     return sessionApiKey;
   }
 
@@ -33,23 +38,9 @@ export async function loadTranslationApiKey(legacyPlaintextKey?: string): Promis
       sessionApiKey = storedKey;
       return sessionApiKey;
     }
-
-    if (legacyKey) {
-      const migrated = await setSecureItem({
-        key: TRANSLATION_API_KEY_ID,
-        value: legacyKey,
-      });
-      if (!migrated.success) {
-        throw new Error(migrated.error || 'Secure credential storage is unavailable');
-      }
-      sessionApiKey = legacyKey;
-    } else {
-      sessionApiKey = '';
-    }
+    sessionApiKey = '';
   } catch {
-    // Keep a legacy value usable for this process, but never write it back to
-    // settings. A subsequent explicit save can retry the native secure store.
-    sessionApiKey = legacyKey;
+    sessionApiKey = '';
   }
 
   return sessionApiKey;

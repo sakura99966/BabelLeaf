@@ -2,13 +2,14 @@ import React, { useCallback, useState } from 'react';
 import { PiCheckCircle, PiSpinner, PiWarningCircle } from 'react-icons/pi';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
-import { getAIProvider } from '@/services/ai/providers';
 import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
+import { getAIProvider } from '@/services/ai/providers';
 import {
   getTranslationApiKey,
   saveTranslationApiKey,
+  setTranslationApiKeyForSession,
 } from '@/services/ai/translationApiKey';
-import type { AIProviderName, AISettings } from '@/services/ai/types';
+import type { ActiveAIProviderName, AISettings } from '@/services/ai/types';
 import { useSettingsStore } from '@/store/settingsStore';
 import { BoxedList, SettingLabel, SettingsRow } from './primitives';
 
@@ -19,13 +20,13 @@ const AIPanel: React.FC = () => {
   const { envConfig } = useEnv();
   const { settings, setSettings, saveSettings } = useSettingsStore();
   const configured = { ...DEFAULT_AI_SETTINGS, ...settings.aiSettings };
+  const configuredProvider: ActiveAIProviderName =
+    configured.provider === 'ollama' ? 'ollama' : 'deepseek';
 
-  const [provider, setProvider] = useState<AIProviderName>(configured.provider);
+  const [provider, setProvider] = useState<ActiveAIProviderName>(configuredProvider);
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState(configured.ollamaBaseUrl);
   const [ollamaModel, setOllamaModel] = useState(configured.ollamaModel);
   const [apiKey, setApiKey] = useState(getTranslationApiKey());
-  const [baseUrl, setBaseUrl] = useState(configured.openrouterBaseUrl ?? '');
-  const [model, setModel] = useState(configured.openrouterModel ?? '');
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -37,7 +38,12 @@ const AIPanel: React.FC = () => {
         ...current.aiSettings,
         ...patch,
       };
+      // Credentials and retired custom-endpoint values are runtime-only and
+      // must never be written to the regular settings file.
+      delete nextAISettings.deepseekApiKey;
       delete nextAISettings.openrouterApiKey;
+      delete nextAISettings.openrouterBaseUrl;
+      delete nextAISettings.openrouterModel;
       const next = {
         ...current,
         aiSettings: nextAISettings,
@@ -48,7 +54,7 @@ const AIPanel: React.FC = () => {
     [envConfig, saveSettings, setSettings],
   );
 
-  const selectProvider = (next: AIProviderName) => {
+  const selectProvider = (next: ActiveAIProviderName) => {
     setProvider(next);
     setConnectionStatus('idle');
     void persist({ provider: next });
@@ -75,9 +81,7 @@ const AIPanel: React.FC = () => {
         provider,
         ollamaBaseUrl: ollamaBaseUrl.trim(),
         ollamaModel: ollamaModel.trim(),
-        openrouterApiKey: apiKey.trim(),
-        openrouterBaseUrl: baseUrl.trim(),
-        openrouterModel: model.trim(),
+        deepseekApiKey: apiKey.trim(),
       };
       const connected = await getAIProvider(testSettings).healthCheck();
       setConnectionStatus(connected ? 'success' : 'error');
@@ -92,11 +96,18 @@ const AIPanel: React.FC = () => {
     <div className='my-4 w-full space-y-6'>
       <BoxedList
         title={_('AI Translation')}
-        description={_(
-          'Configure a local Ollama server or your own OpenAI-compatible API for translation.',
-        )}
+        description={_('Configure built-in DeepSeek V4 translation or a local Ollama server.')}
         data-setting-id='settings.ai.provider'
       >
+        <SettingsRow label={_('DeepSeek V4')} asLabel>
+          <input
+            type='radio'
+            name='translation-ai-provider'
+            className='radio'
+            checked={provider === 'deepseek'}
+            onChange={() => selectProvider('deepseek')}
+          />
+        </SettingsRow>
         <SettingsRow label={_('Ollama (Local)')} asLabel>
           <input
             type='radio'
@@ -104,15 +115,6 @@ const AIPanel: React.FC = () => {
             className='radio'
             checked={provider === 'ollama'}
             onChange={() => selectProvider('ollama')}
-          />
-        </SettingsRow>
-        <SettingsRow label={_('OpenAI-compatible API')} asLabel>
-          <input
-            type='radio'
-            name='translation-ai-provider'
-            className='radio'
-            checked={provider === 'openrouter'}
-            onChange={() => selectProvider('openrouter')}
           />
         </SettingsRow>
       </BoxedList>
@@ -146,8 +148,10 @@ const AIPanel: React.FC = () => {
         </BoxedList>
       ) : (
         <BoxedList
-          title={_('OpenAI-compatible API')}
-          description={_('No provider URL or model is preset; all connection values are user supplied.')}
+          title={_('DeepSeek V4')}
+          description={_(
+            'BabelLeaf uses the official DeepSeek endpoint and a built-in translation model. Enter only your API key.',
+          )}
         >
           <div className='flex flex-col gap-2 py-3 pe-4'>
             <SettingLabel>{_('API Key')}</SettingLabel>
@@ -155,34 +159,14 @@ const AIPanel: React.FC = () => {
               type='password'
               className='input input-bordered input-sm w-full'
               value={apiKey}
-              onChange={(event) => setApiKey(event.target.value)}
+              onChange={(event) => {
+                const value = event.target.value;
+                setApiKey(value);
+                setTranslationApiKeyForSession(value);
+              }}
               onBlur={() => void persistApiKey()}
               autoComplete='off'
-              data-setting-id='settings.ai.openrouterApiKey'
-            />
-          </div>
-          <div className='flex flex-col gap-2 py-3 pe-4'>
-            <SettingLabel>{_('Base URL')}</SettingLabel>
-            <input
-              type='text'
-              className='input input-bordered input-sm w-full'
-              value={baseUrl}
-              onChange={(event) => setBaseUrl(event.target.value)}
-              onBlur={() => void persist({ openrouterBaseUrl: baseUrl.trim() })}
-              placeholder='https://example.com/v1'
-              data-setting-id='settings.ai.openrouterBaseUrl'
-            />
-          </div>
-          <div className='flex flex-col gap-2 py-3 pe-4'>
-            <SettingLabel>{_('Model')}</SettingLabel>
-            <input
-              type='text'
-              className='input input-bordered input-sm w-full'
-              value={model}
-              onChange={(event) => setModel(event.target.value)}
-              onBlur={() => void persist({ openrouterModel: model.trim() })}
-              placeholder='your-model-id'
-              data-setting-id='settings.ai.openrouterModel'
+              data-setting-id='settings.ai.deepseekApiKey'
             />
           </div>
         </BoxedList>

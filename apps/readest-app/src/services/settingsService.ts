@@ -144,19 +144,32 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
     ...DEFAULT_AI_SETTINGS,
     ...settings.aiSettings,
   };
-  const legacyTranslationApiKey = settings.aiSettings.openrouterApiKey;
-  await loadTranslationApiKey(legacyTranslationApiKey);
+  const hasLegacyCustomProviderSettings =
+    settings.aiSettings.provider === 'openrouter' ||
+    Boolean(
+      settings.aiSettings.openrouterApiKey ||
+        settings.aiSettings.openrouterBaseUrl ||
+        settings.aiSettings.openrouterModel,
+    );
+  const hasUnsupportedAIProvider =
+    settings.aiSettings.provider !== 'deepseek' && settings.aiSettings.provider !== 'ollama';
+  if (hasUnsupportedAIProvider) {
+    // A key configured for an arbitrary endpoint must not be reused against
+    // DeepSeek. The user explicitly enters a DeepSeek key after the upgrade.
+    settings.aiSettings.provider = 'deepseek';
+  }
+  await loadTranslationApiKey();
   settings = sanitizeSettingsForPersistence(settings);
-  if (legacyTranslationApiKey) {
+  if (hasLegacyCustomProviderSettings || hasUnsupportedAIProvider) {
     await safeSaveJSON(ctx.fs, SETTINGS_FILENAME, 'Settings', settings);
   }
 
-  const supportedTranslationProviders = new Set(['ollama', 'openrouter']);
+  const supportedTranslationProviders = new Set(['deepseek', 'ollama']);
   if (!supportedTranslationProviders.has(settings.globalReadSettings.translationProvider)) {
-    settings.globalReadSettings.translationProvider = 'ollama';
+    settings.globalReadSettings.translationProvider = 'deepseek';
   }
   if (!supportedTranslationProviders.has(settings.globalViewSettings.translationProvider)) {
-    settings.globalViewSettings.translationProvider = 'ollama';
+    settings.globalViewSettings.translationProvider = 'deepseek';
   }
 
   settings.localBooksDir = await ctx.fs.getPrefix('Books');
@@ -179,15 +192,13 @@ export function sanitizeSettingsForPersistence(settings: SystemSettings): System
       ...settings.aiSettings,
     },
   };
+  delete sanitized.aiSettings.deepseekApiKey;
   delete sanitized.aiSettings.openrouterApiKey;
+  delete sanitized.aiSettings.openrouterBaseUrl;
+  delete sanitized.aiSettings.openrouterModel;
   return sanitized;
 }
 
 export async function saveSettings(fs: FileSystem, settings: SystemSettings): Promise<void> {
-  await safeSaveJSON(
-    fs,
-    SETTINGS_FILENAME,
-    'Settings',
-    sanitizeSettingsForPersistence(settings),
-  );
+  await safeSaveJSON(fs, SETTINGS_FILENAME, 'Settings', sanitizeSettingsForPersistence(settings));
 }

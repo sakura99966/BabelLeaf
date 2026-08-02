@@ -12,7 +12,7 @@ BabelLeaf 是一款面向简体中文用户的开源、本地优先跨语言阅�
 
 - 书籍和漫画仅通过本地文件导入。
 - 书库、阅读进度、批注、词典、设置和翻译缓存保存在本机。
-- 联网仅限用户明确发起的翻译请求，目标为用户自行配置的 OpenAI-compatible API 或 Ollama。
+- 联网仅限用户明确发起的翻译请求，目标为内置 DeepSeek V4 预设或本地回环地址上的 Ollama。
 - 当前应用不包含账号、云同步、OPDS/RSS 在线书库、网页剪藏、资源抓取、公开分享、付费、遥测、在线元数据、在线词典、云端语音和继承自上游的更新服务。
 - BabelLeaf 不提供 DRM 破解，也不帮助获取用户无权使用的版权内容。
 
@@ -28,7 +28,7 @@ BabelLeaf 目前仍处于预发布阶段。仓库现有基础包括：
 - 本地高亮、笔记、搜索、阅读进度和外观设置；
 - 导入式本地词典及受支持平台的系统词典；
 - 不依赖在线服务的原生或浏览器语音引擎；
-- 通过 Ollama 或用户自定义 OpenAI-compatible API 进行划词和阅读单元翻译。
+- 通过内置 DeepSeek V4 预设或本地 Ollama 进行划词和阅读单元翻译。
 
 能够识别格式不等于已经保证所有文件变体均可兼容。测试资料必须合法取得且不含 DRM。
 
@@ -36,11 +36,12 @@ BabelLeaf 目前仍处于预发布阶段。仓库现有基础包括：
 
 - 原文、译文和双语对照布局，以及稳定的内容对齐；
 - 章节与全书翻译任务、术语表约束、翻译记忆、人工校订和可迁移 sidecar 结果；
+- OpenAI、Anthropic Claude 等供应商的内置预设适配器，并保持仅输入 API Key 的配置方式；
 - 文本型 PDF 与扫描型 PDF 的分别处理；
 - 本地漫画 OCR、文字区域检测、擦字修复、译文嵌字和可编辑覆盖层；
 - macOS、Android、iOS 的签名发布包及目标平台验证。
 
-运行边界见[架构说明](apps/readest-app/docs/architecture.md)，代码来源和许可证记录见[上游清单](docs/UPSTREAM_INVENTORY.md)。
+运行边界见[架构说明](apps/readest-app/docs/architecture.md)，当前和远期翻译契约见[翻译需求](docs/TRANSLATION_REQUIREMENTS.md)，代码来源和许可证记录见[上游清单](docs/UPSTREAM_INVENTORY.md)。
 
 ## 架构
 
@@ -52,8 +53,8 @@ Next.js / React 界面
         +-- 本地词典与原生/系统语音
         +-- 显式触发的翻译适配器
                 |
+                +-- DeepSeek V4（固定官方地址和翻译模型）
                 +-- Ollama
-                +-- 用户自定义 OpenAI-compatible API
         |
         +-- Tauri v2 平台边界
                 +-- Windows

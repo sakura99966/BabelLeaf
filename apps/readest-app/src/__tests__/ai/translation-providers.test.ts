@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-const { createOpenAICompatible, mockFetch } = vi.hoisted(() => ({
-  createOpenAICompatible: vi.fn(() => ({ chatModel: vi.fn() })),
+const { createOpenAICompatible, mockFetch, chatModel } = vi.hoisted(() => ({
+  chatModel: vi.fn(),
+  createOpenAICompatible: vi.fn(() => ({ chatModel })),
   mockFetch: vi.fn(),
 }));
 
@@ -15,8 +16,12 @@ vi.mock('@ai-sdk/openai-compatible', () => ({
 
 import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
 import { getAIProvider } from '@/services/ai/providers';
+import {
+  DEEPSEEK_API_BASE_URL,
+  DEEPSEEK_TRANSLATION_MODEL,
+  DeepSeekProvider,
+} from '@/services/ai/providers/DeepSeekProvider';
 import { OllamaProvider } from '@/services/ai/providers/OllamaProvider';
-import { OpenRouterProvider } from '@/services/ai/providers/OpenRouterProvider';
 import type { AISettings } from '@/services/ai/types';
 
 describe('translation-only AI providers', () => {
@@ -24,13 +29,11 @@ describe('translation-only AI providers', () => {
     vi.clearAllMocks();
   });
 
-  test('defaults to a local Ollama endpoint only', () => {
+  test('defaults to the built-in DeepSeek V4 provider while retaining local Ollama', () => {
     expect(DEFAULT_AI_SETTINGS).toEqual({
-      provider: 'ollama',
+      provider: 'deepseek',
       ollamaBaseUrl: 'http://127.0.0.1:11434',
       ollamaModel: 'llama3.2',
-      openrouterBaseUrl: '',
-      openrouterModel: '',
     });
   });
 
@@ -47,33 +50,50 @@ describe('translation-only AI providers', () => {
     await expect(provider.healthCheck()).resolves.toBe(true);
   });
 
-  test('OpenAI-compatible provider requires explicit endpoint values', () => {
-    expect(() =>
-      getAIProvider({ ...DEFAULT_AI_SETTINGS, provider: 'openrouter' }),
-    ).toThrow('API key, base URL, and model are required');
+  test('Ollama rejects non-loopback endpoints', () => {
+    expect(
+      () =>
+        new OllamaProvider({
+          ...DEFAULT_AI_SETTINGS,
+          provider: 'ollama',
+          ollamaBaseUrl: 'https://example.com',
+        }),
+    ).toThrow('Ollama URL must use an HTTP loopback address');
   });
 
-  test('OpenAI-compatible provider uses the user endpoint without Readest headers', () => {
+  test('DeepSeek V4 requires an API key but no user-supplied URL or model', () => {
+    expect(() => getAIProvider({ ...DEFAULT_AI_SETTINGS, provider: 'deepseek' })).toThrow(
+      'API key required',
+    );
+  });
+
+  test('DeepSeek V4 uses the fixed official endpoint and Flash translation model', async () => {
     const settings: AISettings = {
       ...DEFAULT_AI_SETTINGS,
-      provider: 'openrouter',
-      openrouterApiKey: 'secret',
-      openrouterBaseUrl: 'https://llm.example/v1/',
-      openrouterModel: 'translation-model',
+      provider: 'deepseek',
+      deepseekApiKey: 'secret',
     };
 
-    const provider = new OpenRouterProvider(settings);
+    const provider = new DeepSeekProvider(settings);
 
-    expect(provider.name).toBe('OpenAI-compatible API');
+    expect(provider.name).toBe('DeepSeek V4');
     expect(createOpenAICompatible).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: 'custom-openai-compatible',
-        baseURL: 'https://llm.example/v1',
+        name: 'deepseek',
+        baseURL: DEEPSEEK_API_BASE_URL,
         apiKey: 'secret',
       }),
     );
-    expect(createOpenAICompatible).toHaveBeenCalledWith(
-      expect.not.objectContaining({ headers: expect.anything() }),
+    provider.getModel();
+    expect(chatModel).toHaveBeenCalledWith(DEEPSEEK_TRANSLATION_MODEL);
+
+    mockFetch.mockResolvedValueOnce({ ok: true });
+    await expect(provider.healthCheck()).resolves.toBe(true);
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${DEEPSEEK_API_BASE_URL}/models`,
+      expect.objectContaining({
+        headers: { Authorization: 'Bearer secret' },
+      }),
     );
   });
 });

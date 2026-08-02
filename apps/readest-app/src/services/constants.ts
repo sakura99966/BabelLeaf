@@ -133,7 +133,7 @@ export const DEFAULT_READSETTINGS: ReadSettings = {
   notebookWidth: '25%',
   isNotebookPinned: false,
   autohideCursor: true,
-  translationProvider: 'ollama',
+  translationProvider: 'deepseek',
   translateTargetLang: 'EN',
   customThemes: [],
   highlightStyle: 'highlight',
@@ -310,7 +310,7 @@ export const DEFAULT_TTS_CONFIG: TTSConfig = {
 
 export const DEFAULT_TRANSLATOR_CONFIG: TranslatorConfig = {
   translationEnabled: false,
-  translationProvider: 'ollama',
+  translationProvider: 'deepseek',
   translateTargetLang: '',
   showTranslateSource: true,
   ttsReadAloudText: 'both',

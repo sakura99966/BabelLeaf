@@ -17,6 +17,7 @@ import {
   getTranslationApiKey,
   loadTranslationApiKey,
   saveTranslationApiKey,
+  setTranslationApiKeyForSession,
 } from '@/services/ai/translationApiKey';
 
 describe('translation API key storage', () => {
@@ -34,12 +35,19 @@ describe('translation API key storage', () => {
     expect(bridge.clearSecureItem).not.toHaveBeenCalled();
   });
 
+  test('makes a newly entered key available before secure persistence completes', () => {
+    setTranslationApiKeyForSession(' pending-secret ');
+
+    expect(getTranslationApiKey()).toBe('pending-secret');
+    expect(bridge.setSecureItem).not.toHaveBeenCalled();
+  });
+
   test('uses the native secure-item bridge on Tauri', async () => {
     platform.tauri = true;
 
     await saveTranslationApiKey('native-secret');
     expect(bridge.setSecureItem).toHaveBeenCalledWith({
-      key: 'babelleaf.translation.openai-compatible.api-key',
+      key: 'babelleaf.translation.deepseek.api-key',
       value: 'native-secret',
     });
 
@@ -49,20 +57,17 @@ describe('translation API key storage', () => {
 
     await saveTranslationApiKey('');
     expect(bridge.clearSecureItem).toHaveBeenCalledWith({
-      key: 'babelleaf.translation.openai-compatible.api-key',
+      key: 'babelleaf.translation.deepseek.api-key',
     });
   });
 
-  test('migrates a legacy plaintext key into native secure storage', async () => {
+  test('does not repurpose a legacy custom-endpoint key as a DeepSeek credential', async () => {
     platform.tauri = true;
     bridge.getSecureItem.mockResolvedValueOnce({ value: undefined });
 
-    await loadTranslationApiKey('legacy-secret');
+    await loadTranslationApiKey();
 
-    expect(getTranslationApiKey()).toBe('legacy-secret');
-    expect(bridge.setSecureItem).toHaveBeenCalledWith({
-      key: 'babelleaf.translation.openai-compatible.api-key',
-      value: 'legacy-secret',
-    });
+    expect(getTranslationApiKey()).toBe('');
+    expect(bridge.setSecureItem).not.toHaveBeenCalled();
   });
 });

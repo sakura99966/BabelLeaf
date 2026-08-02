@@ -25,12 +25,10 @@ describe('LLM translation providers', () => {
     vi.clearAllMocks();
     getSettings.mockReturnValue({
       aiSettings: {
-        provider: 'ollama',
+        provider: 'deepseek',
         ollamaBaseUrl: 'http://127.0.0.1:11434',
         ollamaModel: 'qwen2.5',
-        openrouterApiKey: 'secret',
-        openrouterBaseUrl: 'https://llm.example/v1',
-        openrouterModel: 'translation-model',
+        deepseekApiKey: 'secret',
       },
     });
     getAIProvider.mockReturnValue({ getModel: () => ({ id: 'model' }) });
@@ -38,12 +36,12 @@ describe('LLM translation providers', () => {
     generateText.mockResolvedValueOnce({ text: '你好' }).mockResolvedValueOnce({ text: '世界' });
   });
 
-  it('exposes only Ollama and OpenAI-compatible translators', () => {
-    expect(getTranslators().map((provider) => provider.name)).toEqual(['ollama', 'openrouter']);
+  it('exposes DeepSeek V4 and local Ollama translators', () => {
+    expect(getTranslators().map((provider) => provider.name)).toEqual(['deepseek', 'ollama']);
   });
 
-  it('translates with the selected custom LLM while preserving blank inputs', async () => {
-    const provider = getTranslator('openrouter');
+  it('translates with the selected DeepSeek V4 model while preserving blank inputs', async () => {
+    const provider = getTranslator('deepseek');
     expect(provider).toBeDefined();
 
     await expect(provider!.translate(['Hello', '', 'World'], 'EN', 'ZH')).resolves.toEqual([
@@ -51,20 +49,26 @@ describe('LLM translation providers', () => {
       '',
       '世界',
     ]);
-    expect(getAIProvider).toHaveBeenCalledWith(expect.objectContaining({ provider: 'openrouter' }));
+    expect(getAIProvider).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'deepseek', deepseekApiKey: 'secret' }),
+    );
     expect(generateText).toHaveBeenCalledTimes(2);
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining("You are BabelLeaf's literary translation engine."),
+      }),
+    );
   });
 
-  it('disables an OpenAI-compatible endpoint until an API key and model are configured', () => {
+  it('disables DeepSeek V4 until an API key is configured', () => {
     getSettings.mockReturnValue({
       aiSettings: {
-        provider: 'openrouter',
-        openrouterModel: '',
+        provider: 'deepseek',
       },
     });
     getTranslationApiKey.mockReturnValue('');
 
-    expect(isTranslatorAvailable(getTranslator('openrouter')!)).toBe(false);
+    expect(isTranslatorAvailable(getTranslator('deepseek')!)).toBe(false);
     expect(isTranslatorAvailable(getTranslator('ollama')!)).toBe(true);
   });
 });
