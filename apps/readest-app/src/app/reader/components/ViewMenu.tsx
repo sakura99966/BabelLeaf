@@ -38,10 +38,7 @@ interface ViewMenuProps {
   onShowMetaHashDialog?: () => void;
 }
 
-const ViewMenu: React.FC<ViewMenuProps> = ({
-  bookKey,
-  setIsDropdownOpen,
-}) => {
+const ViewMenu: React.FC<ViewMenuProps> = ({ bookKey, setIsDropdownOpen }) => {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
   const { getBookData } = useBookDataStore();
@@ -403,7 +400,6 @@ const ViewMenu: React.FC<ViewMenuProps> = ({
         Icon={invertImgColorInDark ? MdCheck : undefined}
         onClick={() => setInvertImgColorInDark(!invertImgColorInDark)}
       />
-
     </Menu>
   );
 };

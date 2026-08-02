@@ -14,10 +14,7 @@ import {
   getHighlightColorLabel,
 } from '@/app/reader/utils/annotatorUtil';
 import { renderNoteTemplate, formatBlockQuote } from '@/utils/note';
-import {
-  buildAnnotationAppUrl,
-  buildAnnotationUrl,
-} from '@/utils/deeplink';
+import { buildAnnotationAppUrl, buildAnnotationUrl } from '@/utils/deeplink';
 import Dialog from '@/components/Dialog';
 import { Toggle } from '@/components/primitives/toggle';
 
@@ -454,7 +451,6 @@ const ExportMarkdownDialog: React.FC<ExportMarkdownDialogProps> = ({
               <span className='text-sm'>{_('Note Date')}</span>
             </label>
           </div>
-
         </div>
 
         {/* Filter by color / style */}

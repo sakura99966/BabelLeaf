@@ -47,8 +47,8 @@ if ($bundleIdentifier -ne $ExpectedBundleIdentifier) {
 if ([string]$tauriConfig.bundle.windows.webviewInstallMode.type -ne "offlineInstaller") {
     throw "Windows packages must embed the WebView2 offline installer."
 }
-if ([string]$tauriConfig.bundle.windows.nsis.installMode -ne "both") {
-    throw "Windows NSIS installMode must remain 'both'."
+if ([string]$tauriConfig.bundle.windows.nsis.installMode -ne "currentUser") {
+    throw "Windows NSIS installMode must remain 'currentUser' so installation does not require elevation."
 }
 
 if ([string]::IsNullOrWhiteSpace($BundleDirectory)) {
@@ -191,7 +191,7 @@ try {
     $installationAttempted = $true
     $installerProcess = Start-Process `
         -FilePath $installerPath `
-        -ArgumentList @("/S", "/CurrentUser", "/NS") `
+        -ArgumentList @("/S", "/NS") `
         -Wait `
         -PassThru
     if ($installerProcess.ExitCode -ne 0) {
@@ -277,7 +277,7 @@ try {
 
                 $uninstallerProcess = Start-Process `
                     -FilePath $uninstallerPath `
-                    -ArgumentList @("/S", "/CurrentUser") `
+                    -ArgumentList @("/S") `
                     -Wait `
                     -PassThru
                 if ($uninstallerProcess.ExitCode -ne 0) {

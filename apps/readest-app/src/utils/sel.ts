@@ -421,7 +421,25 @@ export const extendSelectionFromContents = (
   for (const { doc } of contents) {
     const sel = doc.defaultView?.getSelection();
     if (sel && !sel.isCollapsed) {
-      if (extend) sel.modify('extend', adjustment.direction, adjustment.granularity);
+      if (extend) {
+        sel.modify('extend', adjustment.direction, adjustment.granularity);
+
+        // Chromium on Windows can stop a word extension at the whitespace
+        // immediately after/before the current word. A second word step then
+        // reaches the same boundary users get from the native shortcut on
+        // other desktop platforms. Do not apply it when the first step already
+        // selected word content, otherwise Linux/macOS would skip a word.
+        if (adjustment.granularity === 'word') {
+          const selectedText = sel.toString();
+          const stoppedAtWhitespace =
+            adjustment.direction === 'right'
+              ? /\s$/u.test(selectedText)
+              : /^\s/u.test(selectedText);
+          if (stoppedAtWhitespace) {
+            sel.modify('extend', adjustment.direction, adjustment.granularity);
+          }
+        }
+      }
       return true;
     }
   }

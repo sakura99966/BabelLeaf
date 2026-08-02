@@ -57,7 +57,7 @@
         "type": "offlineInstaller"
       },
       "nsis": {
-        "installMode": "both"
+        "installMode": "currentUser"
       }
     },
     "macOS": {

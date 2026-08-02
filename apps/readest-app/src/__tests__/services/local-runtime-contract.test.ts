@@ -112,8 +112,26 @@ describe('BabelLeaf local runtime contract', () => {
 
     expect(tauriEntry).not.toContain('alipays');
     expect(tauriEntry).not.toContain('alipay');
-    expect(existsSync(projectPath('src-tauri/plugins/tauri-plugin-native-bridge/android/src/main/java/ClipUrlController.kt'))).toBe(false);
-    expect(existsSync(projectPath('src-tauri/plugins/tauri-plugin-native-bridge/ios/Sources/ClipUrlController.swift'))).toBe(false);
-    expect(existsSync(projectPath('src-tauri/plugins/tauri-plugin-native-bridge/ios/Sources/StoreKitManager.swift'))).toBe(false);
+    expect(
+      existsSync(
+        projectPath(
+          'src-tauri/plugins/tauri-plugin-native-bridge/android/src/main/java/ClipUrlController.kt',
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      existsSync(
+        projectPath(
+          'src-tauri/plugins/tauri-plugin-native-bridge/ios/Sources/ClipUrlController.swift',
+        ),
+      ),
+    ).toBe(false);
+    expect(
+      existsSync(
+        projectPath(
+          'src-tauri/plugins/tauri-plugin-native-bridge/ios/Sources/StoreKitManager.swift',
+        ),
+      ),
+    ).toBe(false);
   });
 });

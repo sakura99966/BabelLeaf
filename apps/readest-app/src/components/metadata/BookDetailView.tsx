@@ -1,12 +1,6 @@
 import clsx from 'clsx';
 import React from 'react';
-import {
-  MdOutlineDelete,
-  MdOutlineEdit,
-  MdMenu,
-  MdExpandMore,
-  MdExpandLess,
-} from 'react-icons/md';
+import { MdOutlineDelete, MdOutlineEdit, MdMenu, MdExpandMore, MdExpandLess } from 'react-icons/md';
 
 import { Book } from '@/types/book';
 import { BookMetadata } from '@/libs/document';
@@ -106,12 +100,7 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({
                     'border-base-300 !bg-base-200 z-20 mt-1 max-w-[90vw] shadow-2xl',
                   )}
                 >
-                  <MenuItem
-                    noIcon
-                    transient
-                    label={_('Remove from Library')}
-                    onClick={onDelete}
-                  />
+                  <MenuItem noIcon transient label={_('Remove from Library')} onClick={onDelete} />
                 </div>
               </Dropdown>
             )}

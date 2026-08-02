@@ -68,9 +68,7 @@ export const useCustomTextureStore = create<TextureStoreState>((set, get) => ({
         error: undefined,
       };
       set((state) => ({
-        textures: state.textures.map((entry) =>
-          entry.id === texture.id ? updatedTexture : entry,
-        ),
+        textures: state.textures.map((entry) => (entry.id === texture.id ? updatedTexture : entry)),
       }));
       return updatedTexture;
     }
@@ -115,7 +113,6 @@ export const useCustomTextureStore = create<TextureStoreState>((set, get) => ({
 
     return true;
   },
-
 
   getTexture: (id) => {
     return get().textures.find((texture) => texture.id === id);

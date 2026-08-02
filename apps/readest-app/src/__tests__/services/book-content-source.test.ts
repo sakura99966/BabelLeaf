@@ -85,5 +85,4 @@ describe('book content source resolution', () => {
       mimeType: 'application/epub+zip',
     });
   });
-
 });

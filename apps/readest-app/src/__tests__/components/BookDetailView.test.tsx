@@ -37,13 +37,7 @@ const book: Book = {
 const renderView = (options: Partial<React.ComponentProps<typeof BookDetailView>> = {}) =>
   render(
     <DropdownProvider>
-      <BookDetailView
-        book={book}
-        metadata={null}
-        fileSize={1024}
-        onDelete={vi.fn()}
-        {...options}
-      />
+      <BookDetailView book={book} metadata={null} fileSize={1024} onDelete={vi.fn()} {...options} />
     </DropdownProvider>,
   );
 

@@ -63,32 +63,29 @@ const SidebarContent: React.FC<{
         )}
       >
         <OverlayScrollbarsComponent
-            className='min-h-0 flex-1'
-            options={{
-              scrollbars: { autoHide: 'scroll', clickScroll: true },
-              showNativeOverlaidScrollbars: false,
-            }}
-            defer
+          className='min-h-0 flex-1'
+          options={{
+            scrollbars: { autoHide: 'scroll', clickScroll: true },
+            showNativeOverlaidScrollbars: false,
+          }}
+          defer
+        >
+          <div
+            className={clsx('scroll-container h-full transition-opacity duration-300 ease-in-out', {
+              'opacity-0': fade,
+              'opacity-100': !fade,
+            })}
           >
-            <div
-              className={clsx(
-                'scroll-container h-full transition-opacity duration-300 ease-in-out',
-                {
-                  'opacity-0': fade,
-                  'opacity-100': !fade,
-                },
-              )}
-            >
-              {targetTab === 'toc' && bookDoc.toc && (
-                <TOCView toc={bookDoc.toc} bookKey={sideBarBookKey} />
-              )}
-              {targetTab === 'annotations' && (
-                <BooknoteView type='annotation' toc={bookDoc.toc ?? []} bookKey={sideBarBookKey} />
-              )}
-              {targetTab === 'bookmarks' && (
-                <BooknoteView type='bookmark' toc={bookDoc.toc ?? []} bookKey={sideBarBookKey} />
-              )}
-            </div>
+            {targetTab === 'toc' && bookDoc.toc && (
+              <TOCView toc={bookDoc.toc} bookKey={sideBarBookKey} />
+            )}
+            {targetTab === 'annotations' && (
+              <BooknoteView type='annotation' toc={bookDoc.toc ?? []} bookKey={sideBarBookKey} />
+            )}
+            {targetTab === 'bookmarks' && (
+              <BooknoteView type='bookmark' toc={bookDoc.toc ?? []} bookKey={sideBarBookKey} />
+            )}
+          </div>
         </OverlayScrollbarsComponent>
       </div>
       <div

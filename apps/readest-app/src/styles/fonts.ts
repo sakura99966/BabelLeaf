@@ -3,10 +3,7 @@ import { md5Fingerprint } from '@/utils/md5';
 
 export type FontFormat = 'ttf' | 'otf' | 'woff' | 'woff2';
 
-export const mountAdditionalFonts = async (
-  _document: Document,
-  _isCJK = false,
-): Promise<void> => {
+export const mountAdditionalFonts = async (_document: Document, _isCJK = false): Promise<void> => {
   // BabelLeaf uses installed system fonts and explicitly imported local fonts.
 };
 

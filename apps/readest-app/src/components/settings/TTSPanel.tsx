@@ -156,7 +156,6 @@ const TTSPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset }
           />
         </SettingsRow>
       </BoxedList>
-
     </div>
   );
 };

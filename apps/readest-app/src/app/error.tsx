@@ -47,9 +47,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
           <h1 className='text-base-content mb-4 text-5xl font-bold'>Oops!</h1>
 
           <p className='text-base-content/70 mb-8 text-lg'>
-            {_(
-              'Something went wrong. The error was recorded in the local application log.',
-            )}
+            {_('Something went wrong. The error was recorded in the local application log.')}
           </p>
 
           <div className='alert alert-error mb-8 overflow-hidden'>
@@ -115,7 +113,6 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
               </button>
             </div>
           </div>
-
         </div>
       </div>
     </div>

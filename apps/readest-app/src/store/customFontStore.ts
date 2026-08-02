@@ -109,7 +109,6 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
     return true;
   },
 
-
   getFont: (id) => {
     return get().fonts.find((font) => font.id === id);
   },

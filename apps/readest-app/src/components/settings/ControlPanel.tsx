@@ -495,7 +495,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
           onChange={() => setAllowScript(!allowScript)}
         />
       </BoxedList>
-
     </div>
   );
 };

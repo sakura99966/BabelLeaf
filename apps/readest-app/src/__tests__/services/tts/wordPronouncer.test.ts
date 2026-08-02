@@ -32,11 +32,7 @@ vi.mock('@/services/tts/NativeTTSClient', () => ({
   },
 }));
 
-import {
-  cancelWordPronounce,
-  pronounceWord,
-  warmWordAudio,
-} from '@/services/tts/wordPronouncer';
+import { cancelWordPronounce, pronounceWord, warmWordAudio } from '@/services/tts/wordPronouncer';
 
 const ended = async function* () {
   yield { code: 'end' as const };
@@ -68,12 +64,7 @@ describe('pronounceWord local engines', () => {
   });
 
   it('uses native TTS on mobile', async () => {
-    await pronounceWord(
-      'こんにちは',
-      'ja',
-      { appService: { isMobile: true } as never },
-      vi.fn(),
-    );
+    await pronounceWord('こんにちは', 'ja', { appService: { isMobile: true } as never }, vi.fn());
 
     expect(clients.native.init).toHaveBeenCalledOnce();
     expect(clients.native.setPrimaryLang).toHaveBeenCalledWith('ja');
@@ -113,10 +104,7 @@ describe('pronounceWord local engines', () => {
   });
 
   it('aborts and shuts down an active pronunciation', async () => {
-    clients.web.speak.mockImplementationOnce(async function* (
-      _ssml: string,
-      signal: AbortSignal,
-    ) {
+    clients.web.speak.mockImplementationOnce(async function* (_ssml: string, signal: AbortSignal) {
       await new Promise<void>((resolve) => {
         signal.addEventListener('abort', () => resolve(), { once: true });
       });

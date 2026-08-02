@@ -30,7 +30,10 @@ const makeDeps = (roots: string[] = [], appBooksPrefix?: string) => {
 describe('ingestFile', () => {
   it('imports a normal local file as a managed copy', async () => {
     const { appService, settings, importBook } = makeDeps();
-    const result = await ingestFile({ file: '/downloads/book.epub', books: [] }, { appService, settings });
+    const result = await ingestFile(
+      { file: '/downloads/book.epub', books: [] },
+      { appService, settings },
+    );
 
     expect(result?.hash).toBe('book-1');
     expect(importBook).toHaveBeenCalledWith('/downloads/book.epub', [], {
@@ -44,7 +47,9 @@ describe('ingestFile', () => {
     const { appService, settings, importBook } = makeDeps(['/library']);
     await ingestFile({ file: '/library/novel.epub', books: [] }, { appService, settings });
 
-    const options = (importBook.mock.calls[0] as unknown as [unknown, unknown, { inPlace: boolean }])[2];
+    const options = (
+      importBook.mock.calls[0] as unknown as [unknown, unknown, { inPlace: boolean }]
+    )[2];
     expect(options).toMatchObject({ inPlace: true });
   });
 
@@ -55,7 +60,9 @@ describe('ingestFile', () => {
       { appService, settings, appBooksPrefix: '/app/Books' },
     );
 
-    const options = (importBook.mock.calls[0] as unknown as [unknown, unknown, { inPlace: boolean }])[2];
+    const options = (
+      importBook.mock.calls[0] as unknown as [unknown, unknown, { inPlace: boolean }]
+    )[2];
     expect(options).toMatchObject({ inPlace: false });
   });
 

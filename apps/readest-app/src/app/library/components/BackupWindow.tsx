@@ -90,13 +90,9 @@ export const BackupWindow: React.FC<BackupWindowProps> = ({ onPullLibrary }) => 
     try {
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `babelleaf-backup-${timestamp}.zip`;
-      const saved = await saveBackupFile(
-        appService,
-        filename,
-        (current, total, currentFile) => {
-          setProgress({ current, total, currentFile });
-        },
-      );
+      const saved = await saveBackupFile(appService, filename, (current, total, currentFile) => {
+        setProgress({ current, total, currentFile });
+      });
       if (saved) {
         setResult({ type: 'backup' });
         setStatus('completed');

@@ -45,10 +45,7 @@ function makeMockTTSClient(name: string): TTSClient {
     initialized: false,
     init: () => Promise.resolve(true),
     shutdown: () => Promise.resolve(),
-    speak: async function* (
-      _ssml: string,
-      signal: AbortSignal,
-    ): AsyncGenerator<TTSMessageEvent> {
+    speak: async function* (_ssml: string, signal: AbortSignal): AsyncGenerator<TTSMessageEvent> {
       await new Promise((r) => setTimeout(r, speakDelayMs));
       if (signal.aborted) return;
       yield { code: 'end' };

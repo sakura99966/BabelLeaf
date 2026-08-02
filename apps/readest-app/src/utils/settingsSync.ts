@@ -80,9 +80,7 @@ export const mergeSyncedGlobalSettings = (
  * Broadcast this window's global settings to all other windows after a
  * settings write. Fire-and-forget and a no-op off Tauri.
  */
-export const broadcastGlobalSettings = async (
-  settings: SystemSettings,
-): Promise<void> => {
+export const broadcastGlobalSettings = async (settings: SystemSettings): Promise<void> => {
   if (!isTauriAppPlatform()) return;
   if (!settings.globalViewSettings || !settings.globalReadSettings) return;
   try {

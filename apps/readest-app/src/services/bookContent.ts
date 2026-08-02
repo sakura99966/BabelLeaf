@@ -9,10 +9,7 @@ export type BookContentSource =
   | { kind: 'external'; path: string; base: 'None' }
   | { kind: 'missing' };
 
-export type BookFileContentSource = Extract<
-  BookContentSource,
-  { kind: 'managed' | 'external' }
->;
+export type BookFileContentSource = Extract<BookContentSource, { kind: 'managed' | 'external' }>;
 
 export function isBookFileContentSource(
   source: BookContentSource,

@@ -761,7 +761,6 @@ export const pickFresherReadingStatus = (
   };
 };
 
-
 /**
  * Decide whether a peer should (re)download a book's cover from the cloud
  * (issue #4544). True when the synced book is in the cloud AND either:

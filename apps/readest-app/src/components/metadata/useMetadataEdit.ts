@@ -65,7 +65,6 @@ export const useMetadataEdit = (metadata: BookMetadata | null) => {
     if (value !== undefined) {
       handleFieldValidation(field, value);
     }
-
   };
 
   const handleFieldValidation = (field: string, value: string) => {

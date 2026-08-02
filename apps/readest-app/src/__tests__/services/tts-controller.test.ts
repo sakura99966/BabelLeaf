@@ -1158,10 +1158,7 @@ describe('TTSController', () => {
     // A native speak() mock that always reports a terminal 'error' for a
     // deterministically unspeakable chunk.
     const alwaysErrorSpeakMock = (state: { attempts: number }) =>
-      async function* (
-        _ssml: string,
-        _signal: AbortSignal,
-      ): AsyncGenerator<TTSMessageEvent> {
+      async function* (_ssml: string, _signal: AbortSignal): AsyncGenerator<TTSMessageEvent> {
         state.attempts += 1;
         yield { code: 'error', message: 'TTS playback error:-8' };
       };

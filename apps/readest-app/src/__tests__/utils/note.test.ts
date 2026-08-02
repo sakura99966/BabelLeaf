@@ -706,5 +706,4 @@ describe('buildAnnotationCopyMarkdown', () => {
     });
     expect(result).toContain('**Note**: ma pensee');
   });
-
 });

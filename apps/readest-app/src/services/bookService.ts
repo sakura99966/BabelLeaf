@@ -410,54 +410,54 @@ export async function importBook(
         fileobj = file;
         filename = file.name;
       }
-        if (/\.txt$/i.test(filename)) {
-          const txt2epub = new TxtToEpubConverter();
-          ({ file: fileobj } = await txt2epub.convert({ file: fileobj }));
-        }
-        if (!fileobj || fileobj.size === 0) {
-          throw new Error('Invalid or empty book file');
-        }
-        // Q1 fast path: when running under Tauri with a real file
-        // path, let Rust contribute the mechanical parts of the
-        // import work — partialMD5 over the file, the downscaled
-        // cover, and (for EPUB) the raw OPF bytes. Metadata
-        // extraction itself runs through foliate-js so the import
-        // path produces the same `Book.metadata` shape the reader
-        // path does (`refines` chains / ONIX5 / language maps / EPUB
-        // `belongs-to-collection` for EPUB; PalmDB UID identifier
-        // for MOBI), without any `DocumentLoader.open()` overhead —
-        // the importer never reads sections / toc / fixed-layout
-        // detection, so spending CPU on a zip central-directory
-        // scan, nav/ncx inflate, or PDB record-table walk would be
-        // pure waste here.
-        //
-        // Both bridges are no-ops on web / non-eligible paths, so
-        // the cost when neither matches is just two cheap regex
-        // tests.
-        let nativeBookDoc: BookDoc | undefined;
-        let nativeFormat: BookFormat | undefined;
-        if (typeof file === 'string' && !/\.txt$/i.test(filename)) {
-          const nativeEpub = await tryNativeParseEpub(file);
-          if (nativeEpub) {
-            nativeBookDoc = nativeEpub.bookDoc;
-            nativeFormat = 'EPUB' as BookFormat;
-            nativeHash = nativeEpub.partialMd5;
-          } else {
-            const nativeMobi = await tryNativeParseMobi(file, fileobj);
-            if (nativeMobi) {
-              nativeBookDoc = nativeMobi.bookDoc;
-              nativeFormat = nativeMobi.format;
-              nativeHash = nativeMobi.partialMd5;
-            }
+      if (/\.txt$/i.test(filename)) {
+        const txt2epub = new TxtToEpubConverter();
+        ({ file: fileobj } = await txt2epub.convert({ file: fileobj }));
+      }
+      if (!fileobj || fileobj.size === 0) {
+        throw new Error('Invalid or empty book file');
+      }
+      // Q1 fast path: when running under Tauri with a real file
+      // path, let Rust contribute the mechanical parts of the
+      // import work — partialMD5 over the file, the downscaled
+      // cover, and (for EPUB) the raw OPF bytes. Metadata
+      // extraction itself runs through foliate-js so the import
+      // path produces the same `Book.metadata` shape the reader
+      // path does (`refines` chains / ONIX5 / language maps / EPUB
+      // `belongs-to-collection` for EPUB; PalmDB UID identifier
+      // for MOBI), without any `DocumentLoader.open()` overhead —
+      // the importer never reads sections / toc / fixed-layout
+      // detection, so spending CPU on a zip central-directory
+      // scan, nav/ncx inflate, or PDB record-table walk would be
+      // pure waste here.
+      //
+      // Both bridges are no-ops on web / non-eligible paths, so
+      // the cost when neither matches is just two cheap regex
+      // tests.
+      let nativeBookDoc: BookDoc | undefined;
+      let nativeFormat: BookFormat | undefined;
+      if (typeof file === 'string' && !/\.txt$/i.test(filename)) {
+        const nativeEpub = await tryNativeParseEpub(file);
+        if (nativeEpub) {
+          nativeBookDoc = nativeEpub.bookDoc;
+          nativeFormat = 'EPUB' as BookFormat;
+          nativeHash = nativeEpub.partialMd5;
+        } else {
+          const nativeMobi = await tryNativeParseMobi(file, fileobj);
+          if (nativeMobi) {
+            nativeBookDoc = nativeMobi.bookDoc;
+            nativeFormat = nativeMobi.format;
+            nativeHash = nativeMobi.partialMd5;
           }
         }
-        if (nativeBookDoc && nativeFormat) {
-          loadedBook = nativeBookDoc;
-          format = nativeFormat;
-          usedNativeParser = true;
-        } else {
-          ({ book: loadedBook, format } = await new DocumentLoader(fileobj).open());
-        }
+      }
+      if (nativeBookDoc && nativeFormat) {
+        loadedBook = nativeBookDoc;
+        format = nativeFormat;
+        usedNativeParser = true;
+      } else {
+        ({ book: loadedBook, format } = await new DocumentLoader(fileobj).open());
+      }
       if (!loadedBook) {
         throw new Error('Unsupported or corrupted book file');
       }
@@ -816,10 +816,7 @@ export async function saveBookNav(fs: FileSystem, book: Book, nav: BookNav): Pro
   await fs.writeFile(getBookNavFilename(book), 'Books', JSON.stringify(nav));
 }
 
-export async function fetchBookDetails(
-  fs: FileSystem,
-  book: Book,
-): Promise<BookDoc['metadata']> {
+export async function fetchBookDetails(fs: FileSystem, book: Book): Promise<BookDoc['metadata']> {
   const { file } = await loadBookContent(fs, book);
   const bookDoc = (await new DocumentLoader(file).open()).book;
   const f = file as ClosableFile;

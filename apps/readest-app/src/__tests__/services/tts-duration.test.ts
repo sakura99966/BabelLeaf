@@ -31,7 +31,6 @@ describe('measured duration store', () => {
     recordMeasuredDuration(VOICE, 'Shared sentence text here.', 2.0);
     expect(getMeasuredDuration('fr-FR-DeniseNeural', 'Shared sentence text here.')).toBeUndefined();
   });
-
 });
 
 describe('defaultCharsPerSecond', () => {

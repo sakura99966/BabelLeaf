@@ -614,7 +614,7 @@ export class NativeAppService extends BaseAppService {
         execDir,
       });
     }
-        // StoreKit configuration. Treat as "unknown region" — we leave
+    // StoreKit configuration. Treat as "unknown region" — we leave
     await this.prepareBooksDir();
     await this.runMigrations();
   }
