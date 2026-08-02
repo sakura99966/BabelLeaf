@@ -51,9 +51,11 @@ Testing must use legally obtained, DRM-free documents.
 
 The following major features remain planned:
 
-- bilingual original/translation layouts and durable alignment;
-- chapter and full-book translation jobs, glossary enforcement, translation
-  memory, review, and portable sidecar results;
+- reader-side bilingual layouts and durable alignment;
+- chapter and full-book translation UI, glossary enforcement, translation
+  memory, review, and portable sidecar export (the P1 artifact schema and
+  bounded job-queue foundation are present, while the end-user workflow is
+  still planned);
 - separate handling for text-layer and scanned PDFs;
 - local comic OCR, text-region detection, inpainting, translated typesetting,
   and editable overlays;
