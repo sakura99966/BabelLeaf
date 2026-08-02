@@ -364,7 +364,7 @@ async function readMdxHeader(file: File): Promise<{
     throw new Error(`MDX header size out of range: ${headerByteSize}`);
   }
   const xmlBuf = await file.slice(4, 4 + headerByteSize).arrayBuffer();
-  const xml = new TextDecoder('utf-16le').decode(xmlBuf).replace(/ +$/, '');
+  const xml = new TextDecoder('utf-16le').decode(xmlBuf).replace(/\0+$/, '');
   const attrs: Record<string, string> = {};
   for (const m of xml.matchAll(/(\w+)="((?:.|\r|\n)*?)"/g)) {
     attrs[m[1]!] = m[2]!;

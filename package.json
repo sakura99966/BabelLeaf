@@ -12,7 +12,7 @@
     "worktree:new": "pnpm --filter @readest/readest-app worktree:new",
     "worktree:rm": "pnpm --filter @readest/readest-app worktree:rm",
     "format": "biome format --write .",
-    "format:check": "biome format ."
+    "format:check": "biome format . --line-ending=auto"
   },
   "packageManager": "pnpm@11.1.1",
   "devDependencies": {
