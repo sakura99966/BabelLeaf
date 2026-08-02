@@ -2,9 +2,10 @@
 
 ## Current support status
 
-BabelLeaf is in foundation migration and has not published a supported release.
-Development snapshots are for evaluation and may still contain inherited
-Readest code paths that do not conform to BabelLeaf's final network policy.
+BabelLeaf is pre-release software and has not published a supported release.
+Development snapshots are for evaluation and have not completed the clean
+runtime traffic capture, hostile-document, credential-storage, and
+target-platform checks required for a supported release.
 
 | Version | Security support |
 | --- | --- |
@@ -21,12 +22,12 @@ BabelLeaf is designed for local file import and local application data. The
 only intended external network capability is translation through an
 OpenAI-compatible endpoint that the user explicitly configures and enables.
 
-The current source tree is derived from Readest and still contains code or
-configuration for authentication, synchronization, updater checks, telemetry,
-online catalogs, metadata, dictionaries, speech, translation providers, and
-generic network bridges. Those paths are being gated or removed in stages.
-Their presence means the current development tree must **not** be described as
-fully offline, local-only, or hardened.
+The current source tree is derived from Readest. Inherited account,
+synchronization, updater, telemetry, online catalog, payment, hosted API,
+online dictionary, and online speech implementations have been removed from
+the active BabelLeaf tree. Source deletion is not a substitute for dynamic
+verification, so the current development tree must not yet be described as
+privacy-hardened or release-ready.
 
 The normative target and containment checklist are in
 [`docs/NETWORK_POLICY.md`](docs/NETWORK_POLICY.md).
@@ -78,9 +79,11 @@ OAuth, WebSocket, upload/download, secure-storage, or network operations. Tauri
 capabilities, command inputs, filesystem scopes, custom protocols, and the CSP
 must be reduced to the minimum BabelLeaf needs.
 
-The inherited Readest configuration currently includes broad network origins
-and commands. Hardening is ongoing; the current configuration is not cited as
-a completed mitigation.
+The Tauri HTTP permission and CSP accept dynamic HTTP(S) destinations because
+the translation endpoint is user-defined. Native commands and feature code
+must enforce the narrower product policy; platform permission alone is not
+authorization for arbitrary traffic. This boundary requires source contracts
+and runtime traffic tests.
 
 #### LLM translation
 

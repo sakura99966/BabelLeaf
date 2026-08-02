@@ -4,33 +4,23 @@ Default permissions for the plugin
 
 #### This default permission set includes the following:
 
-- `allow-auth-with-safari`
-- `allow-auth-with-custom-tab`
 - `allow-copy-uri-to-path`
 - `allow-save-image-to-gallery`
 - `allow-use-background-audio`
-- `allow-install-package`
 - `allow-set-system-ui-visibility`
 - `allow-get-status-bar-height`
 - `allow-get-sys-fonts-list`
 - `allow-intercept-keys`
 - `allow-lock-screen-orientation`
-- `allow-iap-is-available`
-- `allow-iap-initialize`
-- `allow-iap-fetch-products`
-- `allow-iap-purchase-product`
-- `allow-iap-restore-purchases`
 - `allow-get-system-color-scheme`
 - `allow-get-safe-area-insets`
 - `allow-get-screen-brightness`
 - `allow-set-screen-brightness`
 - `allow-get-external-sdcard-path`
-- `allow-open-external-url`
 - `allow-show-lookup-popover`
 - `allow-get-lookup-dictionary`
 - `allow-clear-lookup-dictionary`
 - `allow-select-directory`
-- `allow-get-storefront-region-code`
 - `allow-request-manage-storage-permission`
 - `allow-register-listener`
 - `allow-remove-listener`
@@ -38,10 +28,6 @@ Default permissions for the plugin
 - `allow-request-permissions`
 - `allow-checkPermissions`
 - `allow-requestPermissions`
-- `allow-set-sync-passphrase`
-- `allow-get-sync-passphrase`
-- `allow-clear-sync-passphrase`
-- `allow-is-sync-keychain-available`
 - `allow-set-secure-item`
 - `allow-get-secure-item`
 - `allow-clear-secure-item`
@@ -58,58 +44,6 @@ Default permissions for the plugin
 <th>Description</th>
 </tr>
 
-
-<tr>
-<td>
-
-`native-bridge:allow-auth-with-custom-tab`
-
-</td>
-<td>
-
-Enables the auth_with_custom_tab command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-auth-with-custom-tab`
-
-</td>
-<td>
-
-Denies the auth_with_custom_tab command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-auth-with-safari`
-
-</td>
-<td>
-
-Enables the auth_with_safari command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-auth-with-safari`
-
-</td>
-<td>
-
-Denies the auth_with_safari command without any pre-configured scope.
-
-</td>
-</tr>
 
 <tr>
 <td>
@@ -263,58 +197,6 @@ Enables the clear_secure_item command without any pre-configured scope.
 <td>
 
 Denies the clear_secure_item command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-clear-sync-passphrase`
-
-</td>
-<td>
-
-Enables the clear_sync_passphrase command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-clear-sync-passphrase`
-
-</td>
-<td>
-
-Denies the clear_sync_passphrase command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-clip-url`
-
-</td>
-<td>
-
-Enables the clip_url command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-clip-url`
-
-</td>
-<td>
-
-Denies the clip_url command without any pre-configured scope.
 
 </td>
 </tr>
@@ -504,58 +386,6 @@ Denies the get_status_bar_height command without any pre-configured scope.
 <tr>
 <td>
 
-`native-bridge:allow-get-storefront-region-code`
-
-</td>
-<td>
-
-Enables the get_storefront_region_code command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-get-storefront-region-code`
-
-</td>
-<td>
-
-Denies the get_storefront_region_code command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-get-sync-passphrase`
-
-</td>
-<td>
-
-Enables the get_sync_passphrase command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-get-sync-passphrase`
-
-</td>
-<td>
-
-Denies the get_sync_passphrase command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `native-bridge:allow-get-sys-fonts-list`
 
 </td>
@@ -608,162 +438,6 @@ Denies the get_system_color_scheme command without any pre-configured scope.
 <tr>
 <td>
 
-`native-bridge:allow-iap-fetch-products`
-
-</td>
-<td>
-
-Enables the iap_fetch_products command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-iap-fetch-products`
-
-</td>
-<td>
-
-Denies the iap_fetch_products command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-iap-initialize`
-
-</td>
-<td>
-
-Enables the iap_initialize command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-iap-initialize`
-
-</td>
-<td>
-
-Denies the iap_initialize command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-iap-is-available`
-
-</td>
-<td>
-
-Enables the iap_is_available command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-iap-is-available`
-
-</td>
-<td>
-
-Denies the iap_is_available command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-iap-purchase-product`
-
-</td>
-<td>
-
-Enables the iap_purchase_product command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-iap-purchase-product`
-
-</td>
-<td>
-
-Denies the iap_purchase_product command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-iap-restore-purchases`
-
-</td>
-<td>
-
-Enables the iap_restore_purchases command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-iap-restore-purchases`
-
-</td>
-<td>
-
-Denies the iap_restore_purchases command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-install-package`
-
-</td>
-<td>
-
-Enables the install_package command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-install-package`
-
-</td>
-<td>
-
-Denies the install_package command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `native-bridge:allow-intercept-keys`
 
 </td>
@@ -790,32 +464,6 @@ Denies the intercept_keys command without any pre-configured scope.
 <tr>
 <td>
 
-`native-bridge:allow-is-sync-keychain-available`
-
-</td>
-<td>
-
-Enables the is_sync_keychain_available command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-is-sync-keychain-available`
-
-</td>
-<td>
-
-Denies the is_sync_keychain_available command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
 `native-bridge:allow-lock-screen-orientation`
 
 </td>
@@ -835,32 +483,6 @@ Enables the lock_screen_orientation command without any pre-configured scope.
 <td>
 
 Denies the lock_screen_orientation command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-open-external-url`
-
-</td>
-<td>
-
-Enables the open_external_url command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-open-external-url`
-
-</td>
-<td>
-
-Denies the open_external_url command without any pre-configured scope.
 
 </td>
 </tr>
@@ -1147,32 +769,6 @@ Enables the set_secure_item command without any pre-configured scope.
 <td>
 
 Denies the set_secure_item command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:allow-set-sync-passphrase`
-
-</td>
-<td>
-
-Enables the set_sync_passphrase command without any pre-configured scope.
-
-</td>
-</tr>
-
-<tr>
-<td>
-
-`native-bridge:deny-set-sync-passphrase`
-
-</td>
-<td>
-
-Denies the set_sync_passphrase command without any pre-configured scope.
 
 </td>
 </tr>

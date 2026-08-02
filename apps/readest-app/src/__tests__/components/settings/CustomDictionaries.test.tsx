@@ -1,12 +1,11 @@
 /**
  * CustomDictionaries — system-dictionary exclusivity lock.
  *
- * `settings.providerEnabled` is whole-field synced across devices, so the
- * System Dictionary "enabled" flag can arrive (true) on a device that doesn't
- * support the OS handoff at all (web, Linux, Windows). On those platforms the
- * System Dictionary row is hidden and the feature is a no-op at lookup time —
- * so it must NOT lock the other providers' toggles. On platforms where the
- * handoff is supported, enabling it stays exclusive and locks the rest.
+ * Older persisted settings can leave the System Dictionary "enabled" on a
+ * platform that does not support the OS handoff (web, Linux, Windows). On
+ * those platforms the row is hidden and the feature is a no-op at lookup time,
+ * so it must not lock the other provider toggles. On supported platforms,
+ * enabling it remains exclusive and locks the rest.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
@@ -14,7 +13,7 @@ import { render, cleanup } from '@testing-library/react';
 import CustomDictionaries from '@/components/settings/CustomDictionaries';
 import { useCustomDictionaryStore } from '@/store/customDictionaryStore';
 import { BUILTIN_PROVIDER_IDS } from '@/services/dictionaries/types';
-import type { DictionarySettings } from '@/services/dictionaries/types';
+import type { DictionarySettings, ImportedDictionary } from '@/services/dictionaries/types';
 
 // Per-test platform control. `isSystemDictionaryEnabled` (real, from the
 // registry) reads `isSystemDictionarySupported`, so toggling these flips both
@@ -37,15 +36,30 @@ vi.mock('@/hooks/useFileSelector', () => ({
   useFileSelector: () => ({ selectFiles: vi.fn() }),
 }));
 
-vi.mock('@/services/sync/replicaBinaryUpload', () => ({
-  queueDictionaryBinaryUpload: vi.fn(),
-}));
-
 const LOCKED_TITLE = 'Disable System Dictionary first to change this.';
+
+const localDictionaries: ImportedDictionary[] = [
+  {
+    id: 'mdict:first',
+    kind: 'mdict',
+    name: 'First',
+    bundleDir: 'first',
+    files: { mdx: 'first.mdx' },
+    addedAt: 1,
+  },
+  {
+    id: 'mdict:second',
+    kind: 'mdict',
+    name: 'Second',
+    bundleDir: 'second',
+    files: { mdx: 'second.mdx' },
+    addedAt: 2,
+  },
+];
 
 const seedSettings = (settings: DictionarySettings) => {
   useCustomDictionaryStore.setState({
-    dictionaries: [],
+    dictionaries: localDictionaries,
     settings,
     // The mount effect calls loadCustomDictionaries; no-op it so it can't
     // clobber the seeded state with on-disk defaults.
@@ -55,18 +69,13 @@ const seedSettings = (settings: DictionarySettings) => {
 };
 
 const enabledSystemSettings: DictionarySettings = {
-  providerOrder: [
-    BUILTIN_PROVIDER_IDS.systemDictionary,
-    BUILTIN_PROVIDER_IDS.wiktionary,
-    BUILTIN_PROVIDER_IDS.wikipedia,
-  ],
+  providerOrder: [BUILTIN_PROVIDER_IDS.systemDictionary, 'mdict:first', 'mdict:second'],
   providerEnabled: {
-    // Synced "on" from a device where the OS handoff exists.
+    // Stale persisted value from an earlier platform or release.
     [BUILTIN_PROVIDER_IDS.systemDictionary]: true,
-    [BUILTIN_PROVIDER_IDS.wiktionary]: true,
-    [BUILTIN_PROVIDER_IDS.wikipedia]: true,
+    'mdict:first': true,
+    'mdict:second': true,
   },
-  webSearches: [],
 };
 
 const getToggles = (container: HTMLElement) =>
@@ -83,8 +92,8 @@ afterEach(() => {
 
 describe('CustomDictionaries — system-dictionary lock', () => {
   it('does not lock other toggles when System Dictionary is unsupported on this platform', () => {
-    // Web: not supported. System Dictionary row is hidden and the synced flag
-    // must not lock Wiktionary / Wikipedia.
+    // Web: not supported. System Dictionary row is hidden and the stale flag
+    // must not lock local dictionaries.
     platform.supported = false;
     platform.available = false;
     seedSettings(enabledSystemSettings);

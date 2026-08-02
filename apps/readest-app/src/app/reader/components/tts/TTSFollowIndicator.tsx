@@ -20,7 +20,7 @@ export type TtsSyncStatus =
 interface TTSFollowIndicatorProps {
   status: TtsSyncStatus;
   /**
-   * RSVP non-Edge sentence-level following is paced by an estimator, not exact
+   * Sentence-level RSVP following is paced by an estimator, not exact
    * word marks, so the label is qualified with " · estimated".
    */
   estimated?: boolean;

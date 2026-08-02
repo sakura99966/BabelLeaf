@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import React, { useEffect, useState } from 'react';
 import { useEnv } from '@/context/EnvContext';
-import { useAuth } from '@/context/AuthContext';
 import { useReaderStore } from '@/store/readerStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/store/settingsStore';
@@ -26,12 +25,9 @@ import {
   SettingsSwitchRow,
 } from './primitives';
 import CustomDictionaries from './CustomDictionaries';
-import WordLensPanel from './WordLensPanel';
-import { PiTranslate } from 'react-icons/pi';
 
 const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset }) => {
   const _ = useTranslation();
-  const { token } = useAuth();
   const { envConfig } = useEnv();
   const { settings, applyUILanguage, activeSettingsItemId, setActiveSettingsItemId } =
     useSettingsStore();
@@ -52,7 +48,6 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
     viewSettings.convertChineseVariant,
   );
   const [showCustomDictionaries, setShowCustomDictionaries] = useState(false);
-  const [showWordLens, setShowWordLens] = useState(false);
 
   // Android Back / Esc: when a sub-page is open, intercept and step back to the
   // language list instead of letting <Dialog>'s listener close the whole
@@ -61,10 +56,6 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   useKeyDownActions({
     enabled: showCustomDictionaries,
     onCancel: () => setShowCustomDictionaries(false),
-  });
-  useKeyDownActions({
-    enabled: showWordLens,
-    onCancel: () => setShowWordLens(false),
   });
 
   // Deep-link: callers (e.g. the dictionary popup's manage icon) can set
@@ -124,17 +115,15 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   const getTranslationProviderOptions = () => {
     return getTranslators().map((t) => ({
       value: t.name,
-      label: getTranslatorDisplayLabel(t, !!token, _),
-      // Providers marked `disabled` (e.g. upstream relay is down) stay in the
-      // dropdown so users can see them, but cannot be selected.
-      disabled: !!t.disabled,
+      label: getTranslatorDisplayLabel(t, _),
+      disabled: !isTranslatorAvailable(t),
     }));
   };
 
   const getCurrentTranslationProviderOption = () => {
     const value = translationProvider;
     const allProviders = getTranslationProviderOptions();
-    const availableTranslators = getTranslators().filter((t) => isTranslatorAvailable(t, !!token));
+    const availableTranslators = getTranslators().filter(isTranslatorAvailable);
     const currentProvider = availableTranslators.find((t) => t.name === value)
       ? value
       : availableTranslators[0]?.name;
@@ -288,10 +277,6 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
     );
   }
 
-  if (showWordLens) {
-    return <WordLensPanel bookKey={bookKey} onBack={() => setShowWordLens(false)} />;
-  }
-
   return (
     <div className={clsx('my-4 w-full space-y-6')}>
       <BoxedList title={_('Language')} data-setting-id='settings.language.interfaceLanguage'>
@@ -314,19 +299,6 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
           title={_('Manage Dictionaries')}
           onClick={() => setShowCustomDictionaries(true)}
           className='h-14'
-        />
-      </BoxedList>
-
-      <BoxedList
-        title={_('Word Lens')}
-        data-setting-id='settings.language.wordlens'
-        cardClassName='overflow-hidden'
-      >
-        <NavigationRow
-          icon={PiTranslate}
-          title={_('Word Lens')}
-          status={_('Show a short native-language hint above difficult words.')}
-          onClick={() => setShowWordLens(true)}
         />
       </BoxedList>
 

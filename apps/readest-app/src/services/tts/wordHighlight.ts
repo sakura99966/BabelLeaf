@@ -1,5 +1,5 @@
-// Helpers for word-level TTS highlighting driven by Edge TTS word-boundary
-// metadata. Boundary words are matched sequentially against the text of the
+// Helpers for word-level TTS highlighting driven by word-boundary metadata.
+// Boundary words are matched sequentially against the text of the
 // currently spoken sentence range; an unmatched word (e.g. rewritten by a
 // TTS-only proofread rule) is skipped without advancing the search cursor so
 // later words still align.
@@ -9,7 +9,7 @@ export interface TTSWordOffset {
   end: number;
 }
 
-// Edge TTS word-boundary offsets are in 100-nanosecond ticks.
+// Boundary offsets use 100-nanosecond ticks.
 const TICKS_PER_SECOND = 10_000_000;
 
 // Gloss markup (<rt cfi-inert>) and any cfi-inert subtree is injected, non-book

@@ -58,8 +58,7 @@ data class TTSMessageEvent(
 
 @InvokeArg
 class SpeakArgs(
-    val text: String? = "",
-    val preload: Boolean? = false
+    val text: String? = ""
 )
 
 @InvokeArg
@@ -255,7 +254,7 @@ class NativeTTSPlugin(private val activity: Activity) : Plugin(activity) {
                 eventChannels[utteranceId] = eventChannel
 
                 val speakJob = launch {
-                    speakText(text, utteranceId, args.preload ?: false)
+                    speakText(text, utteranceId)
                 }
                 speakingJobs[utteranceId] = speakJob
 
@@ -274,7 +273,7 @@ class NativeTTSPlugin(private val activity: Activity) : Plugin(activity) {
         }
     }
     
-    private suspend fun speakText(text: String, utteranceId: String, preload: Boolean) {
+    private suspend fun speakText(text: String, utteranceId: String) {
         withContext(Dispatchers.Main) {
             try {
                 textToSpeech?.apply {
@@ -288,7 +287,7 @@ class NativeTTSPlugin(private val activity: Activity) : Plugin(activity) {
                 
                 val result = textToSpeech?.speak(
                     text,
-                    if (preload) TextToSpeech.QUEUE_ADD else TextToSpeech.QUEUE_FLUSH,
+                    TextToSpeech.QUEUE_FLUSH,
                     params,
                     utteranceId
                 )

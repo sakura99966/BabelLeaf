@@ -8,20 +8,6 @@ import {
   mountCustomFont,
 } from '@/styles/fonts';
 import { useSettingsStore } from './settingsStore';
-import { getReplicaPersistEnv } from '@/services/sync/replicaPersist';
-import { publishReplicaDelete, publishReplicaUpsert } from '@/services/sync/replicaPublish';
-import { FONT_KIND } from '@/services/sync/adapters/font';
-import { computeFontContentId } from '@/services/fontService';
-import { migrateLegacyReplicas } from '@/services/sync/migrateLegacy';
-
-const publishFontUpsert = (font: CustomFont): void => {
-  if (!font.contentId) return;
-  void publishReplicaUpsert(FONT_KIND, font, font.contentId, font.reincarnation);
-};
-
-const publishFontDelete = (contentId: string): void => {
-  void publishReplicaDelete(FONT_KIND, contentId);
-};
 
 interface FontStoreState {
   fonts: CustomFont[];
@@ -35,28 +21,6 @@ interface FontStoreState {
   getAllFonts: () => CustomFont[];
   getAvailableFonts: () => CustomFont[];
   clearAllFonts: () => void;
-
-  /** Look up a local font by its cross-device contentId. */
-  findByContentId: (contentId: string) => CustomFont | undefined;
-  /**
-   * Add a remote-sourced font from a replica pull WITHOUT republishing.
-   * The placeholder lands with `unavailable: true`; the binary download
-   * handler clears the flag on completion.
-   */
-  applyRemoteFont: (font: CustomFont) => void;
-  /** Soft-delete by contentId, skipping the publish call. */
-  softDeleteByContentId: (contentId: string) => void;
-  /** Clear the placeholder unavailable flag once binaries land on disk. */
-  markAvailableByContentId: (contentId: string) => void;
-  /**
-   * Full activation path for a remote-pulled font once its binary has
-   * landed on disk: clear the `unavailable` flag, load the file into a
-   * blob URL, and inject the `@font-face` rule so the family is
-   * actually rendered. Manual imports get this for free in
-   * `CustomFonts.tsx`; auto-download needs the same plumbing or the
-   * font appears in the UI but renders in a fallback face.
-   */
-  activateFontByContentId: (envConfig: EnvConfigType, contentId: string) => Promise<void>;
 
   loadFont: (envConfig: EnvConfigType, fontId: string) => Promise<CustomFont>;
   loadFonts: (envConfig: EnvConfigType, fontIds: string[]) => Promise<CustomFont[]>;
@@ -87,41 +51,21 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
     const font = createCustomFont(path, options);
     const existingFont = get().fonts.find((f) => f.id === font.id);
     if (existingFont) {
-      // Re-import of an existing font. Under CRDT remove-wins, a plain
-      // upsert can't revive a server-side tombstone — the next pull would
-      // re-apply the delete and the font silently disappears while logged
-      // into cloud sync (issue #4410). Mint a reincarnation token so the
-      // row surfaces as alive on every device's next pull. Covers both
-      // re-import after a local delete and re-import while the entry is
-      // still live but another device tombstoned the row (the token is
-      // inert when there's no tombstone). Preserve any existing token
-      // instead of churning a new one on each import. Mirrors
-      // dictionaryService's reincarnation logic.
-      const shouldMintReincarnation =
-        !!font.contentId &&
-        !existingFont.reincarnation &&
-        (!!existingFont.deletedAt || existingFont.contentId === font.contentId);
-      const reincarnation =
-        font.reincarnation ??
-        (shouldMintReincarnation
-          ? Math.random().toString(36).slice(2)
-          : existingFont.reincarnation);
-      get().updateFont(font.id, {
+      if (existingFont.blobUrl) {
+        URL.revokeObjectURL(existingFont.blobUrl);
+      }
+      const updatedFont: CustomFont = {
+        ...existingFont,
         ...font,
-        path: font.path,
         downloadedAt: Date.now(),
-        deletedAt: undefined,
-        reincarnation,
         loaded: false,
         blobUrl: undefined,
         error: undefined,
-      });
+      };
       set((state) => ({
-        fonts: [...state.fonts],
+        fonts: state.fonts.map((entry) => (entry.id === font.id ? updatedFont : entry)),
       }));
-      const refreshed = get().getFont(font.id) ?? existingFont;
-      publishFontUpsert(refreshed);
-      return refreshed;
+      return updatedFont;
     }
 
     const newFont = {
@@ -133,7 +77,6 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
       fonts: [...state.fonts, newFont],
     }));
 
-    publishFontUpsert(newFont);
     return newFont;
   },
 
@@ -145,17 +88,10 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
       URL.revokeObjectURL(font.blobUrl);
     }
 
-    const result = get().updateFont(id, {
-      deletedAt: Date.now(),
-      blobUrl: undefined,
-      loaded: false,
-      error: undefined,
-    });
     set((state) => ({
-      fonts: [...state.fonts],
+      fonts: state.fonts.filter((entry) => entry.id !== id),
     }));
-    if (font.contentId) publishFontDelete(font.contentId);
-    return result;
+    return true;
   },
 
   updateFont: (id, updates) => {
@@ -173,60 +109,6 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
     return true;
   },
 
-  findByContentId: (contentId) =>
-    contentId ? get().fonts.find((f) => f.contentId === contentId) : undefined,
-
-  applyRemoteFont: (font) => {
-    set((state) => {
-      const existingIdx = state.fonts.findIndex((f) => f.id === font.id);
-      const fonts =
-        existingIdx >= 0
-          ? state.fonts.map((f, i) => (i === existingIdx ? { ...font, deletedAt: undefined } : f))
-          : [...state.fonts, font];
-      return { fonts };
-    });
-    const env = getReplicaPersistEnv();
-    if (env) void get().saveCustomFonts(env);
-  },
-
-  softDeleteByContentId: (contentId) => {
-    const target = get().fonts.find((f) => f.contentId === contentId && !f.deletedAt);
-    if (!target) return;
-    set((state) => ({
-      fonts: state.fonts.map((f) =>
-        f.id === target.id ? { ...f, deletedAt: Date.now(), blobUrl: undefined, loaded: false } : f,
-      ),
-    }));
-    if (target.blobUrl) URL.revokeObjectURL(target.blobUrl);
-    const env = getReplicaPersistEnv();
-    if (env) void get().saveCustomFonts(env);
-  },
-
-  markAvailableByContentId: (contentId) => {
-    set((state) => ({
-      fonts: state.fonts.map((f) =>
-        f.contentId === contentId ? { ...f, unavailable: undefined } : f,
-      ),
-    }));
-    const env = getReplicaPersistEnv();
-    if (env) void get().saveCustomFonts(env);
-  },
-
-  activateFontByContentId: async (envConfig, contentId) => {
-    get().markAvailableByContentId(contentId);
-    const target = get().fonts.find((f) => f.contentId === contentId && !f.deletedAt);
-    if (!target) return;
-    try {
-      const loaded = await get().loadFont(envConfig, target.id);
-      if (typeof document !== 'undefined') {
-        mountCustomFont(document, loaded);
-      }
-      const env = getReplicaPersistEnv();
-      if (env) await get().saveCustomFonts(env);
-    } catch (err) {
-      console.warn('activateFontByContentId failed', contentId, err);
-    }
-  },
 
   getFont: (id) => {
     return get().fonts.find((font) => font.id === id);
@@ -237,7 +119,7 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
   },
 
   getAvailableFonts: () => {
-    return get().fonts.filter((font) => !font.deletedAt);
+    return get().fonts;
   },
 
   clearAllFonts: () => {
@@ -256,10 +138,6 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
 
     if (!font) {
       throw new Error(`Font with id "${fontId}" not found`);
-    }
-
-    if (font.deletedAt) {
-      throw new Error(`Font "${font.name}" has been deleted`);
     }
 
     if (font.loaded && font.blobUrl && !font.error) {
@@ -371,7 +249,7 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
 
   isFontLoaded: (fontId) => {
     const font = get().getFont(fontId);
-    return font?.loaded === true && !font.error && !font.deletedAt;
+    return font?.loaded === true && !font.error;
   },
 
   loadCustomFonts: async (envConfig) => {
@@ -418,43 +296,6 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
     }
   },
 }));
-
-/**
- * Look up a font by its cross-device contentId, falling back to the
- * persisted `settings.customFonts` when the in-memory store is empty.
- * The pull-side orchestrator runs at app boot — earlier than the font
- * panel mount, so loadCustomFonts hasn't hydrated the zustand store
- * yet. Without the fallback every refresh would mint a fresh bundleDir
- * per row and re-download.
- */
-export const findFontByContentId = (contentId: string): CustomFont | undefined => {
-  if (!contentId) return undefined;
-  const inMemory = useCustomFontStore.getState().findByContentId(contentId);
-  if (inMemory) return inMemory;
-  const persisted = useSettingsStore.getState().settings?.customFonts ?? [];
-  return persisted.find((f) => f.contentId === contentId && !f.deletedAt);
-};
-
-/**
- * One-time migration: rehash legacy flat-path fonts (imported before
- * replica sync shipped) into the per-bundle layout so they sync
- * across devices without forcing the user to re-import. Idempotent;
- * skips fonts that already carry `contentId`. Implementation lives in
- * `migrateLegacyReplicas` — shared with custom textures.
- */
-export const migrateLegacyFonts = (envConfig: EnvConfigType): Promise<void> =>
-  migrateLegacyReplicas<CustomFont>(envConfig, {
-    kind: FONT_KIND,
-    baseDir: 'Fonts',
-    getCandidates: () =>
-      useCustomFontStore
-        .getState()
-        .fonts.filter((f) => !f.contentId && !f.bundleDir && !f.deletedAt && !f.path.includes('/')),
-    computeContentId: computeFontContentId,
-    updateRecord: (id, next) => useCustomFontStore.getState().updateFont(id, next),
-    saveStore: (env) => useCustomFontStore.getState().saveCustomFonts(env),
-    publishUpsert: publishFontUpsert,
-  });
 
 if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => {

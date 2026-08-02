@@ -6,7 +6,6 @@ import {
   estimateSentenceSeconds,
   getMeasuredDuration,
   recordMeasuredDuration,
-  recordProvisionalDuration,
 } from '@/services/tts/ttsDuration';
 
 const VOICE = 'en-US-AriaNeural';
@@ -33,14 +32,6 @@ describe('measured duration store', () => {
     expect(getMeasuredDuration('fr-FR-DeniseNeural', 'Shared sentence text here.')).toBeUndefined();
   });
 
-  test('provisional never overwrites measured; measured overwrites provisional', () => {
-    recordProvisionalDuration(VOICE, 'A provisional sentence sample.', 3.0);
-    expect(getMeasuredDuration(VOICE, 'A provisional sentence sample.')).toBe(3.0);
-    recordMeasuredDuration(VOICE, 'A provisional sentence sample.', 2.5);
-    expect(getMeasuredDuration(VOICE, 'A provisional sentence sample.')).toBe(2.5);
-    recordProvisionalDuration(VOICE, 'A provisional sentence sample.', 9.9);
-    expect(getMeasuredDuration(VOICE, 'A provisional sentence sample.')).toBe(2.5);
-  });
 });
 
 describe('defaultCharsPerSecond', () => {

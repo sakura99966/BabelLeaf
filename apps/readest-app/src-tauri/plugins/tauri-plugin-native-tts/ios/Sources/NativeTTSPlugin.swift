@@ -4,13 +4,13 @@ import Tauri
 import UIKit
 import os
 
-private let keepAliveLog = Logger(subsystem: "com.bilingify.readest", category: "TTSKeepAlive")
+private let keepAliveLog = Logger(
+  subsystem: "io.github.sakura99966.babelleaf", category: "TTSKeepAlive")
 
 // MARK: - Command arguments (camelCase, decoded from the Rust models)
 
 class SpeakArgs: Decodable {
   let text: String?
-  let preload: Bool?
 }
 
 class SetRateArgs: Decodable {
@@ -50,34 +50,6 @@ class SetMediaSessionActiveArgs: Decodable {
   let notificationText: String?
   let foregroundServiceTitle: String?
   let foregroundServiceText: String?
-}
-
-struct PlayoutEnqueueArgs: Decodable {
-  let session: Int
-  let index: Int
-  let data: String  // base64 MP3
-  let gapMs: Double?
-}
-
-struct PlayoutControlArgs: Decodable {
-  // 'start-session' | 'end-session' | 'abort' | 'pause' | 'resume' | 'set-rate'
-  let action: String
-  let rate: Double?
-}
-
-struct PlayoutEnqueueResponse: Encodable {
-  let durationMs: Double
-}
-
-struct PlayoutControlResponse: Encodable {
-  let session: Int?
-}
-
-struct PlayoutPositionResponse: Encodable {
-  let session: Int
-  let index: Int
-  let positionMs: Double
-  let playing: Bool
 }
 
 // MARK: - Command responses (camelCase, re-decoded by the Rust models)
@@ -151,28 +123,17 @@ class NativeTTSPlugin: Plugin, AVSpeechSynthesizerDelegate {
   }
 
 
-  // Silent in-process keep-alive. TTS audio renders inside WebKit's media
-  // process, so the app's own audio session never carries sound and MediaRemote
-  // keeps the client's playback state at Paused — which makes the lock screen
-  // drop the now-playing card entirely (CarPlay's template UI still renders).
-  // A looping silent player in the app process, played/paused in lockstep with
-  // TTS, keeps the app's audio session genuinely active — the same trick the
-  // Android MediaPlaybackService uses with its silence.mp3 keep-alive. The
+  // Silent in-process keep-alive. A looping silent player, played/paused in
+  // lockstep with speech, keeps the app's audio session active between
+  // utterances — the same mechanism Android uses for its media service. The
   // Playing/Paused DECLARATION happens separately via setSystemPlaybackState
   // (audio activity alone provably does not flip the MediaRemote client).
   private var keepAlivePlayer: AVAudioPlayer?
   private var keepAliveQueuePlayer: AVQueuePlayer?
   private var keepAliveLooper: AnyObject?
 
-  // Publishes to the MPNowPlayingSession's centers once the session is bound
-  // to the real playout AVPlayer (see bindNowPlayingSession), falling back to
-  // the default center before that / pre-iOS-16. Info, commands, and player
-  // state must all live on ONE MediaRemote player surface — splitting them
-  // renders a card without transport buttons.
+  // Publish metadata and playback state through the process-wide media center.
   private func activeInfoCenter() -> MPNowPlayingInfoCenter {
-    if #available(iOS 16.0, *), let session = nowPlayingSession as? MPNowPlayingSession {
-      return session.nowPlayingInfoCenter
-    }
     return MPNowPlayingInfoCenter.default()
   }
 
@@ -180,8 +141,8 @@ class NativeTTSPlugin: Plugin, AVSpeechSynthesizerDelegate {
   // property is macOS-only in the SDK headers, but the accessor exists in the
   // iOS runtime — and it is the ONLY lever that flips the client's playback
   // state here: audio activity (a playing in-process AVQueuePlayer), rate-1
-  // nowPlayingInfo, an active MPNowPlayingSession, and remote-control
-  // registration all provably leave the client Paused, and a Paused client
+  // nowPlayingInfo, and remote-control registration all provably leave the
+  // client Paused, and a Paused client
   // never gets a lock-screen card. Guarded by responds(to:) so a runtime that
   // drops the accessor degrades to the old (card-less) behavior, not a crash.
   // MPNowPlayingPlaybackState: playing = 1, paused = 2, stopped = 3.
@@ -519,13 +480,9 @@ class NativeTTSPlugin: Plugin, AVSpeechSynthesizerDelegate {
   }
 
   // Claim the shared audio session as NON-mixable .playback — the documented
-  // shape of a media app. This is sound now because the TTS audio genuinely
-  // renders in the app process (native playout AVPlayer for Edge voices,
-  // AVSpeechSynthesizer for system voices): the session that owns Now Playing
-  // is the session carrying the audio, so election, pause-hold, AirPods
-  // routing, and mute-switch immunity all behave like any music app. (The
-  // WebAudio era needed mixable + navigator.audioSession games because the
-  // audio lived in WebKit's GPU process — see git history of this comment.)
+  // shape of a media app. AVSpeechSynthesizer and the keep-alive player share
+  // this app-owned session, so Now Playing state and spoken audio have the same
+  // lifecycle.
   private func claimAudioSession() {
     let session = AVAudioSession.sharedInstance()
     keepAliveLog.log(
@@ -569,8 +526,7 @@ class NativeTTSPlugin: Plugin, AVSpeechSynthesizerDelegate {
 
   // Interruptions and route changes are forwarded through the SAME plugin
   // events as lock-screen taps, so pause/resume runs the full TTSController
-  // path in JS (WebAudio suspend/resume, position, card state) instead of a
-  // native side channel the webview would drift from.
+  // path instead of a native side channel the webview would drift from.
   private func addAudioSessionObservers() {
     if !audioSessionObservers.isEmpty { return }
     let nc = NotificationCenter.default
@@ -715,42 +671,9 @@ class NativeTTSPlugin: Plugin, AVSpeechSynthesizerDelegate {
     }
   }
 
-  // Single surface (see activeInfoCenter): commands live on the shared center,
-  // same client surface as the default info center's player.
+  // Commands share the process-wide media center used by now-playing metadata.
   private func activeCommandCenter() -> MPRemoteCommandCenter {
-    if #available(iOS 16.0, *), let session = nowPlayingSession as? MPNowPlayingSession {
-      return session.remoteCommandCenter
-    }
     return MPRemoteCommandCenter.shared()
-  }
-
-  // MPNowPlayingSession bound to the REAL playout AVPlayer (iOS 16+). The
-  // system observes the player and reports EXPLICIT Playing/Paused to
-  // MediaRemote — an inferred-only client evaporates from the Now Playing
-  // slot the moment its audio pauses (device log 2026-07-13: pause nulled
-  // inferredNowPlayingClient and the slot fell to another app). The earlier
-  // sim-era attempt split item/commands across two MediaRemote players
-  // because there was NO real player; binding the actual audio player keeps
-  // one coherent surface. Stored as AnyObject: iOS 16 API, pre-16 fallback
-  // stays on the default center.
-  private var nowPlayingSession: AnyObject?
-
-  private func bindNowPlayingSession(to player: AVPlayer) {
-    guard #available(iOS 16.0, *) else { return }
-    guard nowPlayingSession == nil, mediaSessionActive else { return }
-    let session = MPNowPlayingSession(players: [player])
-    session.automaticallyPublishesNowPlayingInfo = false
-    // Carry already-published metadata over from the default center, then
-    // move the command targets to the session's center.
-    session.nowPlayingInfoCenter.nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo
-    nowPlayingSession = session
-    for (command, token) in remoteCommandTargets {
-      command.removeTarget(token)
-    }
-    remoteCommandTargets.removeAll()
-    registerRemoteCommands(on: session.remoteCommandCenter)
-    session.becomeActiveIfPossible()
-    keepAliveLog.log("now-playing session bound to playout player")
   }
 
   private func deactivateRemoteCommands() {
@@ -758,8 +681,7 @@ class NativeTTSPlugin: Plugin, AVSpeechSynthesizerDelegate {
       command.removeTarget(token)
     }
     remoteCommandTargets.removeAll()
-    // Clear the SESSION's info center before tearing the session down, then
-    // the default one too (pre-iOS-16 path / belt and braces).
+    // Clear playback state and metadata before releasing the audio session.
     setSystemPlaybackStateRaw(3)  // stopped
     activeInfoCenter().nowPlayingInfo = nil
     removeAudioSessionObservers()
@@ -773,7 +695,6 @@ class NativeTTSPlugin: Plugin, AVSpeechSynthesizerDelegate {
     NotificationCenter.default.post(
       name: Notification.Name("ReadestTTSAudioSessionReleased"), object: nil)
     UIApplication.shared.endReceivingRemoteControlEvents()
-    nowPlayingSession = nil
     mediaSessionActive = false
   }
 
@@ -905,12 +826,7 @@ class NativeTTSPlugin: Plugin, AVSpeechSynthesizerDelegate {
           keepAliveLog.log("bounced after reclaim")
         }
       } else if player.rate != 0 {
-        // playing == false: pause in lockstep. With MPNowPlayingSession bound
-        // to the playout player the paused state is reported EXPLICITLY, so
-        // the inferred-from-audio fallback no longer needs silence to keep
-        // the slot — and a still-running silent player contradicts the
-        // session-observed paused player, which mediaremoted resolves by
-        // vacating the client from the Now Playing slot.
+        // Pause the keep-alive in lockstep with spoken audio.
         player.pause()
         keepAliveLog.log("paused (session path)")
       }
@@ -934,219 +850,6 @@ class NativeTTSPlugin: Plugin, AVSpeechSynthesizerDelegate {
 
   private func triggerMediaSession(_ event: String) {
     trigger(event, data: JSObject())
-  }
-
-  // MARK: - Native audio playout (Edge TTS)
-  //
-  // Plays the Edge TTS MP3 utterances with an in-process AVPlayer instead of
-  // WebAudio. WebAudio renders in WebKit's GPU process under a session the
-  // app cannot own, which made every system media behavior a fight (lock
-  // card, pause-hold, AirPods routing, mute switch). With the audio in the
-  // app's own non-mixable .playback session, all of them are textbook.
-  // The player is deliberately dumb: enqueue/play/pause/rate/position. All
-  // orchestration (word boundaries, highlighting, timeline) stays in JS.
-
-  private struct PlayoutItem {
-    let index: Int
-    let url: URL
-    let gapSec: Double
-  }
-
-  private var playoutSession = 0
-  private var playoutQueue: [PlayoutItem] = []
-  private var playoutPlayer: AVPlayer?
-  private var playoutCurrentIndex = -1
-  private var playoutRate: Float = 1.0
-  private var playoutPlaying = false
-  private var playoutSessionEnded = false
-  private var playoutPendingAdvance = false
-  private var playoutGapTimer: Timer?
-  private var playoutItemEndObserver: NSObjectProtocol?
-
-  @objc public func playout_control(_ invoke: Invoke) {
-    do {
-      let args = try invoke.parseArgs(PlayoutControlArgs.self)
-      DispatchQueue.main.async {
-        switch args.action {
-        case "start-session":
-          self.abortPlayout()
-          self.playoutSession += 1
-          self.playoutPlaying = true
-          invoke.resolve(PlayoutControlResponse(session: self.playoutSession))
-        case "end-session":
-          self.playoutSessionEnded = true
-          // Everything may already have been skipped or finished.
-          if self.playoutCurrentIndex == -1 && self.playoutQueue.isEmpty {
-            self.emitPlayoutEvent("session-end")
-          }
-          invoke.resolve(PlayoutControlResponse(session: nil))
-        case "abort":
-          self.abortPlayout()
-          invoke.resolve(PlayoutControlResponse(session: nil))
-        case "pause":
-          self.playoutPlaying = false
-          self.playoutPlayer?.pause()
-          invoke.resolve(PlayoutControlResponse(session: nil))
-        case "resume":
-          self.playoutPlaying = true
-          if self.playoutPendingAdvance {
-            self.playoutPendingAdvance = false
-            self.playoutAdvance()
-          } else if self.playoutPlayer?.currentItem != nil {
-            self.playoutPlayer?.rate = self.playoutRate
-          } else if !self.playoutQueue.isEmpty {
-            self.playoutAdvance()
-          }
-          invoke.resolve(PlayoutControlResponse(session: nil))
-        case "set-rate":
-          self.playoutRate = Float(args.rate ?? 1.0)
-          if self.playoutPlaying, self.playoutPlayer?.currentItem != nil {
-            self.playoutPlayer?.rate = self.playoutRate
-          }
-          invoke.resolve(PlayoutControlResponse(session: nil))
-        default:
-          invoke.reject("Unknown playout action: \(args.action)")
-        }
-      }
-    } catch {
-      invoke.reject("Failed to parse playout control: \(error.localizedDescription)")
-    }
-  }
-
-  @objc public func playout_enqueue(_ invoke: Invoke) {
-    do {
-      let args = try invoke.parseArgs(PlayoutEnqueueArgs.self)
-      guard let data = Data(base64Encoded: args.data) else {
-        invoke.reject("Invalid base64 audio data")
-        return
-      }
-      DispatchQueue.main.async {
-        guard args.session == self.playoutSession else {
-          invoke.resolve(PlayoutEnqueueResponse(durationMs: 0))
-          return
-        }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(
-          "tts-playout-\(args.session)-\(args.index).mp3")
-        do {
-          try data.write(to: url)
-        } catch {
-          invoke.reject("Failed to write audio file: \(error.localizedDescription)")
-          return
-        }
-        // Local file; the synchronous duration load is effectively instant.
-        let asset = AVURLAsset(url: url)
-        let durationSec = CMTimeGetSeconds(asset.duration)
-        self.playoutQueue.append(
-          PlayoutItem(index: args.index, url: url, gapSec: (args.gapMs ?? 0) / 1000.0))
-        if self.playoutPlaying && self.playoutCurrentIndex == -1 && self.playoutGapTimer == nil {
-          self.playoutAdvance()
-        }
-        invoke.resolve(
-          PlayoutEnqueueResponse(durationMs: durationSec.isFinite ? durationSec * 1000.0 : 0))
-      }
-    } catch {
-      invoke.reject("Failed to parse playout enqueue: \(error.localizedDescription)")
-    }
-  }
-
-  @objc public func playout_position(_ invoke: Invoke) {
-    DispatchQueue.main.async {
-      let time = self.playoutPlayer?.currentTime()
-      let seconds = time.map { CMTimeGetSeconds($0) } ?? 0
-      invoke.resolve(
-        PlayoutPositionResponse(
-          session: self.playoutSession,
-          index: self.playoutCurrentIndex,
-          positionMs: seconds.isFinite ? seconds * 1000.0 : 0,
-          playing: (self.playoutPlayer?.rate ?? 0) != 0
-        ))
-    }
-  }
-
-  private func playoutAdvance() {
-    playoutGapTimer?.invalidate()
-    playoutGapTimer = nil
-    guard !playoutQueue.isEmpty else {
-      playoutCurrentIndex = -1
-      if playoutSessionEnded {
-        emitPlayoutEvent("session-end")
-      }
-      return
-    }
-    let item = playoutQueue.removeFirst()
-    playoutCurrentIndex = item.index
-    if playoutPlayer == nil {
-      let player = AVPlayer()
-      player.allowsExternalPlayback = false
-      playoutPlayer = player
-    }
-    bindNowPlayingSession(to: playoutPlayer!)
-    let playerItem = AVPlayerItem(url: item.url)
-    // Pitch-preserving time stretch tuned for voice.
-    playerItem.audioTimePitchAlgorithm = .timeDomain
-    if let observer = playoutItemEndObserver {
-      NotificationCenter.default.removeObserver(observer)
-    }
-    playoutItemEndObserver = NotificationCenter.default.addObserver(
-      forName: .AVPlayerItemDidPlayToEndTime, object: playerItem, queue: .main
-    ) { [weak self] _ in
-      self?.playoutItemEnded(item)
-    }
-    playoutPlayer?.replaceCurrentItem(with: playerItem)
-    if playoutPlaying {
-      playoutPlayer?.playImmediately(atRate: playoutRate)
-    }
-    emitPlayoutEvent("chunk-start", index: item.index)
-  }
-
-  private func playoutItemEnded(_ item: PlayoutItem) {
-    try? FileManager.default.removeItem(at: item.url)
-    playoutCurrentIndex = -1
-    // Inter-sentence gap runs on a native timer so it keeps ticking when the
-    // webview's JS timers are throttled in the background.
-    if item.gapSec > 0 {
-      playoutGapTimer = Timer.scheduledTimer(withTimeInterval: item.gapSec, repeats: false) {
-        [weak self] _ in
-        guard let self = self else { return }
-        self.playoutGapTimer = nil
-        if self.playoutPlaying {
-          self.playoutAdvance()
-        } else {
-          self.playoutPendingAdvance = true
-        }
-      }
-    } else if playoutPlaying {
-      playoutAdvance()
-    } else {
-      playoutPendingAdvance = true
-    }
-  }
-
-  private func abortPlayout() {
-    playoutGapTimer?.invalidate()
-    playoutGapTimer = nil
-    if let observer = playoutItemEndObserver {
-      NotificationCenter.default.removeObserver(observer)
-      playoutItemEndObserver = nil
-    }
-    playoutPlayer?.pause()
-    playoutPlayer?.replaceCurrentItem(with: nil)
-    for item in playoutQueue {
-      try? FileManager.default.removeItem(at: item.url)
-    }
-    playoutQueue.removeAll()
-    playoutCurrentIndex = -1
-    playoutSessionEnded = false
-    playoutPendingAdvance = false
-    playoutPlaying = false
-  }
-
-  private func emitPlayoutEvent(_ type: String, index: Int? = nil) {
-    var data: JSObject = ["type": type, "session": playoutSession]
-    if let index = index {
-      data["index"] = index
-    }
-    trigger("playout_events", data: data)
   }
 
   private func displayName(for voice: AVSpeechSynthesisVoice) -> String {

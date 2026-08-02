@@ -1,11 +1,7 @@
 import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
-// Mock IndexedDB — the module auto-initialises at import time so we need to
-// stub `window.indexedDB` *before* importing the module.
-//
-// vi.hoisted() runs before ESM imports are resolved, so the stubs are in
-// place when the module-level `initCache()` executes.
+// Mock IndexedDB before importing the cache module.
 // ---------------------------------------------------------------------------
 
 vi.hoisted(() => {
@@ -30,7 +26,7 @@ vi.hoisted(() => {
   // Stub indexedDB before the module import so `!window.indexedDB` is false.
   globalThis.indexedDB = { open: indexedDBOpenMock } as unknown as IDBFactory;
 
-  // Suppress console noise from module-level `initCache()`.
+  // Suppress expected in-memory fallback noise.
   globalThis.console.error = () => {};
   globalThis.console.warn = () => {};
 
@@ -93,13 +89,13 @@ describe('translation cache', () => {
   // -----------------------------------------------------------------------
   describe('getCacheKey', () => {
     test('returns correct format provider:sourceLang:targetLang:text', () => {
-      const key = getCacheKey('hello', 'en', 'fr', 'google');
-      expect(key).toBe('google:en:fr:hello');
+      const key = getCacheKey('hello', 'en', 'fr', 'ollama');
+      expect(key).toBe('ollama:en:fr:hello');
     });
 
     test('preserves special characters in text', () => {
-      const key = getCacheKey('foo:bar:baz', 'en', 'de', 'deepl');
-      expect(key).toBe('deepl:en:de:foo:bar:baz');
+      const key = getCacheKey('foo:bar:baz', 'en', 'de', 'openrouter');
+      expect(key).toBe('openrouter:en:de:foo:bar:baz');
     });
 
     test('handles empty strings', () => {
@@ -113,66 +109,66 @@ describe('translation cache', () => {
   // -----------------------------------------------------------------------
   describe('storeInCache / getFromCache (memory path)', () => {
     test('stores and retrieves a translation from memory cache', async () => {
-      await storeInCache('hello', 'bonjour', 'en', 'fr', 'google');
+      await storeInCache('hello', 'bonjour', 'en', 'fr', 'ollama');
 
-      const result = await getFromCache('hello', 'en', 'fr', 'google');
+      const result = await getFromCache('hello', 'en', 'fr', 'ollama');
       expect(result).toBe('bonjour');
     });
 
     test('returns null for cache miss', async () => {
-      const result = await getFromCache('missing', 'en', 'fr', 'google');
+      const result = await getFromCache('missing', 'en', 'fr', 'ollama');
       expect(result).toBeNull();
     });
 
     test('returns null for empty text', async () => {
-      const result = await getFromCache('', 'en', 'fr', 'google');
+      const result = await getFromCache('', 'en', 'fr', 'ollama');
       expect(result).toBeNull();
     });
 
     test('returns null for whitespace-only text', async () => {
-      const result = await getFromCache('   ', 'en', 'fr', 'google');
+      const result = await getFromCache('   ', 'en', 'fr', 'ollama');
       expect(result).toBeNull();
     });
 
     test('does not store empty text', async () => {
-      await storeInCache('', 'bonjour', 'en', 'fr', 'google');
+      await storeInCache('', 'bonjour', 'en', 'fr', 'ollama');
       const stats = await getCacheStats(false);
       expect(stats.memoryCacheEntries).toBe(0);
     });
 
     test('does not store empty translation', async () => {
-      await storeInCache('hello', '', 'en', 'fr', 'google');
+      await storeInCache('hello', '', 'en', 'fr', 'ollama');
       const stats = await getCacheStats(false);
       expect(stats.memoryCacheEntries).toBe(0);
     });
 
     test('different providers produce different cache entries', async () => {
-      await storeInCache('hello', 'bonjour-google', 'en', 'fr', 'google');
-      await storeInCache('hello', 'bonjour-deepl', 'en', 'fr', 'deepl');
+      await storeInCache('hello', 'bonjour-local', 'en', 'fr', 'ollama');
+      await storeInCache('hello', 'bonjour-api', 'en', 'fr', 'openrouter');
 
-      const fromGoogle = await getFromCache('hello', 'en', 'fr', 'google');
-      const fromDeepl = await getFromCache('hello', 'en', 'fr', 'deepl');
+      const fromOllama = await getFromCache('hello', 'en', 'fr', 'ollama');
+      const fromApi = await getFromCache('hello', 'en', 'fr', 'openrouter');
 
-      expect(fromGoogle).toBe('bonjour-google');
-      expect(fromDeepl).toBe('bonjour-deepl');
+      expect(fromOllama).toBe('bonjour-local');
+      expect(fromApi).toBe('bonjour-api');
     });
 
     test('different language pairs produce different cache entries', async () => {
-      await storeInCache('hello', 'bonjour', 'en', 'fr', 'google');
-      await storeInCache('hello', 'hallo', 'en', 'de', 'google');
+      await storeInCache('hello', 'bonjour', 'en', 'fr', 'ollama');
+      await storeInCache('hello', 'hallo', 'en', 'de', 'ollama');
 
-      const fr = await getFromCache('hello', 'en', 'fr', 'google');
-      const de = await getFromCache('hello', 'en', 'de', 'google');
+      const fr = await getFromCache('hello', 'en', 'fr', 'ollama');
+      const de = await getFromCache('hello', 'en', 'de', 'ollama');
 
       expect(fr).toBe('bonjour');
       expect(de).toBe('hallo');
     });
 
     test('overwrites existing entry for same key', async () => {
-      await storeInCache('hello', 'bonjour', 'en', 'fr', 'google');
-      await storeInCache('hello', 'salut', 'en', 'fr', 'google');
+      await storeInCache('hello', 'bonjour', 'en', 'fr', 'ollama');
+      await storeInCache('hello', 'salut', 'en', 'fr', 'ollama');
 
-      const result = await getFromCache('hello', 'en', 'fr', 'google');
+      const result = await getFromCache('hello', 'en', 'fr', 'ollama');
       expect(result).toBe('salut');
     });
   });
@@ -183,8 +179,8 @@ describe('translation cache', () => {
   describe('clearCache', () => {
     test('no filter clears all entries', async () => {
       await seedCache([
-        { text: 'a', translation: '1', sourceLang: 'en', targetLang: 'fr', provider: 'google' },
-        { text: 'b', translation: '2', sourceLang: 'en', targetLang: 'de', provider: 'deepl' },
+        { text: 'a', translation: '1', sourceLang: 'en', targetLang: 'fr', provider: 'ollama' },
+        { text: 'b', translation: '2', sourceLang: 'en', targetLang: 'de', provider: 'openrouter' },
       ]);
 
       const deleted = await clearCache();
@@ -196,26 +192,26 @@ describe('translation cache', () => {
 
     test('provider filter clears only matching provider', async () => {
       await seedCache([
-        { text: 'a', translation: '1', sourceLang: 'en', targetLang: 'fr', provider: 'google' },
-        { text: 'b', translation: '2', sourceLang: 'en', targetLang: 'fr', provider: 'deepl' },
-        { text: 'c', translation: '3', sourceLang: 'en', targetLang: 'de', provider: 'google' },
+        { text: 'a', translation: '1', sourceLang: 'en', targetLang: 'fr', provider: 'ollama' },
+        { text: 'b', translation: '2', sourceLang: 'en', targetLang: 'fr', provider: 'openrouter' },
+        { text: 'c', translation: '3', sourceLang: 'en', targetLang: 'de', provider: 'ollama' },
       ]);
 
-      const deleted = await clearCache({ provider: 'google' });
+      const deleted = await clearCache({ provider: 'ollama' });
       expect(deleted).toBe(2);
 
-      // The deepl entry should remain
-      const result = await getFromCache('b', 'en', 'fr', 'deepl');
+      // The OpenAI-compatible entry should remain.
+      const result = await getFromCache('b', 'en', 'fr', 'openrouter');
       expect(result).toBe('2');
 
-      // Google entries should be gone
-      const resultA = await getFromCache('a', 'en', 'fr', 'google');
+      // Ollama entries should be gone.
+      const resultA = await getFromCache('a', 'en', 'fr', 'ollama');
       expect(resultA).toBeNull();
     });
 
     test('maxAge filter clears only old entries', async () => {
       // Seed two entries
-      await storeInCache('old', 'alt', 'en', 'de', 'google');
+      await storeInCache('old', 'alt', 'en', 'de', 'ollama');
 
       // Manually backdate the timestamp by manipulating Date.now for the
       // "old" entry. We re-seed with a past timestamp by mocking Date.now
@@ -229,22 +225,22 @@ describe('translation cache', () => {
       // Seed "old" entry with past timestamp
       const origDateNow = Date.now;
       Date.now = () => pastTime;
-      await storeInCache('old', 'alt', 'en', 'de', 'google');
+      await storeInCache('old', 'alt', 'en', 'de', 'ollama');
       Date.now = origDateNow;
 
       // Seed "new" entry with current timestamp
-      await storeInCache('new', 'neu', 'en', 'de', 'google');
+      await storeInCache('new', 'neu', 'en', 'de', 'ollama');
 
       // Clear entries older than 50 seconds
       const deleted = await clearCache({ maxAge: 50_000 });
       expect(deleted).toBe(1);
 
       // Old entry should be gone
-      const oldResult = await getFromCache('old', 'en', 'de', 'google');
+      const oldResult = await getFromCache('old', 'en', 'de', 'ollama');
       expect(oldResult).toBeNull();
 
       // New entry should remain
-      const newResult = await getFromCache('new', 'en', 'de', 'google');
+      const newResult = await getFromCache('new', 'en', 'de', 'ollama');
       expect(newResult).toBe('neu');
     });
 
@@ -252,29 +248,29 @@ describe('translation cache', () => {
       const realNow = Date.now();
       const pastTime = realNow - 200_000;
 
-      // Old google entry
+      // Old Ollama entry.
       const origDateNow = Date.now;
       Date.now = () => pastTime;
-      await storeInCache('old-g', 'x', 'en', 'fr', 'google');
-      await storeInCache('old-d', 'y', 'en', 'fr', 'deepl');
+      await storeInCache('old-g', 'x', 'en', 'fr', 'ollama');
+      await storeInCache('old-d', 'y', 'en', 'fr', 'openrouter');
       Date.now = origDateNow;
 
-      // New google entry
-      await storeInCache('new-g', 'z', 'en', 'fr', 'google');
+      // New Ollama entry.
+      await storeInCache('new-g', 'z', 'en', 'fr', 'ollama');
 
-      // Only clear old google entries
-      const deleted = await clearCache({ provider: 'google', maxAge: 100_000 });
+      // Only clear old Ollama entries.
+      const deleted = await clearCache({ provider: 'ollama', maxAge: 100_000 });
       expect(deleted).toBe(1); // only old-g
 
-      const resultOldG = await getFromCache('old-g', 'en', 'fr', 'google');
+      const resultOldG = await getFromCache('old-g', 'en', 'fr', 'ollama');
       expect(resultOldG).toBeNull();
 
       // new-g should remain (too new)
-      const resultNewG = await getFromCache('new-g', 'en', 'fr', 'google');
+      const resultNewG = await getFromCache('new-g', 'en', 'fr', 'ollama');
       expect(resultNewG).toBe('z');
 
       // old-d should remain (different provider)
-      const resultOldD = await getFromCache('old-d', 'en', 'fr', 'deepl');
+      const resultOldD = await getFromCache('old-d', 'en', 'fr', 'openrouter');
       expect(resultOldD).toBe('y');
     });
   });
@@ -291,8 +287,8 @@ describe('translation cache', () => {
 
     test('returns correct entry count', async () => {
       await seedCache([
-        { text: 'a', translation: '1', sourceLang: 'en', targetLang: 'fr', provider: 'google' },
-        { text: 'b', translation: '2', sourceLang: 'en', targetLang: 'de', provider: 'deepl' },
+        { text: 'a', translation: '1', sourceLang: 'en', targetLang: 'fr', provider: 'ollama' },
+        { text: 'b', translation: '2', sourceLang: 'en', targetLang: 'de', provider: 'openrouter' },
       ]);
 
       const stats = await getCacheStats(false);

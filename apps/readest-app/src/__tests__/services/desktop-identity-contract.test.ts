@@ -12,7 +12,6 @@ describe('BabelLeaf desktop identity contract', () => {
     const nativeBuild = readSource('src-tauri/build.rs');
     const androidGradle = readSource('src-tauri/gen/android/app/build.gradle.kts');
     const androidManifest = readSource('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
-    const parkedNsisHook = readSource('src-tauri/nsis/installer-hooks.nsh');
 
     expect(tauriConfig).toContain('"productName": "BabelLeaf"');
     expect(tauriConfig).toContain('"mainBinaryName": "babelleaf"');
@@ -27,8 +26,7 @@ describe('BabelLeaf desktop identity contract', () => {
     expect(existsSync(resolve(process.cwd(), 'src-tauri/src/sentry_config.rs'))).toBe(false);
     expect(androidGradle).not.toMatch(/SENTRY_DSN|sentryDsn|sentry-android/);
     expect(androidManifest).not.toContain('io.sentry');
-    expect(parkedNsisHook).toContain('!error');
-    expect(parkedNsisHook).not.toContain('{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}');
+    expect(existsSync(resolve(process.cwd(), 'src-tauri/nsis/installer-hooks.nsh'))).toBe(false);
   });
 
   test('uses BabelLeaf in directly visible app surfaces and retains upstream attribution', () => {
@@ -53,5 +51,30 @@ describe('BabelLeaf desktop identity contract', () => {
     expect(commandRegistry).toContain("labelKey: _('About BabelLeaf')");
     expect(controlPanel).not.toContain('telemetry');
     expect(controlPanel).not.toContain('Help improve Readest');
+  });
+
+  test('isolates mobile bundle identities and removes retired mobile integrations', () => {
+    const androidGradle = readSource('src-tauri/gen/android/app/build.gradle.kts');
+    const androidManifest = readSource('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
+    const iosInfo = readSource('src-tauri/Info-ios.plist');
+    const iosProject = readSource('src-tauri/gen/apple/project.yml');
+
+    expect(androidGradle).toContain('namespace = "io.github.sakura99966.babelleaf"');
+    expect(androidGradle).toContain('applicationId = "io.github.sakura99966.babelleaf"');
+    expect(androidManifest).not.toContain('REQUEST_INSTALL_PACKAGES');
+    expect(androidManifest).not.toContain('com.android.vending.BILLING');
+    expect(androidManifest).not.toContain('web.readest.com');
+    expect(androidManifest).not.toContain('readest-onedrive');
+    expect(androidManifest).not.toContain('googleusercontent.apps');
+
+    expect(iosInfo).toContain('<string>io.github.sakura99966.babelleaf</string>');
+    expect(iosInfo).toContain('<string>babelleaf</string>');
+    expect(iosInfo).not.toContain('readest-onedrive');
+    expect(iosInfo).not.toContain('googleusercontent.apps');
+
+    expect(iosProject).toContain('bundleIdPrefix: io.github.sakura99966.babelleaf');
+    expect(iosProject).not.toContain('Sentry');
+    expect(iosProject).not.toContain('ShareExtension');
+    expect(iosProject).not.toContain('In-App Purchase');
   });
 });

@@ -50,7 +50,7 @@ vi.mock('@/store/readerStore', () => ({
   }),
 }));
 
-const settings = { globalViewSettings: { ttsRate: 1.0, ttsSentenceGap: 0.15 } };
+const settings = { globalViewSettings: { ttsRate: 1.0, ttsParagraphGap: 0.7 } };
 const saveSettings = vi.fn();
 const settingsState = { settings, setSettings: vi.fn(), saveSettings };
 vi.mock('@/store/settingsStore', () => ({
@@ -66,27 +66,6 @@ vi.mock('@/store/readerProgressStore', () => ({
   useBookProgress: () => ({ sectionLabel: 'Chapter 5' }),
 }));
 
-// Premium gating for the offline-audio row. Defaults to a signed-in premium
-// user so the existing tests (which don't render the row) are unaffected;
-// the gating tests below flip these.
-const { routerPush, mockAuth, mockQuota } = vi.hoisted(() => ({
-  routerPush: vi.fn(),
-  mockAuth: { user: { id: 'u' } as { id: string } | null },
-  mockQuota: {
-    userProfilePlan: 'pro' as 'free' | 'plus' | 'pro' | 'purchase' | undefined,
-  },
-}));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: routerPush }) }));
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: mockAuth.user, token: 'tok' }),
-}));
-vi.mock('@/hooks/useQuotaStats', () => ({
-  useQuotaStats: () => ({ userProfilePlan: mockQuota.userProfilePlan }),
-}));
-vi.mock('@/app/reader/components/tts/TTSChaptersView', () => ({
-  default: () => <div>chapters-view</div>,
-}));
-
 import TTSPlayerSheet from '@/app/reader/components/tts/TTSPlayerSheet';
 
 const waitFor = <T,>(callback: () => T | Promise<T>) =>
@@ -94,8 +73,8 @@ const waitFor = <T,>(callback: () => T | Promise<T>) =>
 
 const voiceGroups = [
   {
-    id: 'edge',
-    name: 'Edge TTS',
+    id: 'web',
+    name: 'Web Speech',
     voices: [
       { id: 'ava', name: 'Ava', lang: 'en-US', disabled: false },
       { id: 'guy', name: 'Guy', lang: 'en-US', disabled: false },
@@ -109,7 +88,6 @@ const makeProps = (overrides: Record<string, unknown> = {}) => ({
   ttsLang: 'en',
   isPlaying: true,
   hasTimeline: true,
-  hasGapControl: false,
   timeoutOption: 0,
   timeoutTimestamp: 0,
   chapterRemainingSec: null as number | null,
@@ -118,7 +96,6 @@ const makeProps = (overrides: Record<string, unknown> = {}) => ({
   onBackward: vi.fn(),
   onForward: vi.fn(),
   onSetRate: vi.fn(),
-  onSetSentenceGap: vi.fn(),
   onSetParagraphGap: vi.fn(),
   onGetVoices: vi.fn().mockResolvedValue(voiceGroups),
   onSetVoice: vi.fn(),
@@ -129,33 +106,17 @@ const makeProps = (overrides: Record<string, unknown> = {}) => ({
   onGetPlaybackInfo: vi
     .fn()
     .mockReturnValue({ position: 10, duration: 100, measuredFraction: 0.4 }),
-  downloads: {
-    supported: false,
-    chapters: [],
-    statuses: new Map(),
-    cacheBytes: 0,
-    download: { activeChapterKey: null, done: 0, total: 0 },
-    downloadChapter: vi.fn().mockResolvedValue(undefined),
-    downloadAll: vi.fn().mockResolvedValue(undefined),
-    cancel: vi.fn(),
-    statusOf: vi.fn().mockReturnValue('none'),
-    refresh: vi.fn().mockResolvedValue(undefined),
-  },
-  activeSectionIndex: null as number | null,
   ...overrides,
 });
 
 describe('TTSPlayerSheet', () => {
   beforeEach(() => {
     viewSettings['ttsRate'] = 1.0;
-    viewSettings['ttsSentenceGap'] = 0.15;
+    viewSettings['ttsParagraphGap'] = 0.7;
     viewSettings['isEink'] = false;
     getBookData.mockReturnValue({
       book: { title: 'Alice in Wonderland', coverImageUrl: null },
     });
-    // Default: signed-in premium user (the row-less tests never hit the gate).
-    mockAuth.user = { id: 'u' };
-    mockQuota.userProfilePlan = 'pro';
   });
 
   afterEach(() => {
@@ -244,8 +205,11 @@ describe('TTSPlayerSheet', () => {
     expect(props.onSetRate).not.toHaveBeenCalled();
     fireEvent.pointerUp(slider);
     expect(props.onSetRate).toHaveBeenCalledWith(1.5);
+    expect(props.onSetParagraphGap).toHaveBeenCalled();
     expect(viewSettings['ttsRate']).toBe(1.5);
+    expect(viewSettings['ttsParagraphGap']).toEqual(expect.any(Number));
     expect(settings.globalViewSettings.ttsRate).toBe(1.5);
+    expect(settings.globalViewSettings.ttsParagraphGap).toEqual(expect.any(Number));
     expect(saveSettings).toHaveBeenCalled();
   });
 
@@ -265,56 +229,6 @@ describe('TTSPlayerSheet', () => {
     // The translation mock interpolates, so options render as real labels.
     fireEvent.click(screen.getByText('30 minutes'));
     expect(props.onSelectTimeout).toHaveBeenCalledWith('b1', 1800);
-  });
-
-  const makeDownloads = (over: Record<string, unknown> = {}) => ({
-    supported: true,
-    chapters: [{ key: 'c1', label: 'One', depth: 0, startSection: 0, endSection: 1 }],
-    statuses: new Map(),
-    cacheBytes: 0,
-    download: { activeChapterKey: null, done: 0, total: 0 },
-    downloadChapter: vi.fn().mockResolvedValue(undefined),
-    downloadAll: vi.fn().mockResolvedValue(undefined),
-    cancel: vi.fn(),
-    statusOf: vi.fn().mockReturnValue('complete'),
-    refresh: vi.fn().mockResolvedValue(undefined),
-    ...over,
-  });
-
-  test('offline audio row: a premium user has no badge and opens the chapters view', () => {
-    mockQuota.userProfilePlan = 'pro';
-    const props = makeProps({ downloads: makeDownloads() });
-    render(<TTSPlayerSheet {...props} />);
-    const row = screen.getByLabelText('Offline Audio');
-    expect(screen.queryByText('Premium')).toBeNull();
-    expect(screen.getByText('1 of 1 downloaded')).toBeTruthy();
-    fireEvent.click(row);
-    expect(screen.getByText('chapters-view')).toBeTruthy();
-    expect(routerPush).not.toHaveBeenCalled();
-  });
-
-  test('offline audio row: a free user sees a Premium badge and is routed to upgrade', () => {
-    mockQuota.userProfilePlan = 'free';
-    const props = makeProps({ downloads: makeDownloads() });
-    render(<TTSPlayerSheet {...props} />);
-    expect(screen.getByText('Premium')).toBeTruthy();
-    expect(screen.getByText('Download chapters for offline playback')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Offline Audio'));
-    expect(routerPush).toHaveBeenCalledWith('/user');
-    expect(props.onClose).toHaveBeenCalled();
-    // The premium chapters view must not open for a free user.
-    expect(screen.queryByText('chapters-view')).toBeNull();
-  });
-
-  test('offline audio row: a signed-out user is routed to sign-in', () => {
-    mockAuth.user = null;
-    mockQuota.userProfilePlan = undefined;
-    const props = makeProps({ downloads: makeDownloads() });
-    render(<TTSPlayerSheet {...props} />);
-    expect(screen.getByText('Premium')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Offline Audio'));
-    expect(routerPush).toHaveBeenCalledWith(expect.stringContaining('/auth?redirect='));
-    expect(screen.queryByText('chapters-view')).toBeNull();
   });
 
   test('reopening the sheet returns to the main view', async () => {

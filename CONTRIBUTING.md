@@ -1,7 +1,7 @@
 # Contributing to BabelLeaf
 
 Thank you for helping build BabelLeaf. The project is in an early migration
-stage, so small, well-tested changes that preserve the product boundary are
+stage, so focused, well-tested changes that preserve the product boundary are
 especially valuable.
 
 Please be respectful, civil, and open-minded in issues, reviews, and other
@@ -28,16 +28,16 @@ Contributions must respect the current product contract:
 
 - reading content is imported from local files;
 - application and reading data stay local by default;
-- the only planned external network capability is translation through a
-  user-configured OpenAI-compatible endpoint;
+- the only external network capability is explicit translation through a
+  user-configured OpenAI-compatible endpoint or Ollama;
 - accounts, cloud sync, OPDS/RSS catalogs, web scraping, resource downloading,
   online metadata/dictionaries/TTS, telemetry, and inherited update services
   are outside the first release;
 - DRM circumvention and unlicensed content acquisition are out of scope.
 
-The Readest-derived tree still contains network-enabled features that are being
-contained. Do not treat their presence as approval to expose or extend them.
-Any proposed exception requires an issue, threat review, and an update to
+The removed Readest services are not dormant product options. Do not restore
+or replace them without an explicit scope decision. Any proposed exception
+requires an issue, threat review, and an update to
 [`docs/NETWORK_POLICY.md`](docs/NETWORK_POLICY.md) before implementation.
 
 ## Development environment
@@ -89,7 +89,7 @@ pnpm tauri dev
 Web-only frontend:
 
 ```bash
-pnpm dev-web
+pnpm --filter @readest/readest-app dev-web
 ```
 
 The web target is useful for UI work, but a successful web build does not
@@ -124,7 +124,7 @@ redistributable fixtures and document their source/license.
 At minimum, frontend and documentation work should pass:
 
 ```bash
-pnpm --filter @readest/readest-app test:pr:web:unit
+pnpm --filter @readest/readest-app test -- --run
 pnpm lint
 pnpm format:check
 pnpm --filter @readest/readest-app build

@@ -1,4 +1,4 @@
-name: PR checks
+name: BabelLeaf PR checks
 
 on:
   push:
@@ -8,6 +8,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: pr-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   rust_lint:
@@ -30,7 +34,18 @@ jobs:
         with:
           filters: |
             tauri:
+              - '.github/workflows/pull-request.yml'
+              - '.gitmodules'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
               - 'apps/readest-app/src-tauri/**'
+              - 'packages/swift-rs/**'
+              - 'packages/tao'
+              - 'packages/tao/**'
+              - 'packages/tauri'
+              - 'packages/tauri/**'
+              - 'packages/tauri-plugins'
+              - 'packages/tauri-plugins/plugins/fs/**'
 
       - name: setup sccache
         if: steps.changes.outputs.tauri == 'true'
@@ -144,14 +159,14 @@ jobs:
         working-directory: apps/readest-app
         run: |
           if [ "${{ steps.playwright-cache.outputs.cache-hit }}" = 'true' ]; then
-            npx playwright install-deps chromium
+            pnpm exec playwright install-deps chromium
           else
-            npx playwright install --with-deps chromium
+            pnpm exec playwright install --with-deps chromium
           fi
 
       - name: run application unit tests
         working-directory: apps/readest-app
-        run: pnpm test:pr:web:unit --shard=${{ matrix.shard }}/2
+        run: pnpm test -- --run --maxWorkers=4 --shard=${{ matrix.shard }}/2
 
       - name: run browser-backed application tests
         if: matrix.shard == 1
@@ -220,9 +235,9 @@ jobs:
 
       - name: run Tauri integration tests
         working-directory: apps/readest-app
-        run: xvfb-run pnpm test:pr:tauri
+        run: xvfb-run pnpm test:tauri
 
-  windows_release_smoke:
+  windows_installer_smoke:
     runs-on: windows-latest
     timeout-minutes: 90
     env:
@@ -264,7 +279,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
-          key: windows-release-smoke
+          key: windows-installer-smoke
           cache-all-crates: 'true'
           cache-workspace-crates: 'true'
 

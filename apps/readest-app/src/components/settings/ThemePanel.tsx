@@ -14,7 +14,6 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useResetViewSettings } from '@/hooks/useResetSettings';
 import { useCustomTextureStore } from '@/store/customTextureStore';
-import { queueReplicaBinaryUpload } from '@/services/sync/replicaBinaryUpload';
 import { saveSysSettings, saveViewSettings } from '@/helpers/settings';
 import { manageSyntaxHighlighting } from '@/utils/highlightjs';
 import { SettingsPanelPanelProp } from './SettingsDialog';
@@ -291,13 +290,9 @@ const ThemePanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset
 
         const customTexture = addTexture(textureInfo.path, {
           name: textureInfo.name,
-          contentId: textureInfo.contentId,
-          bundleDir: textureInfo.bundleDir,
-          byteSize: textureInfo.byteSize,
         });
         if (customTexture && !customTexture.error) {
           await loadTexture(envConfig, customTexture.id);
-          if (appService) void queueReplicaBinaryUpload('texture', customTexture, appService);
         }
       }
       saveCustomTextures(envConfig);
@@ -305,7 +300,11 @@ const ThemePanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset
   };
 
   const handleDeleteCustomTexture = (textureId: string) => {
+    const texture = customTextures.find((entry) => entry.id === textureId);
     removeTexture(textureId);
+    if (texture) {
+      void appService?.deleteImage(texture);
+    }
     const updatedTextures = customTextures.filter((t) => t.id !== textureId);
 
     settings.customTextures = updatedTextures;
@@ -398,7 +397,7 @@ const ThemePanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset
 
           <BackgroundTextureSelector
             predefinedTextures={PREDEFINED_TEXTURES}
-            customTextures={customTextures.filter((t) => !t.deletedAt)}
+            customTextures={customTextures}
             title={
               isLibraryContext ? _('Background Image (Library)') : _('Background Image (Reader)')
             }

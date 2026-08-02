@@ -28,7 +28,6 @@ import { getBaseFilename, getFilename } from '@/utils/path';
 import { BookDoc, DocumentLoader } from '@/libs/document';
 import { tryNativeParseEpub } from '@/utils/tauriEpubBridge';
 import { tryNativeParseMobi } from '@/utils/tauriMobiBridge';
-import { isPseStreamFileName, openPseStreamBook, parsePseStreamFileName } from './opds/pseStream';
 import { DEFAULT_BOOK_SEARCH_CONFIG, DEFAULT_FIXED_LAYOUT_VIEW_SETTINGS } from './constants';
 import { isContentURI, isValidURL, makeSafeFilename } from '@/utils/misc';
 import { deserializeConfig, serializeConfig, serializeRawConfig } from '@/utils/serializer';
@@ -36,6 +35,7 @@ import { ClosableFile } from '@/utils/file';
 import { TxtToEpubConverter } from '@/utils/txt';
 import { svg2png } from '@/utils/svg';
 import { normalizeMetadataIsbn } from '@/utils/isbn';
+import { isLocalImageResource } from '@/utils/image';
 import { BookFileNotFoundError } from './errors';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import {
@@ -229,7 +229,7 @@ function imageToArrayBuffer(
         .then((file) => file.arrayBuffer())
         .then(resolve)
         .catch(reject);
-    } else if (ctx.appPlatform === 'tauri' && imageUrl) {
+    } else if (ctx.appPlatform === 'tauri' && imageUrl && isLocalImageResource(imageUrl)) {
       tauriFetch(imageUrl, { method: 'GET' })
         .then((response) => response.arrayBuffer())
         .then(resolve)
@@ -368,9 +368,8 @@ export async function importBook(
   // file might be:
   // 1.1 absolute path for local file on Desktop
   // 1.2 /private/var inbox file path on iOS
-  // 2. remote url
-  // 3. content provider uri
-  // 4. File object from browsers
+  // 2. content provider uri
+  // 3. File object from browsers
   file: string | File,
   books: Book[],
   options: ImportBookInternalOptions,
@@ -386,8 +385,6 @@ export async function importBook(
     lookupIndex,
     osPlatform,
   } = options;
-  const isPseStream = typeof file === 'string' && isPseStreamFileName(file);
-
   try {
     let loadedBook: BookDoc;
     let format: BookFormat;
@@ -403,18 +400,16 @@ export async function importBook(
     }
 
     try {
-      if (isPseStream) {
-        const data = parsePseStreamFileName(file as string);
-        ({ book: loadedBook, format } = await openPseStreamBook(data));
-        filename = file as string;
-      } else {
-        if (typeof file === 'string') {
-          fileobj = await fs.openFile(file, 'None');
-          filename = fileobj.name || getFilename(file);
-        } else {
-          fileobj = file;
-          filename = file.name;
+      if (typeof file === 'string') {
+        if (isValidURL(file)) {
+          throw new Error('Only local files can be imported');
         }
+        fileobj = await fs.openFile(file, 'None');
+        filename = fileobj.name || getFilename(file);
+      } else {
+        fileobj = file;
+        filename = file.name;
+      }
         if (/\.txt$/i.test(filename)) {
           const txt2epub = new TxtToEpubConverter();
           ({ file: fileobj } = await txt2epub.convert({ file: fileobj }));
@@ -463,7 +458,6 @@ export async function importBook(
         } else {
           ({ book: loadedBook, format } = await new DocumentLoader(fileobj).open());
         }
-      }
       if (!loadedBook) {
         throw new Error('Unsupported or corrupted book file');
       }
@@ -476,11 +470,7 @@ export async function importBook(
       throw new Error(`Failed to open the book file: ${(error as Error).message || error}`);
     }
 
-    const hash = isPseStream
-      ? md5(file as string)
-      : usedNativeParser
-        ? nativeHash!
-        : await partialMD5(fileobj!);
+    const hash = usedNativeParser ? nativeHash! : await partialMD5(fileobj!);
 
     const metaHash = getMetadataHash(loadedBook.metadata);
     let existingBook = lookupIndex
@@ -586,7 +576,7 @@ export async function importBook(
         await fs.writeFile(bookFilename, 'Books', fileobj);
       } else if (typeof file === 'string' && isContentURI(file)) {
         await fs.copyFile(file, 'None', bookFilename, 'Books');
-      } else if (typeof file === 'string' && !isValidURL(file)) {
+      } else if (typeof file === 'string') {
         try {
           // try to copy the file directly first in case of large files to avoid memory issues
           // on desktop when reading recursively from selected directory the direct copy will fail
@@ -663,15 +653,9 @@ export async function importBook(
       await fs.writeFile(getConfigFilename(book), 'Books', serializeRawConfig(config));
     }
 
-    // update file links with url or path or content uri
-    if (isPseStream) {
-      book.url = file as string;
-      if (existingBook) existingBook.url = file as string;
-    } else if (typeof file === 'string') {
-      if (isValidURL(file)) {
-        book.url = file;
-        if (existingBook) existingBook.url = file;
-      } else if (transient || inPlace) {
+    // Transient previews and in-place imports read from their local source path.
+    if (typeof file === 'string') {
+      if (transient || inPlace) {
         // transient: source file is loaded directly, never persisted in Books/.
         // inPlace: source file is inside the user's library root and we read it
         // there directly instead of duplicating it under Books/<hash>/.
@@ -835,12 +819,7 @@ export async function saveBookNav(fs: FileSystem, book: Book, nav: BookNav): Pro
 export async function fetchBookDetails(
   fs: FileSystem,
   book: Book,
-  downloadBookFn: (book: Book) => Promise<void>,
 ): Promise<BookDoc['metadata']> {
-  const fp = getLocalBookFilename(book);
-  if (!(await fs.exists(fp, 'Books')) && book.uploadedAt) {
-    await downloadBookFn(book);
-  }
   const { file } = await loadBookContent(fs, book);
   const bookDoc = (await new DocumentLoader(file).open()).book;
   const f = file as ClosableFile;
@@ -897,9 +876,6 @@ export async function exportBook(
   const content = await file.arrayBuffer();
   const filename = `${makeSafeFilename(book.title)}.${book.format.toLowerCase()}`;
   const mimeType = file.type || 'application/octet-stream';
-  if (source.kind === 'url') {
-    return await saveFile(filename, content, { mimeType });
-  }
   let filePath = await resolveFilePath(source.path, source.base);
   if (getFilename(filePath) !== filename) {
     await copyFile(source.path, source.base, filename, 'Temp');

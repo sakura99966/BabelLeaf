@@ -1,6 +1,6 @@
 import { Fzf, FzfResultItem, byLengthAsc } from 'fzf';
 import { SettingsPanelType } from '@/components/settings/SettingsDialog';
-import { RiFontSize, RiDashboardLine, RiTranslate, RiShareLine } from 'react-icons/ri';
+import { RiFontSize, RiDashboardLine, RiTranslate } from 'react-icons/ri';
 import { VscSymbolColor } from 'react-icons/vsc';
 import { LiaHandPointerSolid } from 'react-icons/lia';
 import { IoAccessibilityOutline } from 'react-icons/io5';
@@ -9,7 +9,6 @@ import { TbSunMoon } from 'react-icons/tb';
 import { MdRefresh } from 'react-icons/md';
 import { IconType } from 'react-icons';
 import { stubTranslation as _ } from '@/utils/misc';
-import { isNetworkCapabilityAllowed } from '@/services/productPolicy';
 
 export type CommandCategory = 'settings' | 'actions' | 'navigation';
 
@@ -155,7 +154,6 @@ const panelIcons: Record<SettingsPanelType, IconType> = {
   TTS: PiSpeakerHigh,
   Language: RiTranslate,
   AI: PiRobot,
-  Integrations: RiShareLine,
   Custom: IoAccessibilityOutline,
 };
 
@@ -522,7 +520,7 @@ const languagePanelItems = [
   {
     id: 'settings.language.translationProvider',
     labelKey: _('Translation Service'),
-    keywords: ['translation', 'provider', 'google', 'deepl', 'service'],
+    keywords: ['translation', 'provider', 'ollama', 'openai', 'api', 'service'],
     section: 'Translation',
   },
   {
@@ -551,19 +549,13 @@ const languagePanelItems = [
   },
 ];
 
-// ai panel items
+// AI translation provider items
 const aiPanelItems = [
   {
-    id: 'settings.ai.enableAssistant',
-    labelKey: _('Enable AI Assistant'),
-    keywords: ['ai', 'assistant', 'enable', 'chatbot', 'llm'],
-    section: 'AI',
-  },
-  {
     id: 'settings.ai.provider',
-    labelKey: _('AI Provider'),
-    keywords: ['ai', 'provider', 'ollama', 'gateway', 'service'],
-    section: 'AI',
+    labelKey: _('AI Translation Provider'),
+    keywords: ['ai', 'translation', 'provider', 'ollama', 'openai', 'llm'],
+    section: 'AI Translation',
   },
   {
     id: 'settings.ai.ollamaUrl',
@@ -578,34 +570,22 @@ const aiPanelItems = [
     section: 'Ollama',
   },
   {
-    id: 'settings.ai.gatewayApiKey',
-    labelKey: _('API Key'),
-    keywords: ['api', 'key', 'gateway', 'token', 'secret'],
-    section: 'AI Gateway',
-  },
-  {
-    id: 'settings.ai.gatewayModel',
-    labelKey: _('AI Gateway Model'),
-    keywords: ['gateway', 'model', 'openai', 'gpt', 'claude'],
-    section: 'AI Gateway',
-  },
-  {
     id: 'settings.ai.openrouterApiKey',
-    labelKey: _('OpenRouter API Key'),
-    keywords: ['openrouter', 'api', 'key', 'token', 'secret'],
-    section: 'OpenRouter',
+    labelKey: _('OpenAI-compatible API Key'),
+    keywords: ['openai', 'compatible', 'api', 'key', 'token', 'secret'],
+    section: 'OpenAI-compatible',
   },
   {
     id: 'settings.ai.openrouterBaseUrl',
-    labelKey: _('OpenRouter Base URL'),
-    keywords: ['openrouter', 'base', 'url', 'endpoint', 'openai', 'compatible'],
-    section: 'OpenRouter',
+    labelKey: _('OpenAI-compatible Base URL'),
+    keywords: ['base', 'url', 'endpoint', 'openai', 'compatible'],
+    section: 'OpenAI-compatible',
   },
   {
     id: 'settings.ai.openrouterModel',
-    labelKey: _('OpenRouter Model'),
-    keywords: ['openrouter', 'model', 'claude', 'gpt', 'llama', 'deepseek'],
-    section: 'OpenRouter',
+    labelKey: _('OpenAI-compatible Model'),
+    keywords: ['model', 'openai', 'compatible', 'llm'],
+    section: 'OpenAI-compatible',
   },
 ];
 
@@ -661,11 +641,6 @@ const actionItems = [
     labelKey: _('About BabelLeaf'),
     keywords: ['about', 'babelleaf', 'version', 'info'],
   },
-  {
-    id: 'action.telemetry',
-    labelKey: _('Help improve BabelLeaf'),
-    keywords: ['telemetry', 'analytics', 'improve', 'statistics'],
-  },
 ];
 
 export interface CommandRegistryOptions {
@@ -678,7 +653,6 @@ export interface CommandRegistryOptions {
   reloadPage: () => void;
   toggleOpenLastBooks: () => void;
   showAbout: () => void;
-  toggleTelemetry: () => void;
   isDesktop: boolean;
   // TODO: add reader-specific actions when reader is open (tts, bookmark, etc.)
 }
@@ -821,15 +795,6 @@ export const buildCommandRegistry = (options: CommandRegistryOptions): CommandIt
       action: options.showAbout,
     }),
   );
-
-  if (isNetworkCapabilityAllowed('telemetry')) {
-    items.push(
-      createActionItem({
-        id: 'action.telemetry',
-        action: options.toggleTelemetry,
-      }),
-    );
-  }
 
   return items;
 };

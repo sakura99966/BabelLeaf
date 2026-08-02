@@ -7,7 +7,6 @@ import {
 import { formatAuthors, formatTitle, isCurrentlyReadingBook } from '@/utils/book';
 import { md5Fingerprint } from '@/utils/md5';
 import { SIZE_PER_LOC, SIZE_PER_TIME_UNIT } from '@/services/constants';
-import { isFeedBook } from '@/services/rss/feedBookUrl';
 
 /** Valid sort types for the library */
 const VALID_SORT_TYPES: LibrarySortByType[] = Object.values(LibrarySortByType);
@@ -729,10 +728,6 @@ export type BookContextMenuItemId =
   | 'clearStatus'
   | 'showDetails'
   | 'showInFinder'
-  | 'searchGoodreads'
-  | 'download'
-  | 'upload'
-  | 'share'
   | 'delete';
 
 /**
@@ -766,13 +761,6 @@ export const pickFresherReadingStatus = (
   };
 };
 
-type CoverFields = Pick<Book, 'coverHash' | 'coverUpdatedAt'>;
-type CoverSyncFields = Pick<
-  Book,
-  'coverHash' | 'coverUpdatedAt' | 'coverDownloadedAt' | 'deletedAt' | 'uploadedAt'
->;
-
-const coverMs = (t?: number | null) => t ?? 0;
 
 /**
  * Decide whether a peer should (re)download a book's cover from the cloud
@@ -788,13 +776,6 @@ const coverMs = (t?: number | null) => t ?? 0;
  *    local `coverUpdatedAt`) is not made to overwrite it with the stale cloud
  *    copy before its own push lands.
  */
-export const needsCoverRefresh = (local: CoverSyncFields, synced: CoverSyncFields): boolean => {
-  if (synced.deletedAt || !synced.uploadedAt) return false;
-  if (!local.coverDownloadedAt) return true; // first download
-  if (!synced.coverHash) return false; // nothing to compare (legacy book)
-  if (coverMs(synced.coverUpdatedAt) <= coverMs(local.coverUpdatedAt)) return false;
-  return synced.coverHash !== local.coverHash;
-};
 
 /**
  * Field-level last-writer-wins for the cover, by `coverUpdatedAt` (ties →
@@ -802,10 +783,6 @@ export const needsCoverRefresh = (local: CoverSyncFields, synced: CoverSyncField
  * the row's `updatedAt` is dominated by page-turn progress, so the cover must be
  * resolved by its own timestamp or progress would clobber a cover edit.
  */
-export const pickFresherCover = (local: CoverFields, synced: CoverFields): CoverFields =>
-  coverMs(synced.coverUpdatedAt) > coverMs(local.coverUpdatedAt)
-    ? { coverHash: synced.coverHash, coverUpdatedAt: synced.coverUpdatedAt }
-    : { coverHash: local.coverHash, coverUpdatedAt: local.coverUpdatedAt };
 
 /**
  * Resolve the ordered list of context-menu item ids for a book from its state.
@@ -827,16 +804,7 @@ export const getBookContextMenuItemIds = (book: Book): BookContextMenuItemId[] =
   ) {
     ids.push('clearStatus');
   }
-  ids.push('showDetails', 'showInFinder', 'searchGoodreads');
-  // A feed book has no file to move: every transfer action would fail, and the
-  // share dialog uploads before it can hand out a link (issue #5307).
-  if (!isFeedBook(book)) {
-    if (book.uploadedAt && !book.downloadedAt) ids.push('download');
-    if (!book.uploadedAt && book.downloadedAt) ids.push('upload');
-    // Share is offered for any local-or-uploaded book; the dialog uploads first
-    // if the book hasn't been pushed yet.
-    if (book.downloadedAt || book.uploadedAt) ids.push('share');
-  }
+  ids.push('showDetails', 'showInFinder');
   ids.push('delete');
   return ids;
 };

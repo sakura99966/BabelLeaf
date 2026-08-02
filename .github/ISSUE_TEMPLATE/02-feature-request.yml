@@ -16,7 +16,7 @@ body:
     attributes:
       label: "What problem would this feature solve?"
       description: |
-        A clear and concise of what problem this feature solves.
+        A clear and concise description of the problem this feature solves.
       placeholder: "E.g: I think it takes too many steps to [...]"
     validations:
       required: true
@@ -25,14 +25,14 @@ body:
     attributes:
       label: "Describe the solution you'd like."
       description: |
-        A clear and concise of what problem this feature solves.
+        A clear and concise description of the proposed solution.
       placeholder: "E.g: I think it takes too many steps to [...]"
     validations:
       required: true
   - type: "textarea"
     id: "alternatives"
     attributes:
-      label: "Describe workarounds you may have used to acheive the same results."
+      label: "Describe workarounds you may have used to achieve the same results."
       description: |
         A clear and concise description of any workarounds you've used.
       placeholder: "E.g: This functionality can be changed in the settings menu, but I want a keyboard shortcut as well."

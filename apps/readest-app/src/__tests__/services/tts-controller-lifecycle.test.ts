@@ -28,8 +28,6 @@ const makeMockClient = (name: string): TTSClient => ({
   getCapabilities: vi.fn().mockReturnValue({
     wordBoundaries: false,
     mediaClock: false,
-    gapControl: false,
-    liveRateChange: false,
   }),
   getVoiceId: vi.fn().mockReturnValue('lifecycle-voice'),
   getSpeakingLang: vi.fn().mockReturnValue('en'),
@@ -40,11 +38,6 @@ vi.mock('@/services/tts/WebSpeechClient', () => ({
     Object.assign(this, makeMockClient('web-speech'));
   }),
 }));
-vi.mock('@/services/tts/EdgeTTSClient', () => ({
-  EdgeTTSClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    Object.assign(this, makeMockClient('edge-tts'));
-  }),
-}));
 vi.mock('@/services/tts/NativeTTSClient', () => ({
   NativeTTSClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     Object.assign(this, makeMockClient('native'));
@@ -52,7 +45,7 @@ vi.mock('@/services/tts/NativeTTSClient', () => ({
 }));
 vi.mock('@/services/tts/TTSUtils', () => ({
   TTSUtils: {
-    getPreferredClient: vi.fn().mockReturnValue('edge-tts'),
+    getPreferredClient: vi.fn().mockReturnValue('web-speech'),
     setPreferredClient: vi.fn(),
     setPreferredVoice: vi.fn(),
     getPreferredVoice: vi.fn().mockReturnValue(null),

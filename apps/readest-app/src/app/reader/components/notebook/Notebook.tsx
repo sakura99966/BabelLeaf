@@ -7,7 +7,6 @@ import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useNotebookStore } from '@/store/notebookStore';
-import { useAIChatStore } from '@/store/aiChatStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useThemeStore } from '@/store/themeStore';
 import { useEnv } from '@/context/EnvContext';
@@ -29,11 +28,9 @@ import {
   removeEmptyAnnotationPlaceholder,
 } from '../../utils/annotatorUtil';
 import BooknoteItem from '../sidebar/BooknoteItem';
-import AIAssistant from './AIAssistant';
 import NotebookHeader from './Header';
 import NoteEditor from './NoteEditor';
 import SearchBar from './SearchBar';
-import NotebookTabNavigation from './NotebookTabNavigation';
 import EmptyState from '../EmptyState';
 
 const MIN_NOTEBOOK_WIDTH = 0.15;
@@ -45,16 +42,14 @@ const Notebook: React.FC = ({}) => {
   const { settings } = useSettingsStore();
   const { updateAppTheme, safeAreaInsets, systemUIVisible, statusBarHeight } = useThemeStore();
   const { sideBarBookKey } = useSidebarStore();
-  const { notebookWidth, isNotebookVisible, isNotebookPinned, notebookActiveTab } =
-    useNotebookStore();
+  const { notebookWidth, isNotebookVisible, isNotebookPinned } = useNotebookStore();
   const { notebookNewAnnotation, notebookEditAnnotation, setNotebookPin } = useNotebookStore();
   const { getBookData, getConfig, saveConfig, updateBooknotes } = useBookDataStore();
   const { getView, getViewsById, getProgress, getViewSettings } = useReaderStore();
   const { getNotebookWidth, setNotebookWidth, setNotebookVisible, toggleNotebookPin } =
     useNotebookStore();
   const { setNotebookNewAnnotation, setNotebookNewHighlightId } = useNotebookStore();
-  const { setNotebookEditAnnotation, setNotebookActiveTab } = useNotebookStore();
-  const { activeConversationId } = useAIChatStore();
+  const { setNotebookEditAnnotation } = useNotebookStore();
 
   const [isSearchBarVisible, setIsSearchBarVisible] = useState(false);
   const [searchResults, setSearchResults] = useState<BookNote[] | null>(null);
@@ -106,10 +101,6 @@ const Notebook: React.FC = ({}) => {
     setNotebookWidth(settings.globalReadSettings.notebookWidth);
     setNotebookPin(settings.globalReadSettings.isNotebookPinned);
     setNotebookVisible(settings.globalReadSettings.isNotebookPinned);
-    if (settings.globalReadSettings.notebookActiveTab) {
-      setNotebookActiveTab(settings.globalReadSettings.notebookActiveTab);
-    }
-
     eventDispatcher.on('navigate', onNavigateEvent);
     return () => {
       eventDispatcher.off('navigate', onNavigateEvent);
@@ -134,13 +125,6 @@ const Notebook: React.FC = ({}) => {
     toggleNotebookPin();
     const globalReadSettings = settings.globalReadSettings;
     const newGlobalReadSettings = { ...globalReadSettings, isNotebookPinned: !isNotebookPinned };
-    saveSysSettings(envConfig, 'globalReadSettings', newGlobalReadSettings);
-  };
-
-  const handleTabChange = (tab: 'notes' | 'ai') => {
-    setNotebookActiveTab(tab);
-    const globalReadSettings = settings.globalReadSettings;
-    const newGlobalReadSettings = { ...globalReadSettings, notebookActiveTab: tab };
     saveSysSettings(envConfig, 'globalReadSettings', newGlobalReadSettings);
   };
 
@@ -414,32 +398,26 @@ const Notebook: React.FC = ({}) => {
           )}
           <NotebookHeader
             isPinned={isNotebookPinned}
-            isSearchBarVisible={isSearchBarVisible && notebookActiveTab === 'notes'}
+            isSearchBarVisible={isSearchBarVisible}
             handleClose={() => setNotebookVisible(false)}
             handleTogglePin={handleTogglePin}
             handleToggleSearchBar={handleToggleSearchBar}
-            showSearchButton={notebookActiveTab === 'notes'}
+            showSearchButton
           />
-          {notebookActiveTab === 'notes' && (
-            <div
-              className={clsx('search-bar', {
-                'search-bar-visible': isSearchBarVisible,
-              })}
-            >
-              <SearchBar
-                isVisible={isSearchBarVisible}
-                bookKey={sideBarBookKey}
-                searchTerm={searchTerm}
-                onSearchResultChange={setSearchResults}
-              />
-            </div>
-          )}
-        </div>
-        {notebookActiveTab === 'ai' ? (
-          <div className='flex min-h-0 flex-1 flex-col'>
-            <AIAssistant key={activeConversationId ?? 'new'} bookKey={sideBarBookKey} />
+          <div
+            className={clsx('search-bar', {
+              'search-bar-visible': isSearchBarVisible,
+            })}
+          >
+            <SearchBar
+              isVisible={isSearchBarVisible}
+              bookKey={sideBarBookKey}
+              searchTerm={searchTerm}
+              onSearchResultChange={setSearchResults}
+            />
           </div>
-        ) : isNotesTabEmpty ? (
+        </div>
+        {isNotesTabEmpty ? (
           <div className='flex flex-grow items-center justify-center overflow-y-auto px-3'>
             <EmptyState
               Icon={RiQuillPenLine}
@@ -532,14 +510,6 @@ const Notebook: React.FC = ({}) => {
             </ul>
           </div>
         )}
-        <div
-          className='flex-shrink-0'
-          style={{
-            paddingBottom: `${(safeAreaInsets?.bottom || 0) / 2}px`,
-          }}
-        >
-          <NotebookTabNavigation activeTab={notebookActiveTab} onTabChange={handleTabChange} />
-        </div>
       </div>
     </>
   ) : null;

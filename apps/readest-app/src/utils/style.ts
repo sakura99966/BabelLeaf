@@ -767,33 +767,6 @@ const getWarichuStyles = () => `
   }
 `;
 
-// Word Lens gloss <rt> styling is user-configurable: the font size (relative to
-// the word, in em) and the color. An empty color keeps the default muted,
-// theme-adaptive look (inherit + 0.7 opacity); a set color paints at full opacity.
-const getRubyStyles = (viewSettings: ViewSettings) => {
-  const fontSize = viewSettings.wordLensGlossFontSize || 0.5;
-  const color = viewSettings.wordLensGlossColor || '';
-  return `
-  rt {
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  rp {
-    display: none !important;
-  }
-  ruby.wl-gloss {
-    cursor: help;
-  }
-  ruby.wl-gloss > rt {
-    font-size: ${fontSize}em;
-    line-height: 1.1;
-    ${color ? `color: ${color};\n    opacity: 1;` : 'opacity: 0.7;'}
-    font-weight: normal;
-    text-align: center;
-  }
-`;
-};
-
 export interface ThemeCode {
   bg: string;
   fg: string;
@@ -902,7 +875,6 @@ export const getStyles = (
   );
   const translationStyles = getTranslationStyles(viewSettings.showTranslateSource!);
   const warichuStyles = getWarichuStyles();
-  const rubyStyles = getRubyStyles(viewSettings);
   const userStylesheet = viewSettings.userStylesheet!;
   // The `@namespace` declaration must lead the stylesheet: a `@namespace` rule
   // placed after any style or `@font-face` rule is invalid and silently ignored,
@@ -910,7 +882,7 @@ export const getStyles = (
   // the footnote aside's border show as a stray horizontal line (#4438). Keep it
   // ahead of the inlined custom `@font-face` rules.
   const epubNamespace = `@namespace epub "http://www.idpf.org/2007/ops";`;
-  return `${epubNamespace}\n${customFontFaces}\n${pageLayoutStyles}\n${paragraphLayoutStyles}\n${fontStyles}\n${colorStyles}\n${translationStyles}\n${warichuStyles}\n${rubyStyles}\n${userStylesheet}`;
+  return `${epubNamespace}\n${customFontFaces}\n${pageLayoutStyles}\n${paragraphLayoutStyles}\n${fontStyles}\n${colorStyles}\n${translationStyles}\n${warichuStyles}\n${userStylesheet}`;
 };
 
 // Build a CSS chunk of `@font-face` rules for the given user custom

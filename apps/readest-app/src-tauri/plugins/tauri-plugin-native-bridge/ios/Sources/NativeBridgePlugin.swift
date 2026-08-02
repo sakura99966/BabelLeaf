@@ -1,9 +1,7 @@
 import AVFoundation
-import AuthenticationServices
 import CoreText
 import MediaPlayer
 import ObjectiveC
-import StoreKit
 import SwiftRs
 import Tauri
 import UIKit
@@ -26,14 +24,6 @@ func getLocalizedDisplayName(familyName: String) -> String? {
     return localizedName as String
   }
   return nil
-}
-
-class SafariAuthRequestArgs: Decodable {
-  let authUrl: String
-  // ASWebAuthenticationSession callback scheme. Defaults to "readest" (the
-  // Supabase login); the Google Drive flow passes its reverse-DNS scheme so the
-  // session intercepts that redirect instead.
-  let callbackScheme: String?
 }
 
 class UseBackgroundAudioRequestArgs: Decodable {
@@ -67,37 +57,6 @@ class SetScreenBrightnessRequestArgs: Decodable {
 class CopyUriToPathRequestArgs: Decodable {
   let uri: String?
   let dst: String?
-}
-
-struct InitializeRequest: Decodable {
-  let publicKey: String?
-}
-
-struct FetchProductsRequest: Decodable {
-  let productIds: [String]
-}
-
-struct PurchaseProductRequest: Decodable {
-  let productId: String
-}
-
-struct ProductData: Codable {
-  let id: String
-  let title: String
-  let description: String
-  let price: String
-  let priceCurrencyCode: String?
-  let priceAmountMicros: Int64
-  let productType: String
-}
-
-struct PurchaseData: Codable {
-  let productId: String
-  let transactionId: String
-  let originalTransactionId: String
-  let purchaseDate: String
-  let purchaseState: String
-  let platform: String
 }
 
 class VolumeKeyHandler: NSObject {
@@ -513,7 +472,6 @@ extension WebViewLifecycleManager: WKNavigationDelegate {
 
 class NativeBridgePlugin: Plugin {
   private var webView: WKWebView?
-  private var authSession: ASWebAuthenticationSession?
   private var currentOrientationMask: UIInterfaceOrientationMask = .all
   private var originalDelegate: UIApplicationDelegate?
   private var webViewLifecycleManager: WebViewLifecycleManager?
@@ -536,14 +494,6 @@ class NativeBridgePlugin: Plugin {
     // Suppress the iOS system text-selection edit menu so it never
     // covers Readest's annotation toolbar. See ContextMenuSuppressor.
     ContextMenuSuppressor.installIfNeeded()
-
-    // Register a WKScriptMessageHandler so JS can signal when its
-    // share-extension hook has mounted. On `{type: 'ready'}` we run a
-    // sync immediately, which is the cold-start path (app launched
-    // because the Share Extension just woke it up, JS may not have been
-    // listening when the first `appDidBecomeActive` fired).
-    webview.configuration.userContentController.add(
-      ShareBridgeMessageHandler(owner: self), name: "readestShareBridge")
 
     webViewLifecycleManager = WebViewLifecycleManager()
     webViewLifecycleManager?.startMonitoring(webView: webview)
@@ -618,76 +568,6 @@ class NativeBridgePlugin: Plugin {
     // appearance whenever the app becomes active, e.g. after toggling
     // dark mode from Control Center.
     notifyColorSchemeChange()
-    syncShareExtensionState()
-  }
-
-  /// JS-initiated entry point. The share-extension JS hook calls
-  /// `window.webkit.messageHandlers.readestShareBridge.postMessage({type:'ready'})`
-  /// once mounted, which routes here so the cold-start drain happens
-  /// even when the JS hook wasn't listening at app launch.
-  @objc func syncShareExtensionStateFromJS() {
-    syncShareExtensionState()
-  }
-
-  /// Bridge between the Readest Share Extension (separate process) and
-  /// the host app's JS, via the App Group container at
-  /// `group.com.bilingify.readest`. Two directions on every activation:
-  ///
-  ///   1. Groups (host → extension). Read the current library group list
-  ///      from JS (`window.__readestGetGroups`) and persist it so the
-  ///      extension's picker shows up-to-date options next time the user
-  ///      shares. If the JS function isn't installed yet (cold start, hook
-  ///      hasn't mounted), no-op — the next activation will refresh.
-  ///
-  ///   2. Pending saves (extension → host). Drain any queued saves the
-  ///      extension wrote, hand them to JS
-  ///      (`window.__readestOnShareExtensionPending`), then clear the
-  ///      queue only if JS confirmed receipt. If JS isn't ready yet,
-  ///      leave the queue intact — the next activation (or the JS hook
-  ///      on its own mount) will pick them up.
-  private func syncShareExtensionState() {
-    DispatchQueue.main.async { [weak self] in
-      guard let self = self, let webView = self.webView else { return }
-      // Pull groups + the user-locale "Default" label from JS → App Group.
-      webView.evaluateJavaScript(
-        "(window.__readestGetGroups && window.__readestGetGroups()) || null"
-      ) { result, _ in
-        guard let payload = result as? [String: Any] else { return }
-        if let array = payload["groups"] as? [[String: Any]] {
-          let groups: [AppGroupBridge.LibraryGroup] = array.compactMap { item in
-            guard let id = item["id"] as? String, let name = item["name"] as? String else {
-              return nil
-            }
-            return AppGroupBridge.LibraryGroup(id: id, name: name)
-          }
-          AppGroupBridge.writeGroups(groups)
-        }
-        if let defaultName = payload["defaultGroupName"] as? String, !defaultName.isEmpty {
-          AppGroupBridge.writeDefaultGroupName(defaultName)
-        }
-      }
-      // Push pending saves → JS, clear queue iff JS confirmed.
-      let saves = AppGroupBridge.readPendingSaves()
-      guard !saves.isEmpty else { return }
-      let payload: [[String: Any?]] = saves.map { save in
-        [
-          "url": save.url,
-          "groupId": save.groupId,
-          "groupName": save.groupName,
-          "addedAt": save.addedAt,
-        ]
-      }
-      guard let json = try? JSONSerialization.data(withJSONObject: payload, options: []),
-        let jsonString = String(data: json, encoding: .utf8)
-      else { return }
-      let script =
-        "(window.__readestOnShareExtensionPending && window.__readestOnShareExtensionPending(\(jsonString))) === true"
-      webView.evaluateJavaScript(script) { result, _ in
-        if let acknowledged = result as? Bool, acknowledged {
-          AppGroupBridge.clearPendingSaves()
-        }
-      }
-    }
   }
 
   // Resolves the foreground window scene. Its trait collection reflects
@@ -863,36 +743,6 @@ class NativeBridgePlugin: Plugin {
     invoke.resolve()
   }
 
-  @objc public func auth_with_safari(_ invoke: Invoke) throws {
-    let args = try invoke.parseArgs(SafariAuthRequestArgs.self)
-    let authUrl = URL(string: args.authUrl)!
-    let callbackScheme = args.callbackScheme ?? "readest"
-
-    authSession = ASWebAuthenticationSession(url: authUrl, callbackURLScheme: callbackScheme) {
-      [weak self] callbackURL, error in
-      guard let strongSelf = self else { return }
-
-      if let error = error {
-        logger.error("Auth session error: \(error.localizedDescription)")
-        invoke.reject(error.localizedDescription)
-        return
-      }
-
-      if let callbackURL = callbackURL {
-        strongSelf.authSession?.cancel()
-        strongSelf.authSession = nil
-        invoke.resolve(["redirectUrl": callbackURL.absoluteString])
-      }
-    }
-
-    if #available(iOS 13.0, *) {
-      authSession?.presentationContextProvider = self
-    }
-
-    let started = authSession?.start() ?? false
-    logger.log("Auth session start result: \(started)")
-  }
-
   @objc public func set_system_ui_visibility(_ invoke: Invoke) throws {
     let args = try invoke.parseArgs(SetSystemUIVisibilityRequestArgs.self)
     let visible = args.visible
@@ -1050,89 +900,6 @@ class NativeBridgePlugin: Plugin {
     }
   }
 
-  @objc public func iap_is_available(_ invoke: Invoke) {
-    invoke.resolve(["available": true])
-  }
-
-  @objc public func iap_initialize(_ invoke: Invoke) {
-    StoreKitManager.shared.initialize()
-    invoke.resolve(["success": true])
-  }
-
-  @objc public func iap_fetch_products(_ invoke: Invoke) {
-    do {
-      let args = try invoke.parseArgs(FetchProductsRequest.self)
-
-      StoreKitManager.shared.fetchProducts(productIds: args.productIds) { products in
-        let productsData: [ProductData] = products.map { product in
-          return ProductData(
-            id: product.productIdentifier,
-            title: product.localizedTitle,
-            description: product.localizedDescription,
-            price: product.price.stringValue,
-            priceCurrencyCode: product.priceLocale.currencyCode,
-            priceAmountMicros: Int64(product.price.doubleValue * 1_000_000),
-            productType: product.productIdentifier.contains("monthly")
-              || product.productIdentifier.contains("yearly") ? "subscription" : "consumable"
-          )
-        }
-        invoke.resolve(["products": productsData])
-      }
-    } catch {
-      invoke.reject("Failed to parse fetch products arguments: \(error.localizedDescription)")
-    }
-  }
-
-  @objc public func iap_purchase_product(_ invoke: Invoke) {
-    do {
-      let args = try invoke.parseArgs(PurchaseProductRequest.self)
-
-      StoreKitManager.shared.fetchProducts(productIds: [args.productId]) { products in
-        guard let product = products.first else {
-          invoke.reject("Product not found")
-          return
-        }
-
-        StoreKitManager.shared.purchase(product: product) { result in
-          switch result {
-          case .success(let txn):
-            let purchase = PurchaseData(
-              productId: txn.payment.productIdentifier,
-              transactionId: txn.transactionIdentifier ?? "",
-              originalTransactionId: txn.original?.transactionIdentifier ?? txn
-                .transactionIdentifier ?? "",
-              purchaseDate: ISO8601DateFormatter().string(from: txn.transactionDate ?? Date()),
-              purchaseState: "purchased",
-              platform: "ios"
-            )
-            invoke.resolve(["purchase": purchase])
-          case .failure(let error):
-            invoke.reject("Purchase failed: \(error.localizedDescription)")
-          }
-        }
-      }
-    } catch {
-      invoke.reject("Failed to parse purchase arguments: \(error.localizedDescription)")
-    }
-  }
-
-  @objc public func iap_restore_purchases(_ invoke: Invoke) {
-    StoreKitManager.shared.restorePurchases { transactions in
-      let restored = transactions.map { txn -> PurchaseData in
-        return PurchaseData(
-          productId: txn.payment.productIdentifier,
-          transactionId: txn.transactionIdentifier ?? "",
-          originalTransactionId: txn.original?.transactionIdentifier ?? txn.transactionIdentifier
-            ?? "",
-          purchaseDate: ISO8601DateFormatter().string(from: txn.transactionDate ?? Date()),
-          purchaseState: "restored",
-          platform: "ios"
-        )
-      }
-      invoke.resolve(["purchases": restored])
-    }
-  }
-
   @objc public func get_system_color_scheme(_ invoke: Invoke) {
     DispatchQueue.main.async { [weak self] in
       invoke.resolve(["colorScheme": self?.systemColorScheme() ?? "light"])
@@ -1247,16 +1014,6 @@ class NativeBridgePlugin: Plugin {
     }
   }
 
-  @objc public func get_storefront_region_code(_ invoke: Invoke) {
-    Task {
-      if let storefront = await Storefront.current {
-        invoke.resolve(["regionCode": storefront.countryCode])
-      } else {
-        invoke.reject("Failed to get region code")
-      }
-    }
-  }
-
   @objc public func get_safe_area_insets(_ invoke: Invoke) {
     DispatchQueue.main.async {
       if let window = UIApplication.shared.windows.first {
@@ -1284,85 +1041,10 @@ class NativeBridgePlugin: Plugin {
   // CryptoSession reads/writes via these commands so the user's sync
   // passphrase persists across app launches.
 
-  private static let syncKeychainService = "com.bilingify.readest.sync-passphrase"
-  private static let syncKeychainAccount = "default"
-
-  private func syncKeychainBaseQuery() -> [String: Any] {
-    return [
-      kSecClass as String: kSecClassGenericPassword,
-      kSecAttrService as String: NativeBridgePlugin.syncKeychainService,
-      kSecAttrAccount as String: NativeBridgePlugin.syncKeychainAccount
-    ]
-  }
-
-  @objc public func set_sync_passphrase(_ invoke: Invoke) {
-    do {
-      let args = try invoke.parseArgs(SyncPassphraseSetArgs.self)
-      guard let data = args.passphrase.data(using: .utf8) else {
-        invoke.resolve(["success": false, "error": "encoding"])
-        return
-      }
-      var query = syncKeychainBaseQuery()
-      query[kSecValueData as String] = data
-      // Replace any existing entry. Delete-then-add keeps the
-      // accessibility class consistent across SDK versions.
-      SecItemDelete(query as CFDictionary)
-      let status = SecItemAdd(query as CFDictionary, nil)
-      if status == errSecSuccess {
-        invoke.resolve(["success": true])
-      } else {
-        invoke.resolve(["success": false, "error": "OSStatus \(status)"])
-      }
-    } catch {
-      invoke.resolve(["success": false, "error": "\(error)"])
-    }
-  }
-
-  @objc public func get_sync_passphrase(_ invoke: Invoke) {
-    var query = syncKeychainBaseQuery()
-    query[kSecReturnData as String] = true
-    query[kSecMatchLimit as String] = kSecMatchLimitOne
-    var item: CFTypeRef?
-    let status = SecItemCopyMatching(query as CFDictionary, &item)
-    if status == errSecSuccess, let data = item as? Data, let s = String(data: data, encoding: .utf8) {
-      invoke.resolve(["passphrase": s])
-    } else if status == errSecItemNotFound {
-      // No entry: empty response. The TS layer treats this as "prompt".
-      invoke.resolve([:])
-    } else {
-      invoke.resolve(["error": "OSStatus \(status)"])
-    }
-  }
-
-  @objc public func clear_sync_passphrase(_ invoke: Invoke) {
-    let status = SecItemDelete(syncKeychainBaseQuery() as CFDictionary)
-    if status == errSecSuccess || status == errSecItemNotFound {
-      invoke.resolve(["success": true])
-    } else {
-      invoke.resolve(["success": false, "error": "OSStatus \(status)"])
-    }
-  }
-
-  @objc public func is_sync_keychain_available(_ invoke: Invoke) {
-    // The Keychain is always available on iOS; report true and let the
-    // TS layer trust it. We probe SecItemCopyMatching anyway so a
-    // future sandbox restriction surfaces an explicit error.
-    var query = syncKeychainBaseQuery()
-    query[kSecMatchLimit as String] = kSecMatchLimitOne
-    let status = SecItemCopyMatching(query as CFDictionary, nil)
-    if status == errSecSuccess || status == errSecItemNotFound {
-      invoke.resolve(["available": true])
-    } else {
-      invoke.resolve(["available": false, "error": "OSStatus \(status)"])
-    }
-  }
-
   // ── Keyed secure key-value store ──────────────────────────────────
-  // Same Keychain backing as the sync passphrase, but a generic keyed
-  // store: one service, the caller's `key` as the account, so secrets
-  // like the Google Drive token set persist the same way.
+  // Generic keyed storage for user-configured translation credentials.
 
-  private static let secureItemsService = "com.bilingify.readest.secure-items"
+  private static let secureItemsService = "io.github.sakura99966.babelleaf.secure-items"
 
   private func secureItemBaseQuery(_ key: String) -> [String: Any] {
     return [
@@ -1514,42 +1196,6 @@ class NativeBridgePlugin: Plugin {
       presenter.present(dictVC, animated: true) {
         invoke.resolve(["success": true])
       }
-    }
-  }
-
-  /// Open a hidden-but-visible WKWebView at `url`, capture
-  /// `document.documentElement.outerHTML` after the page settles, and
-  /// resolve with `{ html }`. Implements the mobile half of the
-  /// `clip_url` command — see `clip_url.rs` for the desktop half and
-  /// `ClipUrlController.swift` for the actual lifecycle.
-  @objc public func clip_url(_ invoke: Invoke) {
-    let args: ClipUrlArgs
-    do {
-      args = try invoke.parseArgs(ClipUrlArgs.self)
-    } catch {
-      invoke.reject(error.localizedDescription)
-      return
-    }
-    DispatchQueue.main.async {
-      // Find the topmost view controller to present from. The Tauri
-      // root WKWebView lives in the app's key window — present over
-      // whatever's currently on top of it (e.g., the library page,
-      // a settings sheet) so the user keeps their place after the
-      // controller dismisses.
-      guard let presenter = topmostViewController() else {
-        invoke.reject("Could not find a view controller to present from")
-        return
-      }
-
-      let controller = ClipUrlController(args: args) { result in
-        switch result {
-        case .success(let html):
-          invoke.resolve(["html": html])
-        case .failure(let err):
-          invoke.reject(err.message)
-        }
-      }
-      presenter.present(controller, animated: true)
     }
   }
 
@@ -1893,10 +1539,6 @@ private func topmostViewController() -> UIViewController? {
   return top
 }
 
-class SyncPassphraseSetArgs: Decodable {
-  let passphrase: String
-}
-
 class SecureItemSetArgs: Decodable {
   let key: String
   let value: String
@@ -1933,37 +1575,6 @@ struct CaptureWebviewRegionArgs: Decodable {
 @_cdecl("init_plugin_native_bridge")
 func initPlugin() -> Plugin {
   return NativeBridgePlugin()
-}
-
-/// JS → Swift bridge for the share-extension state. Lives in its own
-/// class because WKScriptMessageHandler conformance on NativeBridgePlugin
-/// would require routing every message type through the plugin's
-/// existing @objc method surface, which is noisier than a dedicated
-/// handler. We weakly retain the plugin so the WKWebView's
-/// WKUserContentController holding the handler doesn't extend the
-/// plugin's lifetime.
-private final class ShareBridgeMessageHandler: NSObject, WKScriptMessageHandler {
-  private weak var owner: NativeBridgePlugin?
-  init(owner: NativeBridgePlugin) { self.owner = owner }
-  func userContentController(
-    _ userContentController: WKUserContentController,
-    didReceive message: WKScriptMessage
-  ) {
-    guard message.name == "readestShareBridge" else { return }
-    guard let body = message.body as? [String: Any], let type = body["type"] as? String else {
-      return
-    }
-    if type == "ready" {
-      owner?.syncShareExtensionStateFromJS()
-    }
-  }
-}
-
-@available(iOS 13.0, *)
-extension NativeBridgePlugin: ASWebAuthenticationPresentationContextProviding {
-  func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-    return UIApplication.shared.windows.first ?? UIWindow()
-  }
 }
 
 extension NativeBridgePlugin: UIApplicationDelegate {

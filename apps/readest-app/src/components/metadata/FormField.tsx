@@ -1,36 +1,12 @@
 import React from 'react';
 import clsx from 'clsx';
-import { MdOutlineInfo, MdLock, MdLockOpen, MdError } from 'react-icons/md';
+import { MdLock, MdLockOpen, MdError } from 'react-icons/md';
 import { useTranslation } from '@/hooks/useTranslation';
 
 const inputBaseStyles =
   'w-full rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500';
 const inputBackgroundStyles = 'bg-base-200/50';
 const labelStyles = 'text-base-content block text-sm font-medium';
-
-interface SourceIndicatorProps {
-  source?: string;
-}
-
-const SourceIndicator: React.FC<SourceIndicatorProps> = ({ source }) => {
-  if (!source) return null;
-
-  const [sourceName, confidence] = source.split('-');
-  const confidenceNum = parseInt(confidence!);
-
-  let color = 'text-green-500';
-  if (confidenceNum < 90) color = 'text-yellow-500';
-  if (confidenceNum < 70) color = 'text-red-500';
-
-  return (
-    <div className='flex items-center justify-end gap-1 text-xs'>
-      <MdOutlineInfo className={clsx('h-3 w-3', color)} />
-      <span className={clsx('capitalize', color)}>
-        {sourceName} ({confidence}%)
-      </span>
-    </div>
-  );
-};
 
 interface LockButtonProps {
   isLocked: boolean;
@@ -64,7 +40,6 @@ interface FormFieldProps {
   required?: boolean;
   disabled?: boolean;
   lockable?: boolean;
-  fieldSources: Record<string, string>;
   lockedFields: Record<string, boolean>;
   fieldErrors: Record<string, string>;
   onToggleFieldLock: (field: string) => void;
@@ -80,7 +55,6 @@ const FormField: React.FC<FormFieldProps> = ({
   type = 'input',
   field,
   label,
-  fieldSources,
   lockedFields,
   fieldErrors,
   isNumber = false,
@@ -97,7 +71,6 @@ const FormField: React.FC<FormFieldProps> = ({
 }) => {
   const _ = useTranslation();
   const isLocked = lockedFields[field]!;
-  const source = fieldSources[field]!;
   const error = fieldErrors[field]!;
 
   return (
@@ -156,9 +129,8 @@ const FormField: React.FC<FormFieldProps> = ({
           <span>{error}</span>
         </div>
       )}
-      {!error && <SourceIndicator source={source} />}
     </div>
   );
 };
 
-export { FormField, SourceIndicator };
+export { FormField };

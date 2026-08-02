@@ -9,8 +9,6 @@ import { LogicalPosition } from '@tauri-apps/api/dpi';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { eventDispatcher } from '@/utils/event';
-import { openExternalUrl } from '@/utils/open';
-import { getBookGoodreadsQuery, getGoodreadsSearchUrl } from '@/utils/goodreads';
 import { getOSPlatform } from '@/utils/misc';
 import { throttle } from '@/utils/throttle';
 import { LibraryCoverFitType, LibraryViewModeType } from '@/types/settings';
@@ -212,12 +210,6 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
         action: async () => {
           const folder = `${settings.localBooksDir}/${book.hash}`;
           revealItemInDir(folder);
-        },
-      },
-      searchGoodreads: {
-        text: _('Search on Goodreads'),
-        action: async () => {
-          openExternalUrl(getGoodreadsSearchUrl(getBookGoodreadsQuery(book)));
         },
       },
       delete: {

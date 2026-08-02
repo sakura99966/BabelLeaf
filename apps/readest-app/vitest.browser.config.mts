@@ -4,8 +4,8 @@ import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { loadEnvFile } from './vitest.env.mts';
 
-// Load .env and .env.web so browser tests have the same env as the web app.
-const env = { ...loadEnvFile('.env'), ...loadEnvFile('.env.web') };
+// Browser tests exercise the local-only frontend without hosted-service settings.
+const env = { ...loadEnvFile('.env'), NEXT_PUBLIC_APP_PLATFORM: 'web' };
 
 export default defineConfig({
   plugins: [tsconfigPaths(), react()],
@@ -17,7 +17,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: [
-      '@supabase/supabase-js',
       '@tauri-apps/plugin-fs',
       '@tauri-apps/plugin-http',
       '@tauri-apps/api/path',
@@ -28,8 +27,6 @@ export default defineConfig({
       'iso-639-2',
       'iso-639-3',
       'js-md5',
-      'jwt-decode',
-      'uuid',
     ],
     exclude: [
       '@pdfjs/pdf.min.mjs',

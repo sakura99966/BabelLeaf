@@ -48,10 +48,7 @@ function makeMockTTSClient(name: string): TTSClient {
     speak: async function* (
       _ssml: string,
       signal: AbortSignal,
-      preload?: boolean,
     ): AsyncGenerator<TTSMessageEvent> {
-      // The preload path only warms a cache in real clients — emit nothing.
-      if (preload) return;
       await new Promise((r) => setTimeout(r, speakDelayMs));
       if (signal.aborted) return;
       yield { code: 'end' };
@@ -69,8 +66,6 @@ function makeMockTTSClient(name: string): TTSClient {
     getCapabilities: () => ({
       wordBoundaries: false,
       mediaClock: false,
-      gapControl: false,
-      liveRateChange: false,
     }),
     getVoiceId: () => 'mock-voice',
     getSpeakingLang: () => 'en',
@@ -82,35 +77,18 @@ vi.mock('@/services/tts/WebSpeechClient', () => ({
     Object.assign(this, makeMockTTSClient('web'));
   }),
 }));
-vi.mock('@/services/tts/EdgeTTSClient', () => ({
-  // useTTSControl also imports this named const from the same module; the
-  // mock factory replaces the whole module, so it must re-export it too.
-  DEFAULT_SENTENCE_GAP_SEC: 0.15,
-  EdgeTTSClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    // TTSController.setSentenceGap always forwards to the real ttsEdgeClient
-    // instance regardless of the active engine, so this mock needs the method
-    // even though the other two client mocks don't.
-    Object.assign(this, makeMockTTSClient('edge'), { setSentenceGap: () => {} });
-  }),
-}));
 vi.mock('@/services/tts/NativeTTSClient', () => ({
   NativeTTSClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     Object.assign(this, makeMockTTSClient('native'));
   }),
 }));
 
-// useEnv/useAuth throw outside their providers; stub them (test-side module
-// mocks, not a production seam). A null appService exercises the web/desktop
-// code paths in useTTSControl (no mobile/iOS branches).
+// useEnv throws outside its provider; stub it as a test-side module mock.
+// A null appService exercises the web/desktop code paths in useTTSControl.
 vi.mock('@/context/EnvContext', () => ({
   useEnv: () => ({ envConfig: {}, appService: null }),
   EnvProvider: ({ children }: { children: ReactNode }) => children,
 }));
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: null }),
-  AuthProvider: ({ children }: { children: ReactNode }) => children,
-}));
-
 // ---------------------------------------------------------------------------
 // Fixture: sample-alice.epub spine (all linear), 0-based section indices:
 //   0 cover · 1 title · 2 about · 3 main0=Ch1 · 4 main1=Ch2 · 5 main2=Ch3

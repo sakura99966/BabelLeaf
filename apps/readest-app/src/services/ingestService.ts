@@ -1,16 +1,12 @@
 import type { Book, BookLookupIndex } from '@/types/book';
 import type { AppService, OsPlatform } from '@/types/system';
 import type { SystemSettings } from '@/types/settings';
-import { transferManager } from '@/services/transferManager';
-import { isReadestCloudStorageActive } from '@/services/sync/cloudSyncProvider';
 import { normalizeFilePathForIndex } from '@/services/bookService';
 import { isContentURI, isValidURL } from '@/utils/misc';
-import { isPseStreamFileName } from '@/services/opds/pseStream';
 
 export interface IngestFileDeps {
   appService: AppService;
   settings: SystemSettings;
-  isLoggedIn: boolean;
   /**
    * Pre-resolved absolute path to Readest's own `Books/` directory. When
    * provided, any source file already living under this prefix is excluded
@@ -36,7 +32,6 @@ export interface IngestFileOptions {
   /** Tag parsed from a Send-to-Readest email subject (`#scifi`). */
   subjectTag?: string;
   /** Upload to the cloud even when the user has turned off book sync. */
-  forceUpload?: boolean;
   /** Transient import (not stored long-term) — never uploaded. */
   transient?: boolean;
   /**
@@ -154,7 +149,7 @@ export async function ingestFile(
   opts: IngestFileOptions,
   deps: IngestFileDeps,
 ): Promise<Book | null> {
-  const { appService, settings, isLoggedIn, appBooksPrefix } = deps;
+  const { appService, settings, appBooksPrefix } = deps;
 
   const inPlaceRoots = settings.externalLibraryFolders ?? [];
   const inPlace = shouldImportInPlace(
@@ -191,7 +186,6 @@ export async function ingestFile(
     !opts.transient &&
     opts.lookupIndex &&
     typeof opts.file === 'string' &&
-    !isPseStreamFileName(opts.file) &&
     !isValidURL(opts.file) &&
     !isContentURI(opts.file)
   ) {
@@ -244,15 +238,5 @@ export async function ingestFile(
   // this gate is false and the file-sync engine mirrors the import instead
   // (including Sent books, which reach other devices via each enabled backend
   // whose syncBooks toggle is on).
-  if (
-    !opts.transient &&
-    isLoggedIn &&
-    !book.uploadedAt &&
-    (opts.forceUpload || settings.syncCategories?.book !== false) &&
-    isReadestCloudStorageActive(settings)
-  ) {
-    transferManager.queueUpload(book);
-  }
-
   return book;
 }

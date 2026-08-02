@@ -14,25 +14,19 @@ import DeleteConfirmAlert from '@/components/DeleteConfirmAlert';
 import Dialog from '@/components/Dialog';
 import BookDetailView from './BookDetailView';
 import BookDetailEdit from './BookDetailEdit';
-import SourceSelector from './SourceSelector';
 import Spinner from '../Spinner';
 
 interface BookDetailModalProps {
   book: Book;
   isOpen: boolean;
   onClose: () => void;
-  handleBookDownload?: (book: Book, options?: { redownload?: boolean; queued?: boolean }) => void;
-  handleBookUpload?: (book: Book) => void;
   handleBookDelete?: (book: Book) => void;
-  handleBookDeleteCloudBackup?: (book: Book) => void;
-  handleBookDeleteLocalCopy?: (book: Book) => void;
   handleBookPurge?: (book: Book) => void;
   handleBookMetadataUpdate?: (book: Book, updatedMetadata: BookMetadata) => void;
 }
 
-// Purge is no longer a standalone menu action — it is an opt-in toggle on the
-// standard ('both') delete confirmation, so the menu only triggers these three.
-type DeleteMenuAction = 'both' | 'local';
+// Purge is an opt-in toggle on the local library deletion confirmation.
+type DeleteMenuAction = 'delete';
 
 interface DeleteConfig {
   title: string;
@@ -46,7 +40,6 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
   isOpen,
   onClose,
   handleBookDelete,
-  handleBookDeleteLocalCopy,
   handleBookPurge,
   handleBookMetadataUpdate,
 }) => {
@@ -66,33 +59,21 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
   // Initialize metadata edit hook
   const {
     editedMeta,
-    fieldSources,
     lockedFields,
     fieldErrors,
-    searchLoading,
-    showSourceSelection,
-    availableSources,
     handleFieldChange,
     handleToggleFieldLock,
     handleLockAll,
     handleUnlockAll,
-    handleAutoRetrieve,
-    handleSourceSelection,
-    handleCloseSourceSelection,
     resetToOriginal,
   } = useMetadataEdit(bookMeta);
 
   const deleteConfigs: Record<DeleteMenuAction, DeleteConfig> = {
-    both: {
+    delete: {
       title: _('Confirm Deletion'),
       message: _('Are you sure to delete the selected book?'),
       handler: handleBookDelete,
       showPurgeToggle: !!handleBookPurge,
-    },
-    local: {
-      title: _('Confirm Deletion'),
-      message: _('Are you sure to delete the local copy of the selected book?'),
-      handler: handleBookDeleteLocalCopy,
     },
   };
 
@@ -155,10 +136,8 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
     const config = deleteConfigs[activeDeleteAction];
     handleClose();
 
-    // The standard "Cloud & Device" delete escalates to a full purge when the
-    // user opts in via the confirmation toggle. The cloud-only / device-only
-    // variants keep the library entry, so purging reading data does not apply.
-    if (activeDeleteAction === 'both' && purgeData && handleBookPurge) {
+    // A full purge is optional when removing the book from the local library.
+    if (activeDeleteAction === 'delete' && purgeData && handleBookPurge) {
       handleBookPurge(book);
     } else if (config.handler) {
       config.handler(book);
@@ -169,8 +148,7 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
     setActiveDeleteAction(null);
   };
 
-  const handleDelete = () => handleDeleteAction('both');
-  const handleDeleteLocalCopy = () => handleDeleteAction('local');
+  const handleDelete = () => handleDeleteAction('delete');
 
   const handleBookExport = async () => {
     setIsLoading(true);
@@ -186,9 +164,6 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
     }, 0);
   };
 
-  // Sharing uploads the book to the Readest backend and mints a public link, so
-  // it needs a signed-in user and a resolvable on-disk file. `fileSize` is only
-  // non-null when getBookFileSize could actually open the local file.
   const currentDeleteConfig = activeDeleteAction ? deleteConfigs[activeDeleteAction] : null;
 
   return (
@@ -209,13 +184,10 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
               <BookDetailEdit
                 book={book}
                 metadata={editedMeta}
-                fieldSources={fieldSources}
                 lockedFields={lockedFields}
                 fieldErrors={fieldErrors}
-                searchLoading={searchLoading}
                 onFieldChange={handleFieldChange}
                 onToggleFieldLock={handleToggleFieldLock}
-                onAutoRetrieve={handleAutoRetrieve}
                 onLockAll={handleLockAll}
                 onUnlockAll={handleUnlockAll}
                 onCancel={handleCancelEdit}
@@ -227,25 +199,13 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
                 book={displayBook}
                 metadata={bookMeta}
                 fileSize={fileSize}
-                shareEnabled={false}
                 onEdit={handleBookMetadataUpdate ? handleEditMetadata : undefined}
                 onDelete={handleBookDelete ? handleDelete : undefined}
-                onDeleteLocalCopy={handleBookDeleteLocalCopy ? handleDeleteLocalCopy : undefined}
                 onExport={handleBookExport}
               />
             )}
           </div>
         </Dialog>
-
-        {/* Source Selection Modal */}
-        {showSourceSelection && (
-          <SourceSelector
-            sources={availableSources}
-            isOpen={showSourceSelection}
-            onSelect={handleSourceSelection}
-            onClose={handleCloseSourceSelection}
-          />
-        )}
 
         {isLoading && (
           <div className='fixed inset-0 z-50 flex items-center justify-center'>

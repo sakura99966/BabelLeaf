@@ -1,165 +1,75 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { getEnabledProviders, __resetRegistryForTests } from '@/services/dictionaries/registry';
-import { BUILTIN_PROVIDER_IDS, BUILTIN_WEB_SEARCH_IDS } from '@/services/dictionaries/types';
-import type {
-  DictionarySettings,
-  ImportedDictionary,
-  WebSearchEntry,
-} from '@/services/dictionaries/types';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-const baseSettings: DictionarySettings = {
-  providerOrder: [BUILTIN_PROVIDER_IDS.wiktionary, BUILTIN_PROVIDER_IDS.wikipedia],
+import { __resetRegistryForTests, getEnabledProviders } from '@/services/dictionaries/registry';
+import type { DictionarySettings, ImportedDictionary } from '@/services/dictionaries/types';
+
+const fs = { openFile: async () => new File([], '') };
+
+const dictionaries: ImportedDictionary[] = [
+  {
+    id: 'mdict:one',
+    kind: 'mdict',
+    name: 'One',
+    bundleDir: 'one',
+    files: { mdx: 'one.mdx' },
+    addedAt: 1,
+  },
+  {
+    id: 'mdict:two',
+    kind: 'mdict',
+    name: 'Two',
+    bundleDir: 'two',
+    files: { mdx: 'two.mdx' },
+    addedAt: 2,
+  },
+  {
+    id: 'mdict:missing',
+    kind: 'mdict',
+    name: 'Missing',
+    bundleDir: 'missing',
+    files: { mdx: 'missing.mdx' },
+    addedAt: 3,
+    unavailable: true,
+  },
+];
+
+const settings: DictionarySettings = {
+  providerOrder: ['mdict:two', 'mdict:one', 'mdict:missing'],
   providerEnabled: {
-    [BUILTIN_PROVIDER_IDS.wiktionary]: true,
-    [BUILTIN_PROVIDER_IDS.wikipedia]: true,
+    'mdict:two': true,
+    'mdict:one': true,
+    'mdict:missing': true,
   },
 };
 
-describe('dictionary registry', () => {
-  beforeEach(() => {
-    __resetRegistryForTests();
+describe('local dictionary registry', () => {
+  beforeEach(__resetRegistryForTests);
+
+  it('returns enabled local providers in configured order', () => {
+    const providers = getEnabledProviders({ settings, dictionaries, fs });
+    expect(providers.map((provider) => provider.id)).toEqual(['mdict:two', 'mdict:one']);
   });
 
-  it('returns builtin providers in order, both enabled', () => {
-    const providers = getEnabledProviders({ settings: baseSettings, dictionaries: [] });
-    expect(providers.map((p) => p.id)).toEqual([
-      BUILTIN_PROVIDER_IDS.wiktionary,
-      BUILTIN_PROVIDER_IDS.wikipedia,
-    ]);
-  });
-
-  it('skips providers explicitly disabled', () => {
+  it('skips disabled, unavailable, unsupported, deleted, and unknown entries', () => {
     const providers = getEnabledProviders({
       settings: {
-        ...baseSettings,
-        providerEnabled: {
-          ...baseSettings.providerEnabled,
-          [BUILTIN_PROVIDER_IDS.wikipedia]: false,
-        },
+        ...settings,
+        providerOrder: ['builtin:wikipedia', 'web:legacy', ...settings.providerOrder],
+        providerEnabled: { ...settings.providerEnabled, 'mdict:two': false },
       },
-      dictionaries: [],
+      dictionaries,
+      fs,
     });
-    expect(providers.map((p) => p.id)).toEqual([BUILTIN_PROVIDER_IDS.wiktionary]);
+    expect(providers.map((provider) => provider.id)).toEqual(['mdict:one']);
   });
 
-  it('honors providerOrder regardless of declaration order', () => {
-    const providers = getEnabledProviders({
-      settings: {
-        ...baseSettings,
-        providerOrder: [BUILTIN_PROVIDER_IDS.wikipedia, BUILTIN_PROVIDER_IDS.wiktionary],
-      },
-      dictionaries: [],
-    });
-    expect(providers.map((p) => p.id)).toEqual([
-      BUILTIN_PROVIDER_IDS.wikipedia,
-      BUILTIN_PROVIDER_IDS.wiktionary,
-    ]);
+  it('reuses a provider instance across lookups', () => {
+    const first = getEnabledProviders({ settings, dictionaries, fs });
+    const second = getEnabledProviders({ settings, dictionaries, fs });
+    expect(first[0]).toBe(second[0]);
   });
 
-  it('caches the same provider instance across calls', () => {
-    const a = getEnabledProviders({ settings: baseSettings, dictionaries: [] });
-    const b = getEnabledProviders({ settings: baseSettings, dictionaries: [] });
-    expect(a[0]).toBe(b[0]);
-  });
-
-  it('dispatches built-in web-search ids to a web provider', () => {
-    const settings: DictionarySettings = {
-      providerOrder: [BUILTIN_WEB_SEARCH_IDS.google, BUILTIN_WEB_SEARCH_IDS.urban],
-      providerEnabled: {
-        [BUILTIN_WEB_SEARCH_IDS.google]: true,
-        [BUILTIN_WEB_SEARCH_IDS.urban]: true,
-      },
-    };
-    const providers = getEnabledProviders({ settings, dictionaries: [] });
-    expect(providers.map((p) => p.id)).toEqual([
-      BUILTIN_WEB_SEARCH_IDS.google,
-      BUILTIN_WEB_SEARCH_IDS.urban,
-    ]);
-    expect(providers.every((p) => p.kind === 'web')).toBe(true);
-  });
-
-  it('resolves custom web-search ids from settings.webSearches', () => {
-    const customEntry: WebSearchEntry = {
-      id: 'web:custom123',
-      name: 'My Site',
-      urlTemplate: 'https://example.com/?q=%WORD%',
-    };
-    const settings: DictionarySettings = {
-      providerOrder: ['web:custom123'],
-      providerEnabled: { 'web:custom123': true },
-      webSearches: [customEntry],
-    };
-    const providers = getEnabledProviders({ settings, dictionaries: [] });
-    expect(providers).toHaveLength(1);
-    expect(providers[0]!.label).toBe('My Site');
-    expect(providers[0]!.kind).toBe('web');
-  });
-
-  it('drops custom web-search ids whose entries are missing or soft-deleted', () => {
-    const settings: DictionarySettings = {
-      providerOrder: ['web:gone', 'web:dead'],
-      providerEnabled: { 'web:gone': true, 'web:dead': true },
-      webSearches: [
-        {
-          id: 'web:dead',
-          name: 'Dead',
-          urlTemplate: 'https://example.com/?q=%WORD%',
-          deletedAt: 1,
-        },
-      ],
-    };
-    const providers = getEnabledProviders({ settings, dictionaries: [] });
-    expect(providers).toEqual([]);
-  });
-
-  it('skips imported dictionaries that are unavailable, deleted, or unsupported', () => {
-    const fs = { openFile: async () => new File([], '') };
-    const dicts: ImportedDictionary[] = [
-      {
-        id: 'mdict:available',
-        kind: 'mdict',
-        name: 'Available',
-        bundleDir: 'a',
-        files: { mdx: 'a.mdx' },
-        addedAt: 1,
-      },
-      {
-        id: 'mdict:gone',
-        kind: 'mdict',
-        name: 'Gone',
-        bundleDir: 'g',
-        files: { mdx: 'g.mdx' },
-        addedAt: 2,
-        unavailable: true,
-      },
-      {
-        id: 'stardict:nope',
-        kind: 'stardict',
-        name: 'Nope',
-        bundleDir: 'n',
-        files: { ifo: 'n.ifo' },
-        addedAt: 3,
-        unsupported: true,
-      },
-    ];
-    const settings: DictionarySettings = {
-      providerOrder: [
-        BUILTIN_PROVIDER_IDS.wiktionary,
-        'mdict:available',
-        'mdict:gone',
-        'stardict:nope',
-      ],
-      providerEnabled: {
-        [BUILTIN_PROVIDER_IDS.wiktionary]: true,
-        'mdict:available': true,
-        'mdict:gone': true,
-        'stardict:nope': true,
-      },
-    };
-    const providers = getEnabledProviders({ settings, dictionaries: dicts, fs });
-    expect(providers.map((p) => p.id)).toEqual([
-      BUILTIN_PROVIDER_IDS.wiktionary,
-      'mdict:available',
-    ]);
+  it('returns no popup provider without a local filesystem accessor', () => {
+    expect(getEnabledProviders({ settings, dictionaries })).toEqual([]);
   });
 });

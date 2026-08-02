@@ -17,20 +17,8 @@ export const SETTINGS_BACKUP_FILENAME = 'settings.json';
 /**
  * Options controlling what a backup zip includes.
  */
-export interface BackupOptions {
-  /**
-   * Include account credentials (sync tokens, passwords, API keys) in the
-   * settings snapshot. The backup zip is unencrypted, so this is opt-in and
-   * defaults to false.
-   */
-  includeCredentials?: boolean;
-}
-
 /**
- * SystemSettings dot-paths excluded from backups. Each is either tied to
- * this device (and meaningless to restore elsewhere) or sync/migration
- * bookkeeping that would corrupt state if restored stale. Restore keeps
- * the current device's value for every path here — see issue #4098.
+ * Device-specific SystemSettings paths excluded from portable backups.
  */
 export const BACKUP_SETTINGS_BLACKLIST = [
   // Device filesystem paths — invalid on another device / OS.
@@ -39,29 +27,6 @@ export const BACKUP_SETTINGS_BLACKLIST = [
   'externalLibraryFolders',
   'autoImportFolders',
   'savedBookCoverForLockScreenPath',
-  // Per-device identity — restoring causes sync identity / HLC collisions.
-  'replicaDeviceId',
-  'kosync.deviceId',
-  // Sync cursors — stale values make sync skip pulls or re-push everything.
-  'lastSyncedAtBooks',
-  'lastSyncedAtConfigs',
-  'lastSyncedAtNotes',
-  'lastSyncedAtReplicas',
-  'readwise.lastSyncedAt',
-  'hardcover.lastSyncedAt',
-  'googleDrive.deviceId',
-  'googleDrive.lastSyncedAt',
-  'webdav.deviceId',
-  'webdav.lastSyncedAt',
-  'webdav.providerSelectedAt',
-  'googleDrive.providerSelectedAt',
-  'onedrive.deviceId',
-  'onedrive.lastSyncedAt',
-  'onedrive.providerSelectedAt',
-  's3.deviceId',
-  's3.lastSyncedAt',
-  's3.providerSelectedAt',
-  'readestCloud.disabledAt',
   // Transient runtime state — book keys may not exist post-restore; screen
   // brightness is live device state.
   'lastOpenBooks',
@@ -73,21 +38,9 @@ export const BACKUP_SETTINGS_BLACKLIST = [
 ] as const;
 
 /**
- * Credential dot-paths stripped from backups unless `includeCredentials`
- * is set. OPDS catalog credentials live inside the `opdsCatalogs` array
- * and are handled separately in `sanitizeSettingsForBackup`.
+ * Runtime-only credential paths that must never enter an unencrypted backup.
  */
 export const BACKUP_SETTINGS_CREDENTIAL_FIELDS = [
-  'kosync.username',
-  'kosync.userkey',
-  'kosync.password',
-  'readwise.accessToken',
-  'hardcover.accessToken',
-  // S3 access keys are strong, long-lived cloud credentials — strip them from
-  // unencrypted backup zips unless the user opts into including credentials.
-  's3.accessKeyId',
-  's3.secretAccessKey',
-  'aiSettings.aiGatewayApiKey',
   'aiSettings.openrouterApiKey',
 ] as const;
 
@@ -108,28 +61,15 @@ const deletePath = (obj: Record<string, unknown>, path: string): void => {
 
 /**
  * Produce a copy of SystemSettings safe to write into a backup zip:
- * strips device-specific / sync-bookkeeping fields always, and account
- * credentials unless `includeCredentials` is set. Input is not mutated.
+ * strips device-specific fields and the translation API key. Input is not mutated.
  */
-export function sanitizeSettingsForBackup(
-  settings: SystemSettings,
-  options: BackupOptions = {},
-): SystemSettings {
+export function sanitizeSettingsForBackup(settings: SystemSettings): SystemSettings {
   const clone = structuredClone(settings) as SystemSettings & Record<string, unknown>;
   for (const path of BACKUP_SETTINGS_BLACKLIST) {
     deletePath(clone, path);
   }
-  if (!options.includeCredentials) {
-    for (const path of BACKUP_SETTINGS_CREDENTIAL_FIELDS) {
-      deletePath(clone, path);
-    }
-    if (Array.isArray(clone.opdsCatalogs)) {
-      clone.opdsCatalogs = clone.opdsCatalogs.map((catalog) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { username: _username, password: _password, ...rest } = catalog;
-        return rest;
-      });
-    }
+  for (const path of BACKUP_SETTINGS_CREDENTIAL_FIELDS) {
+    deletePath(clone, path);
   }
   return clone;
 }
@@ -225,12 +165,10 @@ export interface RevivedBook {
  * Their files were just re-extracted, so `downloadedAt` / `coverDownloadedAt`
  * are taken from the backup record (the local deletion had cleared them).
  *
- * `updatedAt` is bumped so the restore out-ranks the cloud's deletion
- * tombstone in the next sync's last-writer-wins merge. A single uniform
- * offset is applied to every revived book, so their relative `updatedAt`
+ * `updatedAt` is bumped so restored entries rank after local deleted copies.
+ * A single uniform offset is applied so their relative `updatedAt`
  * order — and thus the library's "Updated" sort — is preserved exactly.
- * `syncedAt` is cleared so the next push re-uploads them and corrects the
- * cloud rows. Mutates the `book` of each entry in place.
+ * Mutates the `book` of each entry in place.
  */
 export function reviveRestoredBooks(revived: RevivedBook[], now: number = Date.now()): void {
   if (revived.length === 0) return;
@@ -238,12 +176,10 @@ export function reviveRestoredBooks(revived: RevivedBook[], now: number = Date.n
   for (const { book } of revived) {
     if (book.updatedAt > maxUpdatedAt) maxUpdatedAt = book.updatedAt;
   }
-  // offset >= 1 guarantees every book out-ranks its (un-bumped) cloud copy
-  // while a single shared offset keeps their relative order intact.
+  // A single shared offset keeps the restored books' relative order intact.
   const offset = Math.max(1, now - maxUpdatedAt);
   for (const { book, backup } of revived) {
     book.updatedAt += offset;
-    book.syncedAt = null;
     book.downloadedAt = backup.downloadedAt ?? book.downloadedAt ?? now;
     book.coverDownloadedAt = backup.coverDownloadedAt ?? book.coverDownloadedAt ?? now;
   }
@@ -271,7 +207,6 @@ type ProgressCallback = (current: number, total: number, filename: string) => vo
 export async function addBackupEntriesToZip(
   writer: ZipWriter<unknown>,
   appService: AppService,
-  options: BackupOptions,
   onProgress?: ProgressCallback,
 ): Promise<void> {
   const { Uint8ArrayReader } = await import('@zip.js/zip.js');
@@ -283,11 +218,11 @@ export async function addBackupEntriesToZip(
   const libraryJson = new TextEncoder().encode(JSON.stringify(libraryBooks, null, 2));
   await writer.add(getLibraryFilename(), new Uint8ArrayReader(libraryJson));
 
-  // Add the global settings snapshot, sanitized of device-specific and
-  // (unless opted in) credential fields.
+  // Add the global settings snapshot, sanitized of device-specific fields and
+  // runtime-only credentials.
   try {
     const settings = await appService.loadSettings();
-    const sanitized = sanitizeSettingsForBackup(settings, options);
+    const sanitized = sanitizeSettingsForBackup(settings);
     const settingsJson = new TextEncoder().encode(JSON.stringify(sanitized, null, 2));
     await writer.add(SETTINGS_BACKUP_FILENAME, new Uint8ArrayReader(settingsJson));
   } catch (error) {
@@ -330,7 +265,6 @@ const ZIP_WRITE_CONFIG: Partial<Configuration> = {
  */
 export async function createBackupZip(
   appService: AppService,
-  options: BackupOptions = {},
   onProgress?: ProgressCallback,
 ): Promise<ArrayBuffer> {
   await configureZip(ZIP_WRITE_CONFIG);
@@ -338,7 +272,7 @@ export async function createBackupZip(
 
   const blobWriter = new BlobWriter('application/zip');
   const writer = new ZipWriter(blobWriter);
-  await addBackupEntriesToZip(writer, appService, options, onProgress);
+  await addBackupEntriesToZip(writer, appService, onProgress);
   await writer.close();
   const blob = await blobWriter.getData();
   return await blob.arrayBuffer();
@@ -352,7 +286,6 @@ export async function createBackupZip(
 export async function createBackupZipToFile(
   appService: AppService,
   filePath: string,
-  options: BackupOptions = {},
   onProgress?: ProgressCallback,
 ): Promise<void> {
   await configureZip(ZIP_WRITE_CONFIG);
@@ -365,7 +298,7 @@ export async function createBackupZipToFile(
   const writePromise = writeFile(filePath, readable);
 
   const writer = new ZipWriter(writable);
-  await addBackupEntriesToZip(writer, appService, options, onProgress);
+  await addBackupEntriesToZip(writer, appService, onProgress);
   await writer.close();
   await writePromise;
 }
@@ -533,8 +466,8 @@ export async function restoreFromBackupZip(
     }
   }
 
-  // Make revived books out-rank the cloud's deletion tombstone in the
-  // next sync, without disturbing the library's "Updated" sort order.
+  // Keep revived books after locally deleted records without disturbing the
+  // library's relative "Updated" sort order.
   reviveRestoredBooks(revivedBooks);
 
   // Save merged library
@@ -570,7 +503,6 @@ export async function restoreFromBackupZip(
 export async function saveBackupFile(
   appService: AppService,
   filename: string,
-  options: BackupOptions = {},
   onProgress?: ProgressCallback,
 ): Promise<boolean> {
   if (isTauriAppPlatform()) {
@@ -582,11 +514,11 @@ export async function saveBackupFile(
       filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
     });
     if (!filePath) return false;
-    await createBackupZipToFile(appService, filePath, options, onProgress);
+    await createBackupZipToFile(appService, filePath, onProgress);
     return true;
   } else {
     // Web: build zip in memory then save
-    const zipData = await createBackupZip(appService, options, onProgress);
+    const zipData = await createBackupZip(appService, onProgress);
     let filePath: string | undefined;
     return appService.saveFile(filename, zipData, { filePath, mimeType: 'application/zip' });
   }

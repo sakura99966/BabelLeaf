@@ -1,27 +1,21 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
 import {
-  ErrorCodes,
   getTranslator,
   getTranslators,
   isTranslatorAvailable,
-  TranslatorName,
+  type TranslatorName,
 } from '@/services/translators';
 import { getFromCache, storeInCache, UseTranslatorOptions } from '@/services/translators';
 import { polish, preprocess } from '@/services/translators';
-import { eventDispatcher } from '@/utils/event';
 import { getLocale } from '@/utils/misc';
-import { useTranslation } from './useTranslation';
 
 export function useTranslator({
-  provider = 'deepl',
+  provider = 'ollama',
   sourceLang = 'AUTO',
   targetLang = 'EN',
   enablePolishing = true,
   enablePreprocessing = true,
 }: UseTranslatorOptions = {}) {
-  const _ = useTranslation();
-  const { token } = useAuth();
   const [loading, setLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(provider);
   const [translator, setTransltor] = useState(() => getTranslator(provider));
@@ -32,9 +26,16 @@ export function useTranslator({
   }, [provider, sourceLang, targetLang]);
 
   useEffect(() => {
-    const availableTranslators = getTranslators().filter((t) => isTranslatorAvailable(t, !!token));
+    const availableTranslators = getTranslators().filter(isTranslatorAvailable);
     const selectedTranslator =
-      availableTranslators.find((t) => t.name === provider) || availableTranslators[0]!;
+      availableTranslators.find((t) => t.name === provider) ||
+      availableTranslators[0] ||
+      getTranslator(provider) ||
+      getTranslators()[0];
+    if (!selectedTranslator) {
+      setTransltor(undefined);
+      return;
+    }
     const selectedProviderName = selectedTranslator.name as TranslatorName;
     setTransltor(getTranslator(selectedProviderName));
     setSelectedProvider(selectedProviderName);
@@ -48,7 +49,6 @@ export function useTranslator({
     ): Promise<string[]> => {
       const sourceLanguage = options?.source || sourceLang;
       const targetLanguage = options?.target || targetLang || getLocale();
-      const useCache = options?.useCache ?? false;
       const textsToTranslate = enablePreprocessing ? preprocess(input) : input;
 
       if (textsToTranslate.length === 0 || textsToTranslate.every((t) => !t?.trim())) {
@@ -98,8 +98,6 @@ export function useTranslator({
           textsNeedingTranslation,
           sourceLanguage,
           targetLanguage,
-          token,
-          useCache,
         );
 
         await Promise.all(
@@ -142,22 +140,12 @@ export function useTranslator({
         setLoading(false);
         return enablePolishing ? polish(results, targetLanguage) : results;
       } catch (err) {
-        if (err instanceof Error && err.message.includes(ErrorCodes.DAILY_QUOTA_EXCEEDED)) {
-          eventDispatcher.dispatch('toast', {
-            timeout: 5000,
-            message: _(
-              'Daily translation quota reached. Upgrade your plan to continue using AI translations.',
-            ),
-            type: 'error',
-          });
-          setSelectedProvider('azure');
-        }
         setLoading(false);
         throw err instanceof Error ? err : new Error(String(err));
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedProvider, sourceLang, targetLang, translator, token],
+    [selectedProvider, sourceLang, targetLang, translator],
   );
 
   return {

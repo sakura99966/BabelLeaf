@@ -16,7 +16,7 @@ val tauriProperties = Properties().apply {
 
 android {
     compileSdk = 36
-    namespace = "com.bilingify.readest"
+    namespace = "io.github.sakura99966.babelleaf"
     val keystorePropertiesFile = rootProject.file("keystore.properties")
     val keystoreProperties = Properties()
     if (keystorePropertiesFile.exists()) {
@@ -24,13 +24,11 @@ android {
     }
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "com.bilingify.readest"
+        applicationId = "io.github.sakura99966.babelleaf"
         minSdk = 26
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
-        val storeFlavor = project.findProperty("storeFlavor")?.toString() ?: "foss"
-        missingDimensionStrategy("store", storeFlavor)
     }
     signingConfigs {
         if (keystorePropertiesFile.exists()) {

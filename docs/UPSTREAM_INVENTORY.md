@@ -31,7 +31,6 @@ reproducible.
 | `packages/tao` | `da30a3b9df2ff9ef01d461c446d3cdbc82304e92` | Apache-2.0 |
 | `apps/readest-app/src-tauri/plugins/tauri-plugin-turso` | `204dc954b2e1e7811565b0c4217aa04ea741a224` | MIT (declared in `Cargo.toml`) |
 | `apps/readest-app/src-tauri/plugins/tauri-plugin-webview-upgrade` | `c7c04abee8a12e32823febec44779c075e076e25` | MIT |
-| `apps/readest-app/.claude/skills/gstack` | `a3259400a366593e0c909dd9ac3e59752efd2488` | MIT; development tooling, not reader runtime |
 
 This table is not a replacement for dependency-level software-bill-of-materials
 generation. Transitive npm and Cargo dependencies must also be audited for a

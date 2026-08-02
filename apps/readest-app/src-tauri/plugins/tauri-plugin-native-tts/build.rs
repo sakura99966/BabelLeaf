@@ -1,3 +1,4 @@
+// This is the public native command surface used to generate plugin permissions.
 const COMMANDS: &[&str] = &[
     "init",
     "speak",
@@ -12,9 +13,6 @@ const COMMANDS: &[&str] = &[
     "update_media_session_state",
     "update_media_session_metadata",
     "update_carplay_state",
-    "playout_enqueue",
-    "playout_control",
-    "playout_position",
     "register_listener",
     "remove_listener",
     "check_permissions",

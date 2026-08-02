@@ -36,8 +36,7 @@
     "src/**/*.tsx",
     "raw-loader.d.ts",
     ".next/types/**/*.ts",
-    "scripts/**/*.ts",
-    "bench/**/*.ts"
+    "scripts/**/*.ts"
   ],
   "exclude": ["node_modules", "out"]
 }

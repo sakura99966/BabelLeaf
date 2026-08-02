@@ -27,8 +27,6 @@ const nextConfig = {
   // Configure assetPrefix or else the server won't properly resolve your assets.
   assetPrefix: '',
   reactStrictMode: true,
-  serverExternalPackages: ['isows'],
-  allowedDevOrigins: ['192.168.2.120'],
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
@@ -54,11 +52,7 @@ const nextConfig = {
   transpilePackages: [
     'ai',
     'ai-sdk-ollama',
-    '@ai-sdk/react',
-    '@assistant-ui/react',
-    '@assistant-ui/react-ai-sdk',
-    '@assistant-ui/react-markdown',
-    'streamdown',
+    '@ai-sdk/openai-compatible',
     ...(isDev
       ? []
       : [
@@ -71,18 +65,6 @@ const nextConfig = {
           'marked',
         ]),
   ],
-  async rewrites() {
-    return [
-      {
-        source: '/reader/:ids',
-        destination: '/reader?ids=:ids',
-      },
-      {
-        source: '/o/book/:hash/annotation/:id',
-        destination: '/o?book=:hash&note=:id',
-      },
-    ];
-  },
 };
 
 const withAnalyzer = withBundleAnalyzer({

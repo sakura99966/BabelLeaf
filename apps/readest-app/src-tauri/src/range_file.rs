@@ -243,7 +243,7 @@ mod tests {
     #[test]
     fn safe_path_accepts_absolute_traversal_free() {
         assert!(is_safe_path(&absolute_test_path(
-            "data/user/0/com.bilingify.readest/Readest/Books/a.epub"
+            "data/user/0/io.github.sakura99966.babelleaf/BabelLeaf/Books/a.epub"
         )));
         assert!(is_safe_path(&absolute_test_path("书/堂吉诃德.mobi")));
     }
@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn safe_path_rejects_parent_dir_traversal() {
         assert!(!is_safe_path(&absolute_test_path(
-            "data/user/0/com.bilingify.readest/Readest/../../../../etc/passwd"
+            "data/user/0/io.github.sakura99966.babelleaf/BabelLeaf/../../../../etc/passwd"
         )));
         assert!(!is_safe_path(&absolute_test_path("a/../b")));
     }

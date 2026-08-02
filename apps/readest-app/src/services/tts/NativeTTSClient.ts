@@ -101,11 +101,7 @@ export class NativeTTSClient implements TTSClient {
     return this.initialized;
   }
 
-  async *speakMark(mark: TTSMark, preload: boolean, signal: AbortSignal) {
-    if (preload) {
-      yield { code: 'end', message: 'Dummy preload finished' } as TTSMessageEvent;
-      return;
-    }
+  async *speakMark(mark: TTSMark, signal: AbortSignal) {
     const { language: voiceLang } = mark;
     const voiceId = await this.getVoiceIdFromLang(voiceLang);
     this.#currentVoiceId = voiceId;
@@ -113,7 +109,7 @@ export class NativeTTSClient implements TTSClient {
     await this.setVoice(voiceId);
     try {
       const result = await invoke<{ utteranceId: string }>('plugin:native-tts|speak', {
-        payload: { text: mark.text, preload },
+        payload: { text: mark.text },
       });
 
       const utteranceId = result.utteranceId;
@@ -178,12 +174,12 @@ export class NativeTTSClient implements TTSClient {
     }
   }
 
-  async *speak(ssml: string, signal: AbortSignal, preload: boolean = false) {
+  async *speak(ssml: string, signal: AbortSignal) {
     const { marks } = parseSSMLMarks(ssml, this.#primaryLang);
 
     for (const mark of marks) {
-      if (!preload) this.controller?.dispatchSpeakMark(mark);
-      for await (const ev of this.speakMark(mark, preload, signal)) {
+      this.controller?.dispatchSpeakMark(mark);
+      for await (const ev of this.speakMark(mark, signal)) {
         if (signal.aborted) {
           yield { code: 'error', message: 'Aborted' } as TTSMessageEvent;
           return;
@@ -229,7 +225,7 @@ export class NativeTTSClient implements TTSClient {
   }
 
   async setRate(rate: number) {
-    // Power the rate to match the EdgeTTS behavior
+    // Keep the existing UI scale while mapping it to the native engine.
     this.#rate = parseFloat(Math.pow(rate, 2.5).toFixed(2));
     await invoke('plugin:native-tts|set_rate', { payload: { rate: this.#rate } });
   }
@@ -308,8 +304,8 @@ export class NativeTTSClient implements TTSClient {
 
   getCapabilities(): TTSCapabilities {
     // Direct-speak engine: the OS renders the audio, so there is no media
-    // clock, no word boundaries, and no gap or live-rate control.
-    return { wordBoundaries: false, mediaClock: false, gapControl: false, liveRateChange: false };
+    // clock or word-boundary metadata.
+    return { wordBoundaries: false, mediaClock: false };
   }
 
   getGranularities(): TTSGranularity[] {

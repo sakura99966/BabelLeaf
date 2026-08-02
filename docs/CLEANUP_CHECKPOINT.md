@@ -1,44 +1,61 @@
-# Cleanup checkpoint — 2026-07-29
+# Repository cleanup checkpoint — 2026-07-30
 
 Branch: `codex/readest-migration`
 
-This is an intentionally incomplete WIP checkpoint created when development
-was paused. Do not merge or release this commit yet.
+This is an intentionally incomplete WIP checkpoint created at the user's
+requested stopping point. Do not merge, release, or publish an installer from
+this state.
 
-Completed slices:
+## Completed or substantially completed
 
-- Removed hosted API routes, account/payment pages, cloud workers, browser
-  extension, Calibre/KOReader sync add-ons, Docker/cloud deployment files,
-  telemetry, Sentry, and the updater.
-- Decoupled the active library and reader entry points from account, cloud
-  sync, OPDS/RSS, Send, URL clipping, public sharing, Readwise, Hardcover, and
-  KOReader Sync.
-- Removed the matching top-level Tauri commands/plugins for OAuth, remote file
-  transfer, URL clipping, Discord presence, updater, telemetry, and WebSocket
-  TTS.
-- Added a Windows NSIS install/start/uninstall smoke gate. The offline WebView2
-  installer setting remains enabled.
+- Removed the account, payment, cloud sync, OPDS/RSS, Send, public sharing,
+  telemetry, updater, hosted API, general AI assistant, WordLens, and online
+  TTS implementation paths that are outside BabelLeaf's local-first scope.
+- Reduced TTS to native platform speech and Web Speech, while retaining local
+  playback and highlighting behavior.
+- Reduced translation providers to Ollama and a user-configured
+  OpenAI-compatible endpoint. API-key secure-storage migration and persistence
+  tests have been added.
+- Removed unused desktop bridge commands and permissions; Rust formatting,
+  clippy, and check passed for the completed native cleanup slice.
+- Pruned JavaScript dependencies, development dependencies, scripts, and the
+  lockfile. Offline frozen-lockfile validation passed for that completed slice.
+- Reworked the active CI workflows, repository documentation, network policy,
+  and Windows installer smoke/preflight script for the BabelLeaf project.
+- Verified the Windows Rust/MSVC/WebView2/NSIS toolchain. The installer smoke
+  script preserves existing user data and refuses unsafe destructive tests.
 
-Paused work:
+## Work interrupted at this checkpoint
 
-- The retired-service deletion batch was stopped after 25 of 194 source files.
-  Finish the remaining source and dedicated test deletion as one coherent
-  slice.
-- Edge TTS cleanup was interrupted after several files/tests were deleted.
-  Reconcile callers and keep Native TTS plus Web Speech.
-- Legacy translator/online-dictionary cleanup was only audited and must be
-  completed while preserving OpenAI-compatible/Ollama translation and local
-  dictionaries.
-- Reconcile `package.json`, `pnpm-lock.yaml`, Rust/native bridge permissions,
-  and mobile platform manifests after source deletion.
-- Run TypeScript/Biome/Vitest, Rust fmt/clippy/test, release NSIS build, then
-  install/start/uninstall smoke validation before making a release-ready commit.
+- The final stale-runtime sweep was interrupted while removing remaining demo
+  CDN, online metadata/Goodreads, runtime-config, Supabase, and legacy Readest
+  link paths. Inspect the resulting diff before continuing.
+- Reconcile any imports, tests, and settings types left by the final deletion
+  batch. In particular, verify the secure translation-key integration as one
+  complete unit.
+- Update any test configuration that still refers to a removed package script.
+- The final repository state has not received a full TypeScript, Biome, Vitest,
+  Rust, or production-build pass.
+- A release NSIS package has not been rebuilt. Do not reuse the earlier package.
 
-Compatibility items that must remain:
+## Required resume order
 
-- Tauri identifier `io.github.sakura99966.babelleaf`
-- Existing internal `Readest` data subdirectories and migration readers
-- `offlineInstaller`, file associations, persisted file scopes
-- Local Turso database, native bridge secure storage, local/system dictionary,
-  Native TTS, Web Speech, and mobile inbound file import
-- `tauri-plugin-http` for user-configured OpenAI-compatible endpoints
+1. Review `git status` and the complete checkpoint diff; do not discard the WIP
+   checkpoint.
+2. Finish the stale-runtime and prohibited-endpoint scan, then repair imports
+   and type errors.
+3. Remove generated caches before validation.
+4. Run TypeScript, Biome, focused and full Vitest suites, Rust checks, and a
+   production Tauri build.
+5. Build a fresh NSIS package and run preflight plus install/start/uninstall
+   validation in a clean test environment.
+6. Only then create a release-ready commit and update the remote branch.
+
+## Compatibility constraints
+
+- Keep the Tauri identifier `io.github.sakura99966.babelleaf`.
+- Keep migration readers for existing internal `Readest` data directories.
+- Keep the offline WebView2 installer, file associations, persisted file
+  scopes, local database, native secure storage, local/system dictionaries,
+  native/Web Speech TTS, mobile inbound-file import, and HTTP support for
+  user-configured OpenAI-compatible endpoints.

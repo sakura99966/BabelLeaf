@@ -52,14 +52,12 @@ export const BackupWindow: React.FC<BackupWindowProps> = ({ onPullLibrary }) => 
   const [progress, setProgress] = useState<BackupProgress>({ current: 0, total: 0 });
   const [errorMessage, setErrorMessage] = useState('');
   const [result, setResult] = useState<BackupResult | null>(null);
-  const [includeCredentials, setIncludeCredentials] = useState(false);
 
   const resetState = () => {
     setStatus('idle');
     setProgress({ current: 0, total: 0 });
     setErrorMessage('');
     setResult(null);
-    setIncludeCredentials(false);
   };
 
   useEffect(() => {
@@ -91,11 +89,10 @@ export const BackupWindow: React.FC<BackupWindowProps> = ({ onPullLibrary }) => 
 
     try {
       const timestamp = new Date().toISOString().slice(0, 10);
-      const filename = `readest-backup-${timestamp}.zip`;
+      const filename = `babelleaf-backup-${timestamp}.zip`;
       const saved = await saveBackupFile(
         appService,
         filename,
-        { includeCredentials },
         (current, total, currentFile) => {
           setProgress({ current, total, currentFile });
         },
@@ -192,20 +189,6 @@ export const BackupWindow: React.FC<BackupWindowProps> = ({ onPullLibrary }) => 
                   'Create a backup of your library and settings or restore from a previous backup. Restoring will merge with your current library.',
                 )}
               </p>
-
-              <label className='flex cursor-pointer items-start gap-2'>
-                <input
-                  type='checkbox'
-                  checked={includeCredentials}
-                  onChange={(e) => setIncludeCredentials(e.target.checked)}
-                  className='checkbox checkbox-sm mt-0.5 shrink-0'
-                />
-                <span className='text-base-content/70 text-sm'>
-                  {_(
-                    'Include account credentials (sync tokens, passwords). The backup file is not encrypted.',
-                  )}
-                </span>
-              </label>
 
               <button className='btn btn-outline w-full gap-2' onClick={handleBackup}>
                 <RiUploadCloud2Line className='h-5 w-5' />

@@ -62,7 +62,6 @@ function createMockOptions(
     reloadPage: vi.fn(),
     toggleOpenLastBooks: vi.fn(),
     showAbout: vi.fn(),
-    toggleTelemetry: vi.fn(),
     isDesktop: false,
     ...overrides,
   };
@@ -99,7 +98,6 @@ describe('buildCommandRegistry', () => {
     expect(actionIds).toContain('action.fullscreen');
     expect(actionIds).toContain('action.reload');
     expect(actionIds).toContain('action.about');
-    expect(actionIds).not.toContain('action.telemetry');
     expect(actionItems.find((item) => item.id === 'action.about')?.labelKey).toBe(
       'About BabelLeaf',
     );

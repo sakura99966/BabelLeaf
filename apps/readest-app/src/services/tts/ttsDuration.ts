@@ -1,9 +1,7 @@
 // Sentence duration bookkeeping for the TTS section timeline.
 //
 // Three tiers, best data wins:
-//  1. Measured durations (exact, from decoded+trimmed audio; provisional
-//     values derive from word-boundary metadata at fetch time and never
-//     overwrite a measured value).
+//  1. Measured durations supplied by an engine.
 //  2. Per-voice chars-per-second calibration: the cumulative ratio of ALL
 //     measured chars to ALL measured seconds (persisted in localStorage so a
 //     voice starts calibrated next session). A running total, not an EMA:
@@ -31,7 +29,7 @@ const MAX_CALIBRATION_SECS = 3600;
 // prior, but real history overtakes it within a minute of listening.
 const LEGACY_PRIOR_SECS = 30;
 // Fixed per-utterance overhead floor: even a one-word sentence is not
-// instantaneous once Edge's attack/release around speech is counted.
+// instantaneous once speech-engine startup and release are counted.
 const MIN_SENTENCE_SEC = 0.3;
 
 const CJK_DEFAULT_CPS = 4.5;
@@ -44,7 +42,6 @@ interface VoiceCalibration {
 }
 
 const measured = new LRUCache<string, number>(2048);
-const provisional = new Set<string>();
 // In-memory calibration mirror; localStorage is best-effort persistence.
 let calibrations: Record<string, VoiceCalibration> | null = null;
 
@@ -106,41 +103,10 @@ export const recordMeasuredDuration = (voiceId: string, text: string, seconds: n
   if (!Number.isFinite(seconds) || seconds <= 0) return;
   const key = durationKey(voiceId, text);
   measured.set(key, seconds);
-  provisional.delete(key);
-};
-
-// Word-boundary-derived durations are close but not canonical; keep them only
-// until a decode-time measurement lands.
-export const recordProvisionalDuration = (voiceId: string, text: string, seconds: number): void => {
-  if (!Number.isFinite(seconds) || seconds <= 0) return;
-  const key = durationKey(voiceId, text);
-  if (measured.get(key) !== undefined && !provisional.has(key)) return;
-  measured.set(key, seconds);
-  provisional.add(key);
 };
 
 export const getMeasuredDuration = (voiceId: string, text: string): number | undefined =>
   measured.get(durationKey(voiceId, text));
-
-// Bulk provisional hydration from the persistent audio cache: `durations`
-// maps a section's sentence ordinals to boundary-derived seconds. Lets a
-// downloaded (or previously played) chapter start with a fully measured
-// timeline instead of estimates, without decoding any audio. Returns how
-// many sentences were applied.
-export const hydrateProvisionalDurations = (
-  voiceId: string,
-  sentences: { text: string }[],
-  durations: Map<number, number>,
-): number => {
-  let applied = 0;
-  for (const [ordinal, seconds] of durations) {
-    const sentence = sentences[ordinal];
-    if (!sentence || !Number.isFinite(seconds) || seconds <= 0) continue;
-    recordProvisionalDuration(voiceId, sentence.text, seconds);
-    applied += 1;
-  }
-  return applied;
-};
 
 export const calibrateVoiceRate = (voiceId: string, text: string, seconds: number): void => {
   if (!Number.isFinite(seconds) || seconds <= 0) return;

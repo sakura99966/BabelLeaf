@@ -4,124 +4,99 @@
 
 [简体中文](README_cn.md)
 
-BabelLeaf is an open-source, local-first reader for people who read across
-languages. The project is aimed first at Simplified Chinese users reading
-English and Japanese books and comics, while keeping the original content,
-translation results, annotations, and reading state under the user's control.
+BabelLeaf is an open-source, local-first reader for Simplified Chinese users
+who read books and comics in English, Japanese, and other languages. It is
+currently developed for Windows with a shared Tauri v2 codebase intended to
+remain portable to macOS, Android, and iOS.
 
-> **Development status:** BabelLeaf is in its foundation-migration stage. The
-> current source tree is based on Readest and already contains its reading
-> engine and application structure. BabelLeaf-specific network isolation,
-> identity, LLM translation, bilingual reading, and comic OCR/typesetting are
-> still being implemented. There is no BabelLeaf release yet.
+The active application baseline is derived from Readest. BabelLeaf keeps the
+local reading foundation while removing product services that do not belong in
+the project.
 
-## Product boundary
+## Current product boundary
 
-The release target is deliberately narrow:
-
-- Books and comics enter the library through **local file import**.
-- Library data, reading progress, annotations, dictionaries, caches, and
-  translation artifacts remain local by default.
-- The only planned external network access is a translation request that the
-  user explicitly enables and sends to a user-configured
-  **OpenAI-compatible API endpoint**. A loopback endpoint such as Ollama or LM
-  Studio is also valid.
-- Accounts, cloud sync, OPDS/RSS catalogs, web scraping, resource downloading,
-  public sharing, billing, telemetry, online metadata, online dictionaries,
-  online TTS, and inherited update services are outside the first release.
-- BabelLeaf does not provide DRM removal or access to copyrighted material the
+- Reading content enters through local file import.
+- Books, reading progress, annotations, dictionaries, settings, and
+  translation caches stay on the device.
+- Network access is limited to translation explicitly requested by the user
+  through a configured OpenAI-compatible endpoint or Ollama.
+- Accounts, cloud synchronization, OPDS/RSS catalogs, web clipping, resource
+  scraping, public sharing, billing, telemetry, online metadata, online
+  dictionaries, cloud TTS, and inherited update services are not part of the
+  current application.
+- BabelLeaf does not remove DRM or provide access to copyrighted material the
   user is not authorized to use.
 
-The inherited Readest tree still contains implementations and configuration
-for several excluded online services. Their presence is not a statement that
-BabelLeaf will ship them. Network containment is active migration work; see
+The network boundary and its remaining release checks are documented in
 [Network Policy](docs/NETWORK_POLICY.md).
 
-## What exists and what is planned
+## Development status
 
-| Area | Current foundation | BabelLeaf direction |
-| --- | --- | --- |
-| Application shell | Next.js/React in Tauri v2 | Windows first; retain a practical path to macOS, Android, and iOS |
-| Local reading | Readest library and reading engine | Preserve and regression-test local import, layout, search, highlights, notes, and progress |
-| Formats | The inherited baseline recognizes EPUB, PDF, MOBI, AZW/AZW3, FB2, CBZ/ZIP, TXT, and Markdown | Stabilize legally obtained, DRM-free EPUB/PDF/MOBI and comic samples before expanding compatibility |
-| Text translation | Readest contains legacy translation providers | Replace them with one controlled, user-configured OpenAI-compatible adapter |
-| Bilingual reading | Not yet a BabelLeaf workflow | Selection/paragraph translation first, then chapter/book translation, aligned original/translation views, cache, glossary, and translation memory |
-| Dictionaries and speech | The baseline contains online and system/Edge-backed paths | Prioritize local dictionaries and operating-system TTS; remove unintended online fallbacks |
-| Comics | Basic CBZ/ZIP image reading comes from the baseline | Later: local OCR, text-region detection, erasing/inpainting, translated typesetting, overlay editing, and original/translated views |
+BabelLeaf is pre-release software. The repository currently provides:
 
-Format recognition does not guarantee that every file variant will work. Test
-documents must be DRM-free and legally available to the tester.
+- a Tauri v2 desktop and mobile application structure;
+- local library import and reading foundations;
+- parser and rendering paths for EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT,
+  and Markdown content;
+- local highlights, notes, search, reading progress, and appearance settings;
+- imported local dictionaries and supported operating-system dictionary
+  integration;
+- native or browser speech engines without an online speech fallback;
+- selection and reading-unit translation through Ollama or a
+  user-configured OpenAI-compatible API.
 
-## Roadmap
+Format recognition is not a compatibility guarantee for every file variant.
+Testing must use legally obtained, DRM-free documents.
 
-### Phase 0 — foundation isolation (in progress)
+The following major features remain planned:
 
-- Rebase the product on the Readest/Tauri architecture while preserving
-  project history.
-- Replace inherited Readest product identifiers, data paths, credential
-  namespaces, links, and release/update configuration.
-- Gate or remove background and user-triggered network paths that are outside
-  the BabelLeaf policy.
-- Establish Windows build, test, packaging, and local-import regression
-  baselines.
+- bilingual original/translation layouts and durable alignment;
+- chapter and full-book translation jobs, glossary enforcement, translation
+  memory, review, and portable sidecar results;
+- separate handling for text-layer and scanned PDFs;
+- local comic OCR, text-region detection, inpainting, translated typesetting,
+  and editable overlays;
+- signed production packages and target-platform release validation for
+  macOS, Android, and iOS.
 
-### Phase 1 — text translation MVP
-
-- Configure an OpenAI-compatible base URL, model, and API key.
-- Store credentials through platform secure storage and never include them in
-  logs or exported settings.
-- Translate selected text and reading units from English/Japanese to
-  Simplified Chinese with cancellation, retry, rate limits, and a local cache.
-- Add original/translation and bilingual comparison views.
-- Add offline dictionary adapters and local/system speech where feasible.
-
-### Phase 2 — structured book translation
-
-- Extract and translate EPUB content without losing headings, paragraphs,
-  ruby text, links, footnotes, images, or reading order.
-- Add chapter jobs, glossary enforcement, translation memory, review/editing,
-  and portable sidecar results without overwriting the source book.
-- Evaluate text-layer PDFs separately from scanned PDFs.
-
-### Phase 3 — comics and additional platforms
-
-- Define a replaceable local OCR/translation/typesetting worker protocol.
-- Benchmark Japanese, English, and Chinese OCR; vertical text; speech bubbles;
-  full-color pages; and long-strip comics on Windows.
-- Research native packaging or platform-specific implementations for macOS,
-  Android, and iOS. Desktop Python workers are not assumed to be portable to
-  mobile.
+See [Architecture](apps/readest-app/docs/architecture.md) for runtime
+boundaries and [Upstream Inventory](docs/UPSTREAM_INVENTORY.md) for source and
+license provenance.
 
 ## Architecture
 
 ```text
-React / Next.js user interface
+Next.js / React interface
         |
-        +-- Readest / foliate-js / PDF.js reading foundation
-        |
-        +-- Tauri v2 platform bridge
+        +-- foliate-js and PDF.js reading foundation
+        +-- local library, settings, annotations, and caches
+        +-- local dictionaries and native/system speech
+        +-- explicit translation adapters
                 |
-                +-- local library, settings, annotations, and caches
-                +-- platform secure credential storage
-                +-- controlled OpenAI-compatible translation transport
-                +-- optional local comic worker (future, desktop first)
+                +-- Ollama
+                +-- user-configured OpenAI-compatible API
+        |
+        +-- Tauri v2 platform boundary
+                +-- Windows
+                +-- macOS
+                +-- Android
+                +-- iOS
 ```
 
-The current decision and its trade-offs are recorded in
-[ADR-001: Readest baseline](docs/ADR-001-READEST-BASELINE.md). Evaluated
-upstreams and candidate components are listed in
-[Upstream Inventory](docs/UPSTREAM_INVENTORY.md).
+Platform-neutral reading and translation behavior stays in TypeScript.
+Filesystem access, secure storage, native speech, and operating-system
+integration stay behind typed Tauri/application-service adapters.
 
 ## Development
 
-### Prerequisites
+### Requirements
 
 - Git with submodule support
 - Node.js 24
-- pnpm 11 (the repository pins `pnpm@11.1.1`)
-- Rust 1.90 or newer (stable recommended) and the platform prerequisites
-  required by Tauri v2
-- On Windows: WebView2 Runtime and Visual Studio Build Tools with the
+- pnpm 11; the repository pins the exact package-manager version
+- Rust 1.90 or newer
+- the platform prerequisites required by Tauri v2
+- on Windows, WebView2 Runtime and Visual Studio Build Tools with the
   **Desktop development with C++** workload
 
 ### Set up
@@ -135,9 +110,9 @@ pnpm install --frozen-lockfile
 pnpm --filter @readest/readest-app setup-vendors
 ```
 
-The internal workspace package is still named `@readest/readest-app` during
-the migration. Renaming it immediately would create unnecessary conflicts
-with future upstream updates; it is not the BabelLeaf product name.
+The internal workspace package and Rust library retain several upstream
+Readest identifiers for compatibility. User-visible product identity, bundle
+IDs, credential namespaces, and release configuration use BabelLeaf.
 
 Run the desktop application:
 
@@ -146,69 +121,52 @@ pnpm tauri info
 pnpm tauri dev
 ```
 
-Run only the web development frontend:
+Run the main verification gates:
 
 ```bash
-pnpm dev-web
-```
-
-### Verification
-
-For frontend/documentation changes:
-
-```bash
-pnpm --filter @readest/readest-app test:pr:web:unit
+pnpm --filter @readest/readest-app test -- --run
 pnpm lint
 pnpm format:check
 pnpm --filter @readest/readest-app build
-```
-
-When the Tauri/Rust backend changes, also run:
-
-```bash
 pnpm fmt:check
 pnpm clippy:check
 pnpm --filter @readest/readest-app test:rust
 ```
 
-On Windows, create an unsigned x64 validation installer with:
+Build the unsigned Windows x64 validation package:
 
 ```bash
 pnpm --filter @readest/readest-app build-win-x64:unsigned
+pnpm --filter @readest/readest-app test:windows-installer -- -PreflightOnly
 ```
 
-The installer is written under
-`target/x86_64-pc-windows-msvc/release/bundle/nsis/`. It is a development
-artifact; public distribution still requires BabelLeaf-owned icons and
-Authenticode signing.
+The NSIS package embeds the WebView2 offline installer. Tauri also embeds the
+web assets and required resources in the main executable, so an installed
+directory containing only `babelleaf.exe` and `uninstall.exe` is expected and
+is not evidence of missing files. Release validation must still install,
+launch, and uninstall the package in a clean Windows user or virtual machine.
 
-Platform packaging requires the corresponding Tauri toolchain and should be
-verified on the target operating system.
+## Source history
 
-## Source history and upstream
-
-The current tree is derived from
-[Readest](https://github.com/readest/readest) at upstream commit
-`8c212e5b8b019e40e162a7e20cb90f336a308f13`. The migration merge
-(`2bc0b11d`) preserves BabelLeaf's earlier Koodo-based history. The last
-Koodo baseline remains available as branch `codex/koodo-baseline` at
+The active tree derives from
+[Readest](https://github.com/readest/readest) commit
+`8c212e5b8b019e40e162a7e20cb90f336a308f13`. Migration merge `2bc0b11d`
+preserves the earlier BabelLeaf/Koodo history. The last Koodo baseline remains
+reachable on branch `codex/koodo-baseline` at
 `93bd8ebbc613906ca730717dfa3261e2ea93327d`.
 
-Koodo was not rejected as Windows-only—it is an Electron desktop application
-with support for several desktop operating systems. Readest was selected
-because its Tauri v2 structure gives BabelLeaf a more direct desktop-and-mobile
-evolution path.
+Koodo is a cross-platform Electron desktop reader; it was not rejected as
+Windows-only. Readest was selected because its Tauri v2 structure provides a
+more direct path to a shared desktop and mobile application.
 
 ## License and attribution
 
 BabelLeaf is distributed under the
-[GNU Affero General Public License v3.0 or later](LICENSE), following the
-license of the Readest baseline. Copyright and license notices from Readest,
-Koodo, foliate-js, PDF.js, Tauri, and all other dependencies must be retained.
-Each bundled dependency, font, dictionary, OCR model, model weight, voice, and
-data file remains subject to its own license and distribution terms.
+[GNU Affero General Public License v3.0 or later](LICENSE), consistent with
+the active Readest baseline. Upstream copyright, license, modification, and
+source-distribution obligations must be retained.
 
-Using an upstream project as a reference does not mean its code has been
-incorporated. Any future integration must be recorded, attributed, and
-reviewed for source-distribution and notice obligations before release. This
-README is a project description, not legal advice.
+Fonts, dictionaries, OCR models, model weights, voices, test documents, and
+other bundled data require separate license and redistribution review. Listing
+an upstream project as a candidate does not mean its code or assets have been
+integrated.

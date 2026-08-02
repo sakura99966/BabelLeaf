@@ -333,7 +333,7 @@ export abstract class BaseAppService implements AppService {
   }
 
   async fetchBookDetails(book: Book) {
-    return BookSvc.fetchBookDetails(this.fs, book, this.downloadBook.bind(this));
+    return BookSvc.fetchBookDetails(this.fs, book);
   }
 
   async saveBookConfig(book: Book, config: BookConfig, settings?: SystemSettings) {

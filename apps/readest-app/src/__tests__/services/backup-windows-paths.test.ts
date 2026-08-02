@@ -45,7 +45,7 @@ describe('addBackupEntriesToZip - cross-platform entry names (#4703)', () => {
     ];
     const { writer, names } = makeCapturingWriter();
 
-    await addBackupEntriesToZip(writer, makeAppService(windowsFiles), {});
+    await addBackupEntriesToZip(writer, makeAppService(windowsFiles));
 
     // No entry name may contain a backslash.
     expect(names.some((n) => n.includes('\\'))).toBe(false);
@@ -66,7 +66,7 @@ describe('addBackupEntriesToZip - cross-platform entry names (#4703)', () => {
     ];
     const { writer, names } = makeCapturingWriter();
 
-    await addBackupEntriesToZip(writer, makeAppService(posixFiles), {});
+    await addBackupEntriesToZip(writer, makeAppService(posixFiles));
 
     const bookEntries = names.filter((n) => n.startsWith(`${BOOK_HASH}/`));
     expect(bookEntries).toEqual([`${BOOK_HASH}/book.epub`, `${BOOK_HASH}/cover.png`]);

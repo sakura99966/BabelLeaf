@@ -41,8 +41,8 @@ let unblockerAudio: HTMLAudioElement | null = null;
 // This enables WebAudio to play even when the mute toggle switch is ON.
 export const unblockAudio = (): void => {
   // iOS Tauri: never create the element. TTS audio plays NATIVELY there
-  // (NativeAudioPlayer -> app-process AVPlayer; AVSpeechSynthesizer for
-  // system voices), so the app's own .playback session provides Now Playing
+  // (AVSpeechSynthesizer for system voices), so the app's own .playback
+  // session provides Now Playing
   // and mute-switch immunity, and WebKit must be kept OUT of the media
   // picture: a playing HTMLMediaElement (or a WebAudio page declared
   // 'playback' via navigator.audioSession) makes WebKit register its own

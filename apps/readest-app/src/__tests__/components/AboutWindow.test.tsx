@@ -32,14 +32,6 @@ vi.mock('@/components/Link', () => ({
   ),
 }));
 
-vi.mock('@/components/SupportLinks', () => ({
-  default: () => <div>Readest support links</div>,
-}));
-
-vi.mock('@/components/LegalLinks', () => ({
-  default: () => <div>Readest legal links</div>,
-}));
-
 import { AboutWindow, setAboutDialogVisible } from '@/components/AboutWindow';
 
 describe('AboutWindow BabelLeaf identity and network policy', () => {
@@ -56,8 +48,6 @@ describe('AboutWindow BabelLeaf identity and network policy', () => {
 
     expect(screen.getByRole('heading', { name: 'BabelLeaf' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Check Update' })).toBeNull();
-    expect(screen.queryByText('Readest support links')).toBeNull();
-    expect(screen.queryByText('Readest legal links')).toBeNull();
     expect(screen.getByRole('link', { name: 'GitHub' }).getAttribute('href')).toBe(
       'https://github.com/sakura99966/BabelLeaf',
     );

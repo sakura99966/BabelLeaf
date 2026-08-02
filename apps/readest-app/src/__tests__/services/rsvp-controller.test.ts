@@ -710,7 +710,7 @@ describe('RSVPController', () => {
   });
 
   describe('estimator: driveEstimatedFromCfi (slice 5, #3235)', () => {
-    // Non-Edge TTS only emits sentence-level marks. The estimator jumps RSVP to
+    // Sentence-only TTS emits sentence-level marks. The estimator jumps RSVP to
     // the sentence's first word (syncToCfi) then SELF-PACES forward through the
     // following words on a timer at an estimated rate, capped so it can't run
     // away past the (unknown) sentence end. A new sentence drive re-syncs (snap).

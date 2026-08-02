@@ -2,6 +2,11 @@
 param(
     [string]$BundleDirectory = "",
     [string]$ArtifactsDirectory = "",
+    [string]$TauriConfigPath = "",
+    [string]$ExpectedProductName = "BabelLeaf",
+    [string]$ExpectedMainBinaryName = "babelleaf",
+    [string]$ExpectedBundleIdentifier = "io.github.sakura99966.babelleaf",
+    [switch]$PreflightOnly,
     [ValidateRange(5, 300)]
     [int]$StartupTimeoutSeconds = 60
 )
@@ -11,6 +16,40 @@ $ErrorActionPreference = "Stop"
 
 $appRoot = Split-Path -Parent $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $appRoot "..\..")).Path
+$packageJsonPath = Join-Path $appRoot "package.json"
+if ([string]::IsNullOrWhiteSpace($TauriConfigPath)) {
+    $TauriConfigPath = Join-Path $appRoot "src-tauri\tauri.conf.json"
+}
+if (-not (Test-Path -LiteralPath $TauriConfigPath -PathType Leaf)) {
+    throw "Tauri configuration file does not exist: $TauriConfigPath"
+}
+$tauriConfigPath = (Resolve-Path -LiteralPath $TauriConfigPath).Path
+
+$packageJson = Get-Content -LiteralPath $packageJsonPath -Raw | ConvertFrom-Json
+$tauriConfig = Get-Content -LiteralPath $tauriConfigPath -Raw | ConvertFrom-Json
+$packageVersion = [string]$packageJson.version
+$productName = [string]$tauriConfig.productName
+$mainBinaryName = [string]$tauriConfig.mainBinaryName
+$bundleIdentifier = [string]$tauriConfig.identifier
+
+if ([string]::IsNullOrWhiteSpace($packageVersion)) {
+    throw "package.json does not define a version."
+}
+if ($productName -ne $ExpectedProductName) {
+    throw "Unexpected Tauri product name: $productName (expected $ExpectedProductName)"
+}
+if ($mainBinaryName -ne $ExpectedMainBinaryName) {
+    throw "Unexpected Tauri main binary name: $mainBinaryName (expected $ExpectedMainBinaryName)"
+}
+if ($bundleIdentifier -ne $ExpectedBundleIdentifier) {
+    throw "Unexpected Tauri bundle identifier: $bundleIdentifier (expected $ExpectedBundleIdentifier)"
+}
+if ([string]$tauriConfig.bundle.windows.webviewInstallMode.type -ne "offlineInstaller") {
+    throw "Windows packages must embed the WebView2 offline installer."
+}
+if ([string]$tauriConfig.bundle.windows.nsis.installMode -ne "both") {
+    throw "Windows NSIS installMode must remain 'both'."
+}
 
 if ([string]::IsNullOrWhiteSpace($BundleDirectory)) {
     $BundleDirectory = Join-Path $repoRoot "target\x86_64-pc-windows-msvc\release\bundle\nsis"
@@ -19,8 +58,6 @@ if ([string]::IsNullOrWhiteSpace($ArtifactsDirectory)) {
     $ArtifactsDirectory = Join-Path $appRoot "artifacts\windows-installer-smoke"
 }
 
-$productName = "BabelLeaf"
-$bundleIdentifier = "io.github.sakura99966.babelleaf"
 $uninstallRegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$productName"
 $appConfigDirectory = Join-Path $env:APPDATA $bundleIdentifier
 $appLocalDataDirectory = Join-Path $env:LOCALAPPDATA $bundleIdentifier
@@ -29,6 +66,7 @@ $sentinelPath = Join-Path $appConfigDirectory "installer-smoke-user-data.txt"
 $applicationProcess = $null
 $installDirectory = $null
 $installationAttempted = $false
+$profileWasClean = $false
 $primaryFailure = $null
 $cleanupFailure = $null
 
@@ -61,7 +99,7 @@ function Collect-FailureArtifacts {
     Write-SmokeArtifact -Name "failure.txt" -Content $details
 
     $logDirectory = Join-Path $appLocalDataDirectory "logs"
-    if (Test-Path -LiteralPath $logDirectory) {
+    if ($script:profileWasClean -and (Test-Path -LiteralPath $logDirectory)) {
         $logArtifactDirectory = Join-Path $ArtifactsDirectory "logs"
         New-Item -ItemType Directory -Path $logArtifactDirectory -Force | Out-Null
         try {
@@ -69,6 +107,8 @@ function Collect-FailureArtifacts {
         } catch {
             Write-SmokeArtifact -Name "log-copy-error.txt" -Content $_.Exception.ToString()
         }
+    } elseif (-not $script:profileWasClean) {
+        Write-SmokeArtifact -Name "logs-not-collected.txt" -Content "Existing user-data was detected; application logs were not copied."
     } else {
         Write-SmokeArtifact -Name "logs-not-found.txt" -Content "No application log directory was created at $logDirectory"
     }
@@ -106,22 +146,35 @@ try {
         throw "NSIS bundle directory does not exist: $BundleDirectory"
     }
 
-    $installers = @(
-        Get-ChildItem -LiteralPath $BundleDirectory -File -Filter "*-setup.exe"
-    )
-    if ($installers.Count -ne 1) {
-        $found = if ($installers.Count -eq 0) {
+    $expectedInstallerName = "${productName}_${packageVersion}_x64-setup.exe"
+    $installerPath = Join-Path $BundleDirectory $expectedInstallerName
+    if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
+        $availableInstallers = @(
+            Get-ChildItem -LiteralPath $BundleDirectory -File -Filter "${productName}_*_x64-setup.exe"
+        )
+        $found = if ($availableInstallers.Count -eq 0) {
             "none"
         } else {
-            ($installers.FullName -join ", ")
+            ($availableInstallers.FullName -join ", ")
         }
-        throw "Expected exactly one x64 NSIS installer in '$BundleDirectory'; found $($installers.Count): $found"
+        throw "Expected the current package '$installerPath'; available BabelLeaf x64 installers: $found"
     }
-    if ($installers[0].Name -notlike "${productName}_*_x64-setup.exe") {
-        throw "The only NSIS installer has an unexpected name: $($installers[0].Name)"
+
+    $installerVersion = (Get-Item -LiteralPath $installerPath).VersionInfo
+    if ([string]$installerVersion.FileVersion -ne $packageVersion) {
+        throw "Installer file version '$($installerVersion.FileVersion)' does not match package.json '$packageVersion'."
     }
-    $installerPath = $installers[0].FullName
+    if ([string]$installerVersion.ProductName -ne $productName) {
+        throw "Installer product name '$($installerVersion.ProductName)' does not match '$productName'."
+    }
+
     Write-Host "Using installer: $installerPath"
+    Write-Host "Validated $productName $packageVersion with embedded WebView2 offline installer configuration."
+
+    if ($PreflightOnly) {
+        Write-Host "Windows NSIS installer preflight passed."
+        return
+    }
 
     if (Test-Path -LiteralPath $uninstallRegistryPath) {
         throw "Refusing to replace an existing $productName installation at $uninstallRegistryPath"
@@ -132,6 +185,7 @@ try {
     ) {
         throw "Refusing to run against an existing $productName user-data profile."
     }
+    $profileWasClean = $true
 
     $installDirectory = Join-Path $env:LOCALAPPDATA $productName
     $installationAttempted = $true
@@ -159,11 +213,19 @@ try {
 
     $mainBinaryName = [string]$uninstallEntry.MainBinaryName
     if ([string]::IsNullOrWhiteSpace($mainBinaryName)) {
-        $mainBinaryName = "babelleaf.exe"
+        $mainBinaryName = "$ExpectedMainBinaryName.exe"
     }
     $applicationPath = Join-Path $installDirectory $mainBinaryName
     if (-not (Test-Path -LiteralPath $applicationPath -PathType Leaf)) {
         throw "The installed application executable does not exist: $applicationPath"
+    }
+
+    $applicationVersion = (Get-Item -LiteralPath $applicationPath).VersionInfo
+    if ([string]$applicationVersion.FileVersion -ne $packageVersion) {
+        throw "Installed application version '$($applicationVersion.FileVersion)' does not match '$packageVersion'."
+    }
+    if ([string]$applicationVersion.ProductName -ne $productName) {
+        throw "Installed application product name '$($applicationVersion.ProductName)' does not match '$productName'."
     }
     Write-Host "Installed application: $applicationPath"
 
@@ -222,7 +284,7 @@ try {
                     throw "NSIS uninstaller exited with code $($uninstallerProcess.ExitCode)."
                 }
 
-                $installedExecutable = Join-Path $installDirectory "babelleaf.exe"
+                $installedExecutable = Join-Path $installDirectory "$ExpectedMainBinaryName.exe"
                 $uninstallDeadline = (Get-Date).AddSeconds(30)
                 while (
                     ((Test-Path -LiteralPath $uninstallRegistryPath) -or

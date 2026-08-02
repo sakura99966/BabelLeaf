@@ -109,7 +109,7 @@ interface RSVPOverlayProps {
   lang?: string;
   /** Derived TTS-sync status driving the "following audio" indicator (#3235). */
   ttsSyncStatus?: TtsSyncStatus;
-  /** True when following is paced by the estimator (non-Edge sentence sync). */
+  /** True when sentence-only following is paced by the estimator. */
   estimated?: boolean;
   /** True when TTS audio is engaged (playing/paused) — drives the audio toggle. */
   ttsActive?: boolean;

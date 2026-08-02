@@ -1,112 +1,122 @@
-## Project Overview
+# BabelLeaf Development Guide
 
-Readest is a cross-platform ebook reader built as a **Next.js 16 + Tauri v2** hybrid app. It's part of a pnpm monorepo at `/apps/readest-app/`. The app runs on web (CloudFlare Workers), desktop (macOS/Windows/Linux via Tauri), and mobile (iOS/Android via Tauri).
+## Product Scope
 
-## Common Commands
+BabelLeaf is a local-first, cross-platform reader built on a reduced Readest
+foundation. Windows is the immediate release target. The architecture must
+remain portable to macOS, Android, and iOS through Tauri v2.
 
-```bash
-# Development
-pnpm dev-web               # Web-only dev server (no Rust compilation needed)
-pnpm tauri dev             # Desktop dev with Tauri (compiles Rust backend)
+The first-release boundary is strict:
 
-# Building
-pnpm build                 # Build Next.js for Tauri
-pnpm build-web             # Build Next.js for web deployment
+- Books, comics, and dictionaries enter through local file import.
+- Reading state, annotations, caches, settings, and translation results remain
+  local.
+- Network access is limited to translation requests explicitly initiated by
+  the user through a configured OpenAI-compatible API or a loopback Ollama
+  endpoint.
+- Accounts, cloud sync, OPDS/RSS, resource scraping, public sharing, billing,
+  telemetry, online dictionaries, online TTS, and inherited update services
+  are outside the product boundary.
+- Do not restore a removed Readest service, route, dependency, background task,
+  or platform capability unless the product scope is explicitly changed.
 
-# Testing (see [docs/testing.md](docs/testing.md) for full details)
-pnpm test                  # Unit tests (vitest + jsdom)
-pnpm test -- src/__tests__/utils/misc.test.ts  # Run a single test file
-pnpm test -- --watch       # Watch mode
-pnpm test:browser          # Browser tests (Chromium via Playwright)
-pnpm tauri:dev:test        # Start Tauri app with webdriver
-pnpm test:tauri            # Run Tauri integration tests
+## Architecture
 
-# Linting & Formatting
-pnpm lint                  # Biome (linter) + tsgo (type check)
-pnpm format                # Biome formatter (runs from monorepo root)
-pnpm format:check          # Check formatting without writing (Biome)
+- `src/` contains the Next.js 16 and React 19 interface and TypeScript services.
+- `src-tauri/` contains the Tauri v2 shell, Rust commands, and native platform
+  integrations.
+- `packages/foliate-js/` and the vendored PDF.js assets provide the reading
+  foundation.
+- Zustand stores persist local application state through the platform service.
+- Translation providers are limited to user-configured OpenAI-compatible APIs
+  and Ollama.
+- Dictionaries are local StarDict, MDict, DICT, or SLOB bundles, plus an
+  operating-system dictionary where the platform supports it.
+- Speech uses local or operating-system engines. No online fallback is allowed.
 
-# Rust
-pnpm fmt:check             # Check formatting Rust code (src-tauri)
-pnpm clippy:check          # Lint Rust code (src-tauri)
-```
+Keep platform-independent reading and translation logic in TypeScript. Put
+filesystem, secure-storage, native speech, and other operating-system work
+behind the Tauri or application-service boundary. Do not make React components
+depend directly on one desktop platform.
 
 ### Source Layout
 
-| Directory         | Purpose                                                       |
-| ----------------- | ------------------------------------------------------------- |
-| `src/app/`        | Next.js App Router pages and API routes                       |
-| `src/components/` | React components (reader, settings, library, assistant, etc.) |
-| `src/services/`   | Business logic: TTS, translators, OPDS, sync, AI, metadata    |
-| `src/store/`      | Zustand state stores                                          |
-| `src/hooks/`      | Custom React hooks                                            |
-| `src/libs/`       | Document loaders, payment, storage, sync                      |
-| `src/utils/`      | Pure utility functions                                        |
-| `src/types/`      | TypeScript type definitions                                   |
-| `src/context/`    | React Context providers (Auth, Env, Sync, etc.)               |
-| `src/workers/`    | Web Workers for background tasks                              |
-| `src-tauri/`      | Rust backend: Tauri plugins, platform-specific code           |
+| Path | Responsibility |
+| --- | --- |
+| `src/app/` | Application routes and reader screens |
+| `src/components/` | Reusable React UI and settings panels |
+| `src/services/` | Local reading, translation, dictionary, TTS, and persistence logic |
+| `src/store/` | Zustand state stores |
+| `src/hooks/` | React integration hooks |
+| `src/libs/` | Document loading and reusable lower-level libraries |
+| `src/types/` | Shared TypeScript contracts |
+| `src-tauri/` | Rust backend and platform-specific implementations |
 
-### Path Aliases (tsconfig)
+The TypeScript alias `@/*` resolves to `src/*`.
 
-- `@/*` → `./src/*`
-- `@/components/ui/*` → `./src/components/primitives/*`
+## Resource and Portability Requirements
 
-### Rust Backend (`src-tauri/`)
+- Prefer lazy initialization for parsers, AI clients, dictionaries, workers,
+  and media engines.
+- Do not start network requests, timers, large file scans, or IndexedDB
+  hydration at module import time.
+- Bound caches and queues. Dispose object URLs, event listeners, audio
+  sessions, workers, and native handles when their owner is released.
+- Avoid loading an entire large book, PDF, dictionary, or comic into memory
+  when range-based or streaming access is available.
+- Keep optional features out of the startup path and remove orphaned code and
+  dependencies after verifying that no supported path uses them.
+- Preserve behavior across Windows, macOS, Android, and iOS; isolate unavoidable
+  platform differences behind typed adapters.
 
-Platform-specific code lives in `src-tauri/src/{macos,windows,android,ios}/`. Custom Tauri plugins are in `src-tauri/plugins/`.
+## Development Commands
 
-## Git Worktrees
-
-Always use `pnpm worktree:new <branch-name|pr-number>` to create worktrees. Never use `git worktree add` directly — the script handles submodule initialization (simplecc WASM, foliate-js), dependency installation, `.env` copying, vendor assets, and Tauri gen symlinks that are required for lint and tests to pass.
+Run commands from the repository root unless stated otherwise.
 
 ```bash
-pnpm worktree:new feat/my-feature   # New branch from origin/main
-pnpm worktree:new 3837              # Checkout PR #3837 with push access to fork
+# Install and prepare vendored reader assets
+pnpm install --frozen-lockfile
+pnpm --filter @readest/readest-app setup-vendors
+
+# Development
+pnpm --filter @readest/readest-app dev-web
+pnpm tauri dev
+
+# Targeted and full frontend verification
+pnpm --filter @readest/readest-app test -- --run path/to/test.ts
+pnpm --filter @readest/readest-app test -- --run
+pnpm lint
+pnpm format:check
+pnpm --filter @readest/readest-app build
+
+# Rust verification after src-tauri changes
+pnpm fmt:check
+pnpm clippy:check
+pnpm --filter @readest/readest-app test:rust
+
+# Windows validation package
+pnpm --filter @readest/readest-app build-win-x64:unsigned
+pnpm --filter @readest/readest-app test:windows-installer
 ```
 
-## Agent Workspace
+The internal package and Rust crate still use inherited Readest identifiers in
+some commands. Do not treat those implementation identifiers as the product
+name.
 
-Project-related agent context lives under `.agents/`, which is a symlink to `.claude/`. Treat `.agents/` as the canonical path when looking for or updating local agent material:
+## Working Rules
 
-- `.agents/memory/` — persistent project memory and recurring context
-- `.agents/plans/` — active or archived implementation plans
-- `.agents/rules/` — project rules for test-first work, TypeScript, verification, and related workflows
+- Follow `.claude/rules/test-first.md`, `typescript.md`, and `verification.md`.
+- Use the retained `.claude/skills/i18n/` workflow for localization work.
+- Write a failing regression test before fixing a defect, then run the narrow
+  test and the relevant surrounding suite.
+- Keep changes within the requested scope and preserve unrelated worktree
+  changes.
+- Use typed contracts; do not introduce `any`.
+- Reuse existing settings primitives and verify e-ink presentation for new UI.
+- Preserve upstream copyright, license, and attribution notices.
 
-## Project Rules
-
-Rules are in `.agents/rules/`: test-first, typescript, verification.
-
-### Implementation Scope
-
-For every coding task, write the minimum code that solves the requested problem.
-
-- Do not add features beyond what was asked.
-- Do not add abstractions for single-use code.
-- Do not add flexibility or configurability unless requested.
-- Do not add error handling for impossible scenarios.
-- If a solution is much longer than necessary, simplify it before finishing.
-- Before shipping, ask: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-### i18n
-
-See [docs/i18n.md](docs/i18n.md) for the key-as-content translation approach, `stubTranslation` usage in non-React modules, and extraction workflow.
-
-### Safe Area Insets
-
-See [docs/safe-area-insets.md](docs/safe-area-insets.md) for rules on handling top/bottom insets for UI elements near screen edges.
-
-### Design System
-
-UI/UX rules — surface tiers, action vocabulary, settings primitives (`BoxedList`, `SettingsRow`, `SettingsSwitchRow`, `SettingsSelect`, `NavigationRow`, `Tips`, etc.), boxed-list anatomy, RTL conventions, e-ink overlay, and anti-patterns — live in [DESIGN.md](DESIGN.md). Codify recurring decisions there so they persist for the team and future contributors. Reach for the primitives in `src/components/settings/primitives/` instead of inlining chassis classes.
-
-### E-ink mode
-
-Every new UI widget must look right under `[data-eink='true']`. E-ink screens have no shadows, no gradients, slow refresh, and need crisp 1px borders for delineation. The conventions live in `src/styles/globals.css` — reuse the existing classes instead of inventing new ones:
-
-- **Surfaces / inputs** — add `eink-bordered`. In eink mode it swaps to `bg-base-100` + 1px `base-content` border. Use it on inputs, custom button backgrounds, ghost-styled cancel buttons, and any container that needs a visible boundary.
-- **Primary action buttons** — use `btn-contrast` (theme-neutral solid, already e-ink-correct) for most primary actions; reserve `btn-primary` for true call-to-action buttons. The `[data-eink]` rules render both as `base-content` bg + `base-100` text so the primary action stays distinct from secondary actions.
-- **`.modal-box`** picks up no-shadow + 1px border automatically; dialogs that use it don't need additions.
-- **Don't rely on color/shadow alone for hierarchy.** Two same-tone buttons differ only by hover on color themes, and hover doesn't exist on e-ink touchscreens. Pair a borderless ghost (cancel) with a solid CTA (submit) so eink can invert one without flattening the difference.
-
-When in doubt, toggle E-ink in Settings → Misc and check. The rules in `globals.css` cover most cases automatically, but composite components (custom buttons, layered cards) often need `eink-bordered` on the right element to stay legible.
+For Windows packaging changes, a successful compiler exit is insufficient.
+Build the unsigned installer, run the installer validation script, install it
+in a clean test location, launch the installed executable, and inspect the
+startup result. Validate packaged resources through execution and logs rather
+than by counting visible files in the installation directory.

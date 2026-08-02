@@ -2,27 +2,22 @@ import type { Book } from '@/types/book';
 import type { FileSystem } from '@/types/system';
 import { EXTS } from '@/libs/document';
 import { getDir, getLocalBookFilename } from '@/utils/book';
-import { isContentURI, isValidURL } from '@/utils/misc';
-import { isPseStreamFileName } from './opds/pseStream';
-import { isFeedBookUrl } from '@/services/rss/feedBookUrl';
+import { isContentURI } from '@/utils/misc';
 
 export type BookContentSource =
   | { kind: 'managed'; path: string; base: 'Books'; legacy?: boolean }
   | { kind: 'external'; path: string; base: 'None' }
-  | { kind: 'url'; path: string; base: 'None' }
-  | { kind: 'stream'; path: string; base: 'None'; scheme: 'pse' }
-  | { kind: 'feed'; path: string; base: 'None' }
   | { kind: 'missing' };
 
 export type BookFileContentSource = Extract<
   BookContentSource,
-  { kind: 'managed' | 'external' | 'url' }
+  { kind: 'managed' | 'external' }
 >;
 
 export function isBookFileContentSource(
   source: BookContentSource,
 ): source is BookFileContentSource {
-  return source.kind === 'managed' || source.kind === 'external' || source.kind === 'url';
+  return source.kind === 'managed' || source.kind === 'external';
 }
 
 async function resolveLegacyManagedSource(
@@ -64,18 +59,6 @@ export async function resolveBookContentSource(
     }
     if (await fs.exists(book.filePath, 'None')) {
       return { kind: 'external', path: book.filePath, base: 'None' };
-    }
-  }
-
-  if (book.url) {
-    if (isFeedBookUrl(book.url)) {
-      return { kind: 'feed', path: book.url, base: 'None' };
-    }
-    if (isPseStreamFileName(book.url)) {
-      return { kind: 'stream', path: book.url, base: 'None', scheme: 'pse' };
-    }
-    if (isValidURL(book.url)) {
-      return { kind: 'url', path: book.url, base: 'None' };
     }
   }
 

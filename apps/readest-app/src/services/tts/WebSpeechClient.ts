@@ -137,14 +137,7 @@ export class WebSpeechClient implements TTSClient {
     return this.#voices.find((v) => v.id === voiceId) || null;
   };
 
-  async *speak(
-    ssml: string,
-    signal: AbortSignal,
-    preload = false,
-  ): AsyncGenerator<TTSMessageEvent> {
-    // no need to preload for web speech
-    if (preload) return;
-
+  async *speak(ssml: string, signal: AbortSignal): AsyncGenerator<TTSMessageEvent> {
     for await (const ev of speakWithMarks(
       ssml,
       this.#primaryLang,
@@ -268,8 +261,8 @@ export class WebSpeechClient implements TTSClient {
 
   getCapabilities(): TTSCapabilities {
     // Direct-speak engine: the OS renders the audio, so there is no media
-    // clock, no word boundaries, and no gap or live-rate control.
-    return { wordBoundaries: false, mediaClock: false, gapControl: false, liveRateChange: false };
+    // clock or word-boundary metadata.
+    return { wordBoundaries: false, mediaClock: false };
   }
 
   getGranularities(): TTSGranularity[] {

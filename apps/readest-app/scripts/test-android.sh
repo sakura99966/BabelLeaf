@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Android CDP e2e lane: runs vitest against the Readest app installed on an
+# Android CDP e2e lane: runs vitest against the BabelLeaf app installed on an
 # adb-connected device or emulator. Soft-skips (exit 0) when no adb, no
 # device, or no installed app is found, so it is safe in any environment.
 # Select a device with ANDROID_SERIAL when several are attached.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-PKG="com.bilingify.readest"
+PKG="io.github.sakura99966.babelleaf"
 
 if ! command -v adb >/dev/null 2>&1; then
   echo "[test:android] adb not found — skipping Android e2e lane"

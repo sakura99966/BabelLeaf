@@ -1,84 +1,25 @@
-/**
- * wordPronouncer — pronounces a single dictionary word.
- *
- * The pronouncer is deliberately independent of the reader's TTSController: it
- * synthesizes via EdgeSpeechTTS directly (no throwaway init synth), plays on a
- * dedicated Web Audio context, and drops to the platform speech client
- * (Web Speech on desktop/web, native on the mobile app) when Edge is
- * unavailable. These tests pin online Edge playback, direct offline platform
- * speech, fallback-on-failure, and the language -> Edge voice selection.
- */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { TTSUtils } from '@/services/tts/TTSUtils';
-
-const h = vi.hoisted(() => {
-  const createAudioData = vi.fn();
-  let sessionOnEvent: ((e: { type: string; message?: string }) => void) | null = null;
-  const player = {
-    ensureContext: vi.fn().mockResolvedValue({}),
-    decode: vi.fn().mockResolvedValue({ duration: 0.5 }),
-    startSession: vi.fn((onEvent: (e: { type: string; message?: string }) => void) => {
-      sessionOnEvent = onEvent;
-      return 1;
-    }),
-    scheduleChunk: vi.fn(),
-    endSession: vi.fn(),
-    abortSession: vi.fn(),
-    shutdown: vi.fn().mockResolvedValue(undefined),
-    fireSessionEnd: () => sessionOnEvent?.({ type: 'session-end' }),
-    fireContextError: () => sessionOnEvent?.({ type: 'context-error', message: 'boom' }),
-  };
-  const makeClient = (speak: unknown) => ({
-    init: vi.fn().mockResolvedValue(true),
+const clients = vi.hoisted(() => {
+  const web = {
+    init: vi.fn(),
     setPrimaryLang: vi.fn(),
-    speak,
-    shutdown: vi.fn().mockResolvedValue(undefined),
-  });
-  // eslint-disable-next-line require-yield
-  const webSpeak = vi.fn(async function* (_ssml: string, _signal: AbortSignal) {});
-  // eslint-disable-next-line require-yield
-  const nativeSpeak = vi.fn(async function* (_ssml: string, _signal: AbortSignal) {});
-  return {
-    createAudioData,
-    player,
-    webClient: makeClient(webSpeak),
-    nativeClient: makeClient(nativeSpeak),
-    webSpeak,
-    nativeSpeak,
+    speak: vi.fn(),
+    shutdown: vi.fn(),
   };
+  const native = {
+    init: vi.fn(),
+    setPrimaryLang: vi.fn(),
+    speak: vi.fn(),
+    shutdown: vi.fn(),
+  };
+  return { web, native };
 });
-
-let tauriPlatform = false;
-vi.mock('@/services/environment', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/services/environment')>()),
-  isTauriAppPlatform: () => tauriPlatform,
-}));
-
-vi.mock('@/libs/edgeTTS', () => {
-  class EdgeSpeechTTS {
-    static voices = [
-      { name: 'Aria', id: 'en-US-AriaNeural', lang: 'en-US' },
-      { name: 'Ryan', id: 'en-GB-RyanNeural', lang: 'en-GB' },
-      { name: 'Denise', id: 'fr-FR-DeniseNeural', lang: 'fr-FR' },
-    ];
-    createAudioData = h.createAudioData;
-  }
-  return { EdgeSpeechTTS };
-});
-
-vi.mock('@/services/tts/WebAudioPlayer', () => ({
-  WebAudioPlayer: class {
-    constructor() {
-      Object.assign(this, h.player);
-    }
-  },
-}));
 
 vi.mock('@/services/tts/WebSpeechClient', () => ({
   WebSpeechClient: class {
     constructor() {
-      Object.assign(this, h.webClient);
+      Object.assign(this, clients.web);
     }
   },
 }));
@@ -86,142 +27,112 @@ vi.mock('@/services/tts/WebSpeechClient', () => ({
 vi.mock('@/services/tts/NativeTTSClient', () => ({
   NativeTTSClient: class {
     constructor() {
-      Object.assign(this, h.nativeClient);
+      Object.assign(this, clients.native);
     }
   },
 }));
 
-import { pronounceWord, pickEdgeVoiceId, cancelWordPronounce } from '@/services/tts/wordPronouncer';
+import {
+  cancelWordPronounce,
+  pronounceWord,
+  warmWordAudio,
+} from '@/services/tts/wordPronouncer';
 
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+const ended = async function* () {
+  yield { code: 'end' as const };
+};
 
 beforeEach(() => {
-  tauriPlatform = false;
   vi.clearAllMocks();
-  (globalThis as unknown as { AudioContext: unknown }).AudioContext = vi.fn();
-  Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
-  h.createAudioData.mockReset();
+  clients.web.init.mockResolvedValue(true);
+  clients.native.init.mockResolvedValue(true);
+  clients.web.shutdown.mockResolvedValue(undefined);
+  clients.native.shutdown.mockResolvedValue(undefined);
+  clients.web.speak.mockImplementation(ended);
+  clients.native.speak.mockImplementation(ended);
 });
 
-describe('pickEdgeVoiceId', () => {
-  it('returns the first Edge voice whose locale matches the language', () => {
-    expect(pickEdgeVoiceId('en')).toBe('en-US-AriaNeural');
-    expect(pickEdgeVoiceId('fr')).toBe('fr-FR-DeniseNeural');
-  });
-
-  it('falls back to the default English voice for an unknown language', () => {
-    expect(pickEdgeVoiceId('xx')).toBe('en-US-AriaNeural');
-  });
-
-  it("respects the user's preferred Edge voice for the language when valid", () => {
-    const spy = vi.spyOn(TTSUtils, 'getPreferredVoice').mockReturnValue('en-GB-RyanNeural');
-    expect(pickEdgeVoiceId('en')).toBe('en-GB-RyanNeural');
-    spy.mockRestore();
-  });
-});
-
-describe('pronounceWord — Edge path', () => {
-  it('synthesizes with Edge and schedules playback without touching the fallback', async () => {
-    h.createAudioData.mockResolvedValue({ data: new ArrayBuffer(8), boundaries: [] });
+describe('pronounceWord local engines', () => {
+  it('uses Web Speech on desktop and reports the complete lifecycle', async () => {
     const onStatus = vi.fn();
 
-    await pronounceWord('hello', 'en', {}, onStatus);
+    await pronounceWord(' hello ', 'en-US', {}, onStatus);
 
-    expect(h.createAudioData).toHaveBeenCalledWith(
-      expect.objectContaining({ text: 'hello', lang: 'en', voice: 'en-US-AriaNeural' }),
+    expect(clients.web.init).toHaveBeenCalledOnce();
+    expect(clients.web.setPrimaryLang).toHaveBeenCalledWith('en-US');
+    expect(clients.web.speak).toHaveBeenCalledOnce();
+    expect(clients.web.speak.mock.calls[0]![0]).toContain('hello');
+    expect(clients.native.init).not.toHaveBeenCalled();
+    expect(onStatus.mock.calls.map(([status]) => status)).toEqual(['playing', 'ended']);
+    expect(clients.web.shutdown).toHaveBeenCalled();
+  });
+
+  it('uses native TTS on mobile', async () => {
+    await pronounceWord(
+      'こんにちは',
+      'ja',
+      { appService: { isMobile: true } as never },
+      vi.fn(),
     );
-    expect(h.player.scheduleChunk).toHaveBeenCalledTimes(1);
-    expect(h.webSpeak).not.toHaveBeenCalled();
-    expect(h.nativeSpeak).not.toHaveBeenCalled();
-    expect(onStatus).toHaveBeenLastCalledWith('playing');
 
-    h.player.fireSessionEnd();
-    expect(onStatus).toHaveBeenLastCalledWith('ended');
+    expect(clients.native.init).toHaveBeenCalledOnce();
+    expect(clients.native.setPrimaryLang).toHaveBeenCalledWith('ja');
+    expect(clients.native.speak).toHaveBeenCalledOnce();
+    expect(clients.web.init).not.toHaveBeenCalled();
   });
 
-  it('reports an error when the audio context surfaces one mid-playback', async () => {
-    h.createAudioData.mockResolvedValue({ data: new ArrayBuffer(8), boundaries: [] });
+  it('reports ended without creating a client for blank text', async () => {
+    const onStatus = vi.fn();
+
+    await pronounceWord('   ', 'en', {}, onStatus);
+
+    expect(onStatus).toHaveBeenCalledWith('ended');
+    expect(clients.web.init).not.toHaveBeenCalled();
+    expect(clients.native.init).not.toHaveBeenCalled();
+  });
+
+  it('reports an initialization failure', async () => {
+    clients.web.init.mockResolvedValueOnce(false);
     const onStatus = vi.fn();
 
     await pronounceWord('hello', 'en', {}, onStatus);
-    h.player.fireContextError();
+
+    expect(onStatus).toHaveBeenLastCalledWith('error');
+    expect(clients.web.speak).not.toHaveBeenCalled();
+  });
+
+  it('reports an engine error event', async () => {
+    clients.web.speak.mockImplementationOnce(async function* () {
+      yield { code: 'error' as const, message: 'failed' };
+    });
+    const onStatus = vi.fn();
+
+    await pronounceWord('hello', 'en', {}, onStatus);
 
     expect(onStatus).toHaveBeenLastCalledWith('error');
   });
-});
 
-describe('pronounceWord — platform speech path', () => {
-  it('uses Web Speech without contacting Edge when the device is offline', async () => {
-    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+  it('aborts and shuts down an active pronunciation', async () => {
+    clients.web.speak.mockImplementationOnce(async function* (
+      _ssml: string,
+      signal: AbortSignal,
+    ) {
+      await new Promise<void>((resolve) => {
+        signal.addEventListener('abort', () => resolve(), { once: true });
+      });
+    });
     const onStatus = vi.fn();
+    const pronunciation = pronounceWord('hello', 'en', {}, onStatus);
+    await vi.waitFor(() => expect(onStatus).toHaveBeenCalledWith('playing'));
 
-    await pronounceWord('hello', 'en', {}, onStatus);
-    await flush();
-
-    expect(h.createAudioData).not.toHaveBeenCalled();
-    expect(h.webSpeak).toHaveBeenCalledTimes(1);
-    expect(onStatus).toHaveBeenLastCalledWith('ended');
-  });
-
-  it('drops to Web Speech on desktop/web when Edge fails', async () => {
-    h.createAudioData.mockRejectedValue(new Error('wss blocked'));
-    const onStatus = vi.fn();
-
-    await pronounceWord('hello', 'en', {}, onStatus);
-    await flush();
-
-    expect(h.webSpeak).toHaveBeenCalledTimes(1);
-    const ssml = h.webSpeak.mock.calls[0]![0];
-    expect(ssml).toContain('hello');
-    expect(h.nativeSpeak).not.toHaveBeenCalled();
-    expect(onStatus).toHaveBeenLastCalledWith('ended');
-  });
-
-  it('uses the native client on the mobile app when Edge fails', async () => {
-    h.createAudioData.mockRejectedValue(new Error('wss blocked'));
-    const onStatus = vi.fn();
-
-    await pronounceWord('hello', 'en', { appService: { isMobile: true } as never }, onStatus);
-    await flush();
-
-    expect(h.nativeSpeak).toHaveBeenCalledTimes(1);
-    expect(h.webSpeak).not.toHaveBeenCalled();
-  });
-
-  it('retries via the authenticated https proxy on the web when wss fails', async () => {
-    h.createAudioData.mockRejectedValue(new Error('wss blocked'));
-
-    await pronounceWord('hello', 'en', {}, vi.fn());
-    await flush();
-
-    // wss attempt + https proxy retry
-    expect(h.createAudioData).toHaveBeenCalledTimes(2);
-  });
-
-  it('does not retry via the https proxy on Tauri when wss fails', async () => {
-    tauriPlatform = true;
-    h.createAudioData.mockRejectedValue(new Error('offline'));
-
-    await pronounceWord('hello', 'en', { appService: { isMobile: true } as never }, vi.fn());
-    await flush();
-
-    // Only the native wss attempt: the /api/tts/edge proxy must not be
-    // requested from the Tauri app; the word drops to the platform speech.
-    expect(h.createAudioData).toHaveBeenCalledTimes(1);
-    expect(h.nativeSpeak).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('pronounceWord — guards', () => {
-  it('does nothing for a blank word', async () => {
-    const onStatus = vi.fn();
-    await pronounceWord('   ', 'en', {}, onStatus);
-    expect(h.createAudioData).not.toHaveBeenCalled();
-    expect(onStatus).toHaveBeenLastCalledWith('ended');
-  });
-
-  it('aborts the active session on cancel', async () => {
     cancelWordPronounce();
-    expect(h.player.abortSession).toHaveBeenCalled();
+    await pronunciation;
+
+    expect(clients.web.shutdown).toHaveBeenCalled();
+    expect(onStatus).not.toHaveBeenCalledWith('ended');
+  });
+
+  it('keeps the gesture warm-up API as a harmless no-op', () => {
+    expect(() => warmWordAudio()).not.toThrow();
   });
 });

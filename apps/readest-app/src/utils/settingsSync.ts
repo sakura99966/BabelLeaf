@@ -59,7 +59,6 @@ export interface SettingsSyncPayload {
    * window's ordinary settings write can never carry stale flags that
    * revert someone else's switch.
    */
-  cloudSyncProviders?: CloudSyncProviderFlags;
 }
 
 /**
@@ -68,33 +67,13 @@ export interface SettingsSyncPayload {
  */
 export const mergeSyncedGlobalSettings = (
   local: SystemSettings,
-  payload: Pick<
-    SettingsSyncPayload,
-    'globalViewSettings' | 'globalReadSettings' | 'cloudSyncProviders'
-  >,
+  payload: Pick<SettingsSyncPayload, 'globalViewSettings' | 'globalReadSettings'>,
 ): SystemSettings => {
-  const merged: SystemSettings = {
+  return {
     ...local,
     globalViewSettings: payload.globalViewSettings,
     globalReadSettings: payload.globalReadSettings,
   };
-  if (payload.cloudSyncProviders) {
-    merged.webdav = { ...local.webdav, ...payload.cloudSyncProviders.webdav };
-    merged.googleDrive = { ...local.googleDrive, ...payload.cloudSyncProviders.googleDrive };
-    if (payload.cloudSyncProviders.s3) {
-      merged.s3 = { ...local.s3, ...payload.cloudSyncProviders.s3 };
-    }
-    if (payload.cloudSyncProviders.onedrive) {
-      merged.onedrive = { ...local.onedrive, ...payload.cloudSyncProviders.onedrive };
-    }
-    if (payload.cloudSyncProviders.readestCloud) {
-      merged.readestCloud = {
-        ...local.readestCloud,
-        ...payload.cloudSyncProviders.readestCloud,
-      };
-    }
-  }
-  return merged;
 };
 
 /**
@@ -103,7 +82,6 @@ export const mergeSyncedGlobalSettings = (
  */
 export const broadcastGlobalSettings = async (
   settings: SystemSettings,
-  opts: { includeCloudSyncProviders?: boolean } = {},
 ): Promise<void> => {
   if (!isTauriAppPlatform()) return;
   if (!settings.globalViewSettings || !settings.globalReadSettings) return;
@@ -113,32 +91,6 @@ export const broadcastGlobalSettings = async (
       globalViewSettings: settings.globalViewSettings,
       globalReadSettings: settings.globalReadSettings,
     };
-    if (opts.includeCloudSyncProviders) {
-      payload.cloudSyncProviders = {
-        webdav: {
-          enabled: !!settings.webdav?.enabled,
-          providerSelectedAt: settings.webdav?.providerSelectedAt,
-        },
-        googleDrive: {
-          enabled: !!settings.googleDrive?.enabled,
-          providerSelectedAt: settings.googleDrive?.providerSelectedAt,
-        },
-        s3: {
-          enabled: !!settings.s3?.enabled,
-          providerSelectedAt: settings.s3?.providerSelectedAt,
-        },
-        onedrive: {
-          enabled: !!settings.onedrive?.enabled,
-          providerSelectedAt: settings.onedrive?.providerSelectedAt,
-        },
-      };
-      if (settings.readestCloud) {
-        payload.cloudSyncProviders.readestCloud = {
-          enabled: settings.readestCloud.enabled,
-          disabledAt: settings.readestCloud.disabledAt,
-        };
-      }
-    }
     await emit(SETTINGS_SYNC_EVENT, payload);
   } catch (err) {
     console.warn('Failed to broadcast settings to other windows', err);

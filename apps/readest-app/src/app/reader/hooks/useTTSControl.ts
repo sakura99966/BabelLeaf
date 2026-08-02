@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useEnv } from '@/context/EnvContext';
-import { useAuth } from '@/context/AuthContext';
 import { useThemeStore } from '@/store/themeStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
@@ -15,7 +14,6 @@ import {
   TTSHighlightOptions,
   TTSVoicesGroup,
 } from '@/services/tts';
-import { DEFAULT_SENTENCE_GAP_SEC } from '@/services/tts/EdgeTTSClient';
 import { DEFAULT_PARAGRAPH_GAP_SEC } from '@/services/tts/TTSController';
 import { eventDispatcher } from '@/utils/event';
 import { genSSMLRaw, parseSSMLLang } from '@/utils/ssml';
@@ -34,7 +32,6 @@ interface UseTTSControlProps {
 export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProps) => {
   const _ = useTranslation();
   const { appService } = useEnv();
-  const { user } = useAuth();
   const { isDarkMode } = useThemeStore();
   const getBookData = useBookDataStore((s) => s.getBookData);
   const getView = useReaderStore((s) => s.getView);
@@ -275,7 +272,6 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
           });
         }
         await controller.attachView(view, {
-          bookKey,
           preprocessCallback: preprocessSSMLForTTS,
           onSectionChange: handleSectionChange,
         });
@@ -654,7 +650,7 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
       // (ttsEnabled) and indicator that color the TTS icon — so disabling TTS
       // always takes effect immediately. The teardown below is best-effort and
       // must never block or skip these resets if it hangs or throws, which was
-      // observed with iOS system TTS (Edge TTS was unaffected). See #4676.
+      // observed with iOS system TTS. See #4676.
       ttsControllerRef.current = null;
       setTtsController(null);
       setIsPlaying(false);
@@ -671,8 +667,7 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
       // background-audio session best-effort and IN PARALLEL. The controller's
       // own shutdown can stall on iOS system TTS, and it must NOT gate the media
       // session / background-audio teardown — otherwise the lock-screen Now
-      // Playing keeps running after TTS is disabled (Edge TTS was unaffected
-      // because it never hits the stalling native path). See #4676.
+      // Playing keeps running after TTS is disabled. See #4676.
       await Promise.all([
         ttsController
           ? Promise.resolve()
@@ -749,12 +744,14 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
       try {
         // Gesture-path audio unlocks, BEFORE any network/plugin await: WebKit
         // rejects AudioContext.resume() outside the user-gesture window, and
-        // speak() itself only runs after preprocessing and preload fetches.
+        // speak() itself only runs after preprocessing completes.
         // The silent keep-alive element runs on ALL platforms — desktop
         // Chromium only surfaces hardware media keys while an
         // HTMLMediaElement is playing, and Edge playback no longer has one.
         unblockAudio();
-        void ensureSharedAudioContext();
+        if (appService?.isAndroidApp) {
+          void ensureSharedAudioContext();
+        }
         // No use_background_audio here: on iOS the native-tts media session
         // claims the audio session itself on activation (non-mixable
         // .playback/.spokenAudio). The old call set .mixWithOthers, which
@@ -769,14 +766,9 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
         const ttsController = new TTSController(
           appService,
           view,
-          !!user?.id,
           preprocessSSMLForTTS,
           handleSectionChange,
         );
-        // The constructor takes the view directly (attachView, which also binds
-        // this, only runs on the background-session reattach path), so set the
-        // book key here or the per-book audio cache never gets a hash to open.
-        ttsController.bookKey = bookKey;
         ttsControllerRef.current = ttsController;
         setTtsController(ttsController);
         ttsSessionManager.claim(bookKey, ttsController, {
@@ -808,8 +800,7 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
 
           ttsController.setLang(lang);
           ttsController.setRate(viewSettings.ttsRate);
-          ttsController.setSentenceGap(viewSettings.ttsSentenceGap ?? DEFAULT_SENTENCE_GAP_SEC);
-          ttsController.setParagraphGap(viewSettings.ttsParagraphGap ?? DEFAULT_PARAGRAPH_GAP_SEC);
+        ttsController.setParagraphGap(viewSettings.ttsParagraphGap ?? DEFAULT_PARAGRAPH_GAP_SEC);
           ttsController.speak(ssml, oneTime, () => handleStop(bookKey));
           ttsController.setTargetLang(getTTSTargetLang() || '');
         } else {
@@ -881,13 +872,6 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
     return ttsControllerRef.current?.supportsPlaybackInfo() ?? false;
   }, []);
 
-  // Stable handle for the download/chapters surface (reads the cache and
-  // drives headless pre-synthesis off the playback path). MUST be memoized:
-  // an inline arrow here changes identity every render, which would cascade
-  // through useTTSDownloads' refresh callback into its effect and spin an
-  // infinite render loop the moment the sheet opens.
-  const getController = useCallback(() => ttsControllerRef.current, []);
-
   // Playback callbacks
   const handleTogglePlay = useCallback(async () => {
     const ttsController = ttsControllerRef.current;
@@ -955,12 +939,6 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
     }, 3000),
     [],
   );
-
-  // Inter-sentence gap: read live at schedule time by the controller, so
-  // changing it must not stop/restart playback like handleSetRate does.
-  const handleSetSentenceGap = useCallback((sec: number) => {
-    ttsControllerRef.current?.setSentenceGap(sec);
-  }, []);
 
   // Paragraph gap: applies to every TTS client (not Edge-only), read live by
   // the controller when auto-advancing, so no stop/restart here either.
@@ -1035,7 +1013,6 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
     handleForward,
     handlePause,
     handleSetRate,
-    handleSetSentenceGap,
     handleSetParagraphGap,
     handleSetVoice,
     handleGetVoices,
@@ -1047,6 +1024,5 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
     handleGetPlaybackInfo,
     handleSupportsPlaybackInfo,
     refreshTtsLang,
-    getController,
   };
 };

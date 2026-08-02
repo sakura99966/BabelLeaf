@@ -15,10 +15,8 @@ import {
 } from '@/app/reader/utils/annotatorUtil';
 import { renderNoteTemplate, formatBlockQuote } from '@/utils/note';
 import {
-  AnnotationLinkType,
   buildAnnotationAppUrl,
   buildAnnotationUrl,
-  buildAnnotationWebUrl,
 } from '@/utils/deeplink';
 import Dialog from '@/components/Dialog';
 import { Toggle } from '@/components/primitives/toggle';
@@ -203,7 +201,6 @@ const ExportMarkdownDialog: React.FC<ExportMarkdownDialogProps> = ({
               { bookHash, noteId: note.id, cfi: note.cfi },
               exportConfig.linkType,
             ),
-            webLink: buildAnnotationWebUrl({ bookHash, noteId: note.id, cfi: note.cfi }),
             appLink: buildAnnotationAppUrl({ bookHash, noteId: note.id, cfi: note.cfi }),
             text: note.text || '',
             note: note.note || '',
@@ -458,22 +455,6 @@ const ExportMarkdownDialog: React.FC<ExportMarkdownDialogProps> = ({
             </label>
           </div>
 
-          <div className='flex items-center justify-between gap-3'>
-            <span className='text-sm'>{_('Annotation Link')}</span>
-            <select
-              value={exportConfig.linkType}
-              onChange={(e) =>
-                setExportConfig((prev) => ({
-                  ...prev,
-                  linkType: e.target.value as AnnotationLinkType,
-                }))
-              }
-              className='select select-bordered select-sm eink-bordered'
-            >
-              <option value='app'>{_('App Link')}</option>
-              <option value='web'>{_('Web Link')}</option>
-            </select>
-          </div>
         </div>
 
         {/* Filter by color / style */}
@@ -669,15 +650,11 @@ const ExportMarkdownDialog: React.FC<ExportMarkdownDialogProps> = ({
                         </li>
                         <li className='ml-8'>
                           <code className='bg-base-300 rounded px-1'>annotation.link</code> -{' '}
-                          {_('Annotation link (follows the selected Link Type)')}
+                          {_('BabelLeaf annotation link')}
                         </li>
                         <li className='ml-8'>
                           <code className='bg-base-300 rounded px-1'>annotation.appLink</code> -{' '}
-                          {_('App deeplink (readest://)')}
-                        </li>
-                        <li className='ml-8'>
-                          <code className='bg-base-300 rounded px-1'>annotation.webLink</code> -{' '}
-                          {_('Universal web link (https://)')}
+                          {_('App deeplink (babelleaf://)')}
                         </li>
                       </ul>
                     </div>

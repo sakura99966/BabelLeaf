@@ -35,13 +35,11 @@ import android.graphics.fonts.SystemFonts
 import android.graphics.fonts.Font
 import androidx.core.view.WindowCompat
 import androidx.core.app.ActivityCompat
-import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.browser.customtabs.CustomTabsIntent
 import app.tauri.annotation.Command
 import app.tauri.annotation.InvokeArg
 import app.tauri.annotation.Permission
@@ -55,11 +53,6 @@ import java.io.*
 import kotlinx.coroutines.*
 
 @InvokeArg
-class AuthRequestArgs {
-    var authUrl: String? = null
-}
-
-@InvokeArg
 class CopyURIRequestArgs {
     var uri: String? = null
     var dst: String? = null
@@ -71,11 +64,6 @@ class SaveImageToGalleryRequestArgs {
     var fileName: String? = null
     var mimeType: String? = null
     var albumName: String? = null
-}
-
-@InvokeArg
-class InstallPackageRequestArgs {
-    var path: String? = null
 }
 
 @InvokeArg
@@ -103,23 +91,8 @@ class SetScreenBrightnessRequestArgs {
 }
 
 @InvokeArg
-class OpenExternalUrlArgs {
-    var url: String? = null
-}
-
-@InvokeArg
 class ShowLookupPopoverArgs {
     var word: String? = null
-}
-
-@InvokeArg
-class FetchProductsRequestArgs {
-    val productIds: List<String>? = null
-}
-
-@InvokeArg
-class PurchaseProductRequestArgs {
-    val productId: String? = null
 }
 
 @InvokeArg
@@ -158,25 +131,6 @@ class UpdateReadingWidgetRequestArgs {
     var tts: UpdateReadingWidgetTtsArgs? = null
 }
 
-data class ProductData(
-    val id: String,
-    val title: String,
-    val description: String,
-    val price: String,
-    val priceCurrencyCode: String?,
-    val priceAmountMicros: Long,
-    val productType: String
-)
-
-data class PurchaseData(
-    val productId: String,
-    val orderId: String,
-    val purchaseToken: String,
-    val purchaseDate: String,
-    val purchaseState: String,
-    val platform: String = "android"
-)
-
 interface KeyDownInterceptor {
     fun interceptVolumeKeys(enabled: Boolean)
     fun interceptBackKey(enabled: Boolean)
@@ -191,14 +145,9 @@ interface KeyDownInterceptor {
 )
 class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     private val implementation = NativeBridge()
-    private var redirectScheme = "readest"
-    private var redirectHost = "auth-callback"
     private var webViewRef: WebView? = null
-    private val billingManager by lazy {
-        BillingManager(activity)
-    }
-    // Scope for offloading blocking @Command I/O (file copy, package
-    // install, font scan, dictionary lookup) off the plugin command thread.
+    // Scope for offloading blocking @Command I/O (file copy, font scan,
+    // dictionary lookup) off the plugin command thread.
     // Cancelled in onDestroy so in-flight work can't resolve into — or leak —
     // a dead Activity.
     private val pluginScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -212,7 +161,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     companion object {
         private const val REQUEST_MANAGE_STORAGE = 1001
         private const val FOLDER_PICKER_REQUEST_CODE = 1002
-        var pendingInvoke: Invoke? = null
         var pendingFolderPickerInvoke: Invoke? = null
         private var instance: NativeBridgePlugin? = null
         fun getInstance(): NativeBridgePlugin? = instance
@@ -255,26 +203,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
         Log.d("NativeBridgePlugin", "Received intent: action=${intent.action} data=${intent.data}")
-
-        // OAuth callback uses a custom scheme on intent.data and is handled
-        // separately from any user-shared content.
-        intent.data?.let { uri ->
-            val scheme = uri.scheme ?: ""
-            val isReadestAuth = scheme == "readest" && uri.host == "auth-callback"
-            // Google Drive sign-in uses the reverse-DNS "iOS URL scheme"
-            // (com.googleusercontent.apps.<id>:/oauthredirect) registered as a
-            // BROWSABLE deep link; resolve it through the same pending invoke as
-            // the Supabase readest://auth-callback flow.
-            val isGoogleOAuth = scheme.startsWith("com.googleusercontent.apps.")
-            if (isReadestAuth || isGoogleOAuth) {
-                val result = JSObject().apply {
-                    put("redirectUrl", uri.toString())
-                }
-                pendingInvoke?.resolve(result)
-                pendingInvoke = null
-                return
-            }
-        }
 
         when (intent.action) {
             Intent.ACTION_VIEW -> {
@@ -411,20 +339,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     }
 
     @Command
-    fun auth_with_custom_tab(invoke: Invoke) {
-        val args = invoke.parseArgs(AuthRequestArgs::class.java)
-        val uri = Uri.parse(args.authUrl)
-
-        val customTabsIntent = CustomTabsIntent.Builder().build()
-        customTabsIntent.intent.flags = Intent.FLAG_ACTIVITY_NO_HISTORY
-
-        Log.d("NativeBridgePlugin", "Launching OAuth URL: ${args.authUrl}")
-        customTabsIntent.launchUrl(activity, uri)
-
-        pendingInvoke = invoke
-    }
-
-    @Command
     fun copy_uri_to_path(invoke: Invoke) {
         val args = invoke.parseArgs(CopyURIRequestArgs::class.java)
         pluginScope.launch {
@@ -526,41 +440,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
                     Log.e("NativeBridge", "Failed to save image to gallery", e)
                     r.put("success", false)
                     r.put("error", "${e.javaClass.simpleName}: ${e.message}")
-                }
-                r
-            }
-            if (isActive) invoke.resolve(ret)
-        }
-    }
-
-    @Command
-    fun install_package(invoke: Invoke) {
-        val args = invoke.parseArgs(InstallPackageRequestArgs::class.java)
-        pluginScope.launch {
-            val ret = withContext(Dispatchers.IO) {
-                val r = JSObject()
-                try {
-                    val file = File(args.path ?: "")
-                    if (file.exists()) {
-                        val intent = Intent(Intent.ACTION_VIEW)
-                        val apkUri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
-                        intent.setDataAndType(apkUri, "application/vnd.android.package-archive")
-                        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-                        val packageManager = activity.packageManager
-                        val resolveInfos = packageManager.queryIntentActivities(intent, 0)
-                        for (resolveInfo in resolveInfos) {
-                            val packageName = resolveInfo.activityInfo.packageName
-                            activity.grantUriPermission(packageName, apkUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        withContext(Dispatchers.Main) { activity.startActivity(intent) }
-                        r.put("success", true)
-                    } else {
-                        r.put("success", false)
-                        r.put("error", "File does not exist")
-                    }
-                } catch (e: Exception) {
-                    r.put("success", false)
-                    r.put("error", e.message)
                 }
                 r
             }
@@ -855,111 +734,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     }
 
     @Command
-    fun iap_is_available(invoke: Invoke) {
-        val isAvailable = billingManager.isBillingAvailable()
-        val result = JSObject()
-        result.put("available", isAvailable)
-        invoke.resolve(result)
-    }
-
-    @Command
-    fun iap_initialize(invoke: Invoke) {
-        billingManager.initialize { success ->
-            val result = JSObject()
-            result.put("success", success)
-            invoke.resolve(result)
-        }
-    }
-
-    @Command
-    fun iap_fetch_products(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(FetchProductsRequestArgs::class.java)
-            val productIds = args.productIds ?: emptyList()
-            if (productIds.isEmpty()) {
-                invoke.reject("Product IDs list is empty")
-                return
-            }
-
-            billingManager.fetchProducts(productIds) { products ->
-                val result = JSObject()
-                val productsArray = JSArray()
-                for (product in products) {
-                    val productObject = JSObject().apply {
-                        put("id", product.id)
-                        put("title", product.title)
-                        put("description", product.description)
-                        put("price", product.price)
-                        put("priceCurrencyCode", product.priceCurrencyCode)
-                        put("priceAmountMicros", product.priceAmountMicros)
-                        put("productType", product.productType)
-                    }
-                    productsArray.put(productObject)
-                }
-                result.put("products", productsArray)
-                invoke.resolve(result)
-            }
-        } catch (e: Exception) {
-            invoke.reject("Failed to parse fetch products arguments: ${e.message}")
-        }
-    }
-
-    @Command
-    fun iap_purchase_product(invoke: Invoke) {
-        try {
-            val args = invoke.parseArgs(PurchaseProductRequestArgs::class.java)
-            val productId = args.productId ?: ""
-            if (productId.isEmpty()) {
-                invoke.reject("Product ID is empty")
-                return
-            }
-
-            billingManager.purchaseProduct(productId) { purchase ->
-                if (purchase != null) {
-                    val result = JSObject()
-                    val purchaseData = JSObject().apply {
-                        put("platform", purchase.platform)
-                        put("packageName", activity.packageName)
-                        put("productId", purchase.productId)
-                        put("orderId", purchase.orderId)
-                        put("purchaseToken", purchase.purchaseToken)
-                        put("purchaseDate", purchase.purchaseDate)
-                        put("purchaseState", purchase.purchaseState)
-                    }
-                    result.put("purchase", purchaseData)
-                    invoke.resolve(result)
-                } else {
-                    invoke.reject("Purchase failed or was cancelled")
-                }
-            }
-        } catch (e: Exception) {
-            invoke.reject("Failed to parse purchase arguments: ${e.message}")
-        }
-    }
-
-    @Command
-    fun iap_restore_purchases(invoke: Invoke) {
-        billingManager.restorePurchases { purchases ->
-            val result = JSObject()
-            val purchasesArray = JSArray()
-            for (purchase in purchases) {
-                val purchaseObject = JSObject().apply {
-                    put("platform", purchase.platform)
-                    put("packageName", activity.packageName)
-                    put("productId", purchase.productId)
-                    put("orderId", purchase.orderId)
-                    put("purchaseToken", purchase.purchaseToken)
-                    put("purchaseDate", purchase.purchaseDate)
-                    put("purchaseState", purchase.purchaseState)
-                }
-                purchasesArray.put(purchaseObject)
-            }
-            result.put("purchases", purchasesArray)
-            invoke.resolve(result)
-        }
-    }
-
-    @Command
     fun get_external_sdcard_path(invoke: Invoke) {
         val result = JSObject()
         val externalDirs = activity.getExternalFilesDirs(null)
@@ -1026,23 +800,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     }
 
     @Command
-    fun open_external_url(invoke: Invoke) {
-        val args = invoke.parseArgs(OpenExternalUrlArgs::class.java)
-        val url = args.url ?: ""
-
-        try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            activity.startActivity(intent)
-            val ret = JSObject()
-            ret.put("success", true)
-            invoke.resolve(ret)
-        } catch (e: Exception) {
-            invoke.reject("Failed to open URL: ${e.message}")
-        }
-    }
-
-    @Command
     fun select_directory(invoke: Invoke) {
         pendingFolderPickerInvoke = invoke
 
@@ -1098,7 +855,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
         }
 
         invoke.resolve(result)
-        pendingInvoke = null
     }
 
     private fun extractPathFromUri(uri: Uri): String? {
@@ -1172,91 +928,13 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     // reads/writes via these commands so the user's sync passphrase
     // persists across app launches.
 
-    private val syncPrefsName = "readest_sync_passphrase_v1"
-    private val syncPrefsKey = "passphrase"
-
-    private fun openSyncPrefs(): android.content.SharedPreferences {
-        val masterKey = androidx.security.crypto.MasterKey.Builder(activity)
-            .setKeyScheme(androidx.security.crypto.MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        return androidx.security.crypto.EncryptedSharedPreferences.create(
-            activity,
-            syncPrefsName,
-            masterKey,
-            androidx.security.crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            androidx.security.crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }
-
-    @Command
-    fun set_sync_passphrase(invoke: Invoke) {
-        val args = invoke.parseArgs(SyncPassphraseSetArgs::class.java)
-        val ret = JSObject()
-        try {
-            val prefs = openSyncPrefs()
-            prefs.edit().putString(syncPrefsKey, args.passphrase).apply()
-            ret.put("success", true)
-        } catch (e: Exception) {
-            Log.e("NativeBridgePlugin", "set_sync_passphrase failed", e)
-            ret.put("success", false)
-            ret.put("error", e.message ?: "unknown")
-        }
-        invoke.resolve(ret)
-    }
-
-    @Command
-    fun get_sync_passphrase(invoke: Invoke) {
-        val ret = JSObject()
-        try {
-            val prefs = openSyncPrefs()
-            val value = prefs.getString(syncPrefsKey, null)
-            if (value != null) ret.put("passphrase", value)
-        } catch (e: Exception) {
-            Log.e("NativeBridgePlugin", "get_sync_passphrase failed", e)
-            ret.put("error", e.message ?: "unknown")
-        }
-        invoke.resolve(ret)
-    }
-
-    @Command
-    fun clear_sync_passphrase(invoke: Invoke) {
-        val ret = JSObject()
-        try {
-            val prefs = openSyncPrefs()
-            prefs.edit().remove(syncPrefsKey).apply()
-            ret.put("success", true)
-        } catch (e: Exception) {
-            Log.e("NativeBridgePlugin", "clear_sync_passphrase failed", e)
-            ret.put("success", false)
-            ret.put("error", e.message ?: "unknown")
-        }
-        invoke.resolve(ret)
-    }
-
-    @Command
-    fun is_sync_keychain_available(invoke: Invoke) {
-        val ret = JSObject()
-        try {
-            // Probe by opening the prefs file. Failure surfaces as
-            // available=false with the underlying error string so the
-            // TS layer can fall back to the ephemeral store.
-            openSyncPrefs()
-            ret.put("available", true)
-        } catch (e: Exception) {
-            Log.e("NativeBridgePlugin", "is_sync_keychain_available failed", e)
-            ret.put("available", false)
-            ret.put("error", e.message ?: "unknown")
-        }
-        invoke.resolve(ret)
-    }
-
     // ── Keyed secure key-value store ──────────────────────────────────
     // Same EncryptedSharedPreferences backing as the sync passphrase, but
     // a generic keyed store (one prefs file, the caller's `key` as the
     // entry key) so secrets like the Google Drive token set persist the
     // same way without each needing its own command.
 
-    private val secureItemsPrefsName = "readest_secure_items_v1"
+    private val secureItemsPrefsName = "babelleaf_secure_items_v1"
 
     private fun openSecureItemsPrefs(): android.content.SharedPreferences {
         val masterKey = androidx.security.crypto.MasterKey.Builder(activity)
@@ -1509,34 +1187,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
     }
 
     /**
-     * Open a full-screen `WebView` at the supplied URL, capture
-     * `document.documentElement.outerHTML` once the page settles, and
-     * resolve with `{ html }`. Implements the Android half of the
-     * `clip_url` command — see `clip_url.rs` for the desktop half and
-     * `ClipUrlController.kt` for the actual lifecycle.
-     */
-    @Command
-    fun clip_url(invoke: Invoke) {
-        val args = try {
-            invoke.parseArgs(ClipUrlArgs::class.java)
-        } catch (e: Exception) {
-            invoke.reject(e.message ?: "Invalid clip_url args")
-            return
-        }
-        val controller = ClipUrlController(activity, args) { result ->
-            when (result) {
-                is ClipUrlResult.Success -> {
-                    val ret = JSObject()
-                    ret.put("html", result.html)
-                    invoke.resolve(ret)
-                }
-                is ClipUrlResult.Failure -> invoke.reject(result.message)
-            }
-        }
-        controller.show()
-    }
-
-    /**
      * Trigger a deep e-ink full screen refresh (GC16 waveform) to clear
      * ghosting. Driven by the page-turner "Refresh Page" action on e-ink
      * Android devices. Runs on the UI thread against the window's decor view;
@@ -1630,11 +1280,6 @@ class NativeBridgePlugin(private val activity: Activity): Plugin(activity) {
             }
         }
     }
-}
-
-@app.tauri.annotation.InvokeArg
-class SyncPassphraseSetArgs {
-    lateinit var passphrase: String
 }
 
 @app.tauri.annotation.InvokeArg

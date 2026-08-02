@@ -27,25 +27,16 @@ const makeMockClient = (name: string): TTSClient => ({
   getVoices: vi.fn().mockResolvedValue([]),
   getGranularities: vi.fn().mockReturnValue(['sentence']),
   getCapabilities: vi.fn().mockReturnValue({
-    wordBoundaries: true,
-    mediaClock: true,
-    gapControl: true,
-    liveRateChange: false,
+    wordBoundaries: false,
+    mediaClock: false,
   }),
   getVoiceId: vi.fn().mockReturnValue('timeline-ctrl-voice'),
   getSpeakingLang: vi.fn().mockReturnValue('en'),
-  getChunkPosition: vi.fn().mockReturnValue(0.5),
 });
 
 vi.mock('@/services/tts/WebSpeechClient', () => ({
   WebSpeechClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     Object.assign(this, makeMockClient('web-speech'));
-  }),
-}));
-
-vi.mock('@/services/tts/EdgeTTSClient', () => ({
-  EdgeTTSClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    Object.assign(this, makeMockClient('edge-tts'));
   }),
 }));
 
@@ -57,7 +48,7 @@ vi.mock('@/services/tts/NativeTTSClient', () => ({
 
 vi.mock('@/services/tts/TTSUtils', () => ({
   TTSUtils: {
-    getPreferredClient: vi.fn().mockReturnValue('edge-tts'),
+    getPreferredClient: vi.fn().mockReturnValue('web-speech'),
     setPreferredClient: vi.fn(),
     setPreferredVoice: vi.fn(),
     getPreferredVoice: vi.fn().mockReturnValue(null),
@@ -159,33 +150,26 @@ describe('TTSController section timeline', () => {
     await controller.initViewTTS(0);
   });
 
-  test('ensureTimeline builds lazily for the edge client and caches per section', async () => {
+  test('ensureTimeline builds lazily for the local client and reuses it per section', async () => {
     const timeline = await controller.ensureTimeline();
     expect(timeline).not.toBeNull();
     expect(timeline!.length).toBe(3);
     expect(await controller.ensureTimeline()).toBe(timeline);
   });
 
-  test('getPlaybackInfo composes sentence position with the chunk clock', async () => {
+  test('getPlaybackInfo reports the current sentence start', async () => {
     recordMeasuredDuration('timeline-ctrl-voice', S0, 4);
     recordMeasuredDuration('timeline-ctrl-voice', S1, 6);
     await controller.ensureTimeline();
-    // getLastRange resolves to sentence 0; client chunk position is 0.5s.
+    // getLastRange resolves to sentence 0; local engines do not expose an audio clock.
     const info = controller.getPlaybackInfo();
     expect(info).not.toBeNull();
-    expect(info!.position).toBeCloseTo(0.5, 5);
+    expect(info!.position).toBe(0);
     expect(info!.duration).toBeGreaterThan(10);
     expect(info!.measuredFraction).toBeGreaterThan(0);
   });
 
   test('getPlaybackInfo is null before the timeline is built (reserved-slot state)', () => {
-    expect(controller.getPlaybackInfo()).toBeNull();
-  });
-
-  test('getPlaybackInfo is null for non-edge clients', async () => {
-    await controller.setVoice('', 'en'); // empty voice id: falls through to web client
-    controller.ttsClient = controller.ttsWebClient;
-    expect(await controller.ensureTimeline()).toBeNull();
     expect(controller.getPlaybackInfo()).toBeNull();
   });
 

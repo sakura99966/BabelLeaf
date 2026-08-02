@@ -8,7 +8,6 @@ beforeEach(() => {
     notebookWidth: '',
     isNotebookVisible: false,
     isNotebookPinned: false,
-    notebookActiveTab: 'notes',
     notebookNewAnnotation: null,
     notebookNewHighlightId: null,
     notebookEditAnnotation: null,
@@ -92,23 +91,6 @@ describe('notebookStore', () => {
   });
 
   // ── Active tab ─────────────────────────────────────────────────
-  describe('setNotebookActiveTab', () => {
-    test('sets active tab to ai', () => {
-      useNotebookStore.getState().setNotebookActiveTab('ai');
-      expect(useNotebookStore.getState().notebookActiveTab).toBe('ai');
-    });
-
-    test('sets active tab to notes', () => {
-      useNotebookStore.getState().setNotebookActiveTab('ai');
-      useNotebookStore.getState().setNotebookActiveTab('notes');
-      expect(useNotebookStore.getState().notebookActiveTab).toBe('notes');
-    });
-
-    test('defaults to notes', () => {
-      expect(useNotebookStore.getState().notebookActiveTab).toBe('notes');
-    });
-  });
-
   // ── New annotation ─────────────────────────────────────────────
   describe('setNotebookNewAnnotation', () => {
     test('sets a new annotation selection', () => {
@@ -229,7 +211,6 @@ describe('notebookStore', () => {
       expect(state.notebookWidth).toBe('');
       expect(state.isNotebookVisible).toBe(false);
       expect(state.isNotebookPinned).toBe(false);
-      expect(state.notebookActiveTab).toBe('notes');
       expect(state.notebookNewAnnotation).toBeNull();
       expect(state.notebookNewHighlightId).toBeNull();
       expect(state.notebookEditAnnotation).toBeNull();

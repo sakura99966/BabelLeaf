@@ -16,14 +16,7 @@ import { getFilename } from '@/utils/path';
 import type { ImportedDictionary } from './types';
 import { scanEntryOffsets, serializeOffsetsSidecar } from './stardictReader';
 import { computeDictionaryContentId } from './contentId';
-import { v4 as uuidv4 } from 'uuid';
-import {
-  findExistingDictionaryMatches,
-  findTombstonedDictionaryMatches,
-  preserveLiveDictionaryState,
-  preserveUserCustomName,
-  shouldMintReincarnationForLiveReimport,
-} from './dictionaryDedup';
+import { findExistingDictionaryMatches, preserveLiveDictionaryState } from './dictionaryDedup';
 
 interface SourceFile {
   /** Filename including extension, e.g. `oald7.idx`. */
@@ -659,29 +652,8 @@ export async function importDictionaries(
       }
       // Preserve durable live-entry state across re-import while keeping
       // parsed/file-backed fields from the fresh bundle.
-      const preserved = preserveLiveDictionaryState(dict, olds);
-      const newDict = shouldMintReincarnationForLiveReimport(dict, olds)
-        ? { ...preserved, reincarnation: uuidv4() }
-        : preserved;
+      const newDict = preserveLiveDictionaryState(dict, olds);
       replacements.push({ oldIds: olds.map((o) => o.id), newDict });
-      continue;
-    }
-
-    // No live match — but check for a tombstoned (soft-deleted) entry
-    // with the same contentId. If found, this is a reincarnation: mint
-    // a fresh token so the server-side row surfaces as alive again on
-    // every device that pulls.
-    const tombstoned = findTombstonedDictionaryMatches(dict, existing);
-    if (tombstoned.length > 0) {
-      const tombstonedIdSet = new Set(tombstoned.map((o) => o.id));
-      for (let i = existing.length - 1; i >= 0; i--) {
-        if (tombstonedIdSet.has(existing[i]!.id)) existing.splice(i, 1);
-      }
-      const reincarnatedDict = preserveUserCustomName(
-        { ...dict, reincarnation: uuidv4() },
-        tombstoned,
-      );
-      replacements.push({ oldIds: tombstoned.map((o) => o.id), newDict: reincarnatedDict });
       continue;
     }
 

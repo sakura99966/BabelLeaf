@@ -27,8 +27,6 @@ const makeMockClient = (name: string): TTSClient => ({
   getCapabilities: vi.fn().mockReturnValue({
     wordBoundaries: false,
     mediaClock: false,
-    gapControl: false,
-    liveRateChange: false,
   }),
   getVoiceId: vi.fn().mockReturnValue('detach-voice'),
   getSpeakingLang: vi.fn().mockReturnValue('en'),
@@ -39,11 +37,6 @@ vi.mock('@/services/tts/WebSpeechClient', () => ({
     Object.assign(this, makeMockClient('web-speech'));
   }),
 }));
-vi.mock('@/services/tts/EdgeTTSClient', () => ({
-  EdgeTTSClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    Object.assign(this, makeMockClient('edge-tts'));
-  }),
-}));
 vi.mock('@/services/tts/NativeTTSClient', () => ({
   NativeTTSClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
     Object.assign(this, makeMockClient('native'));
@@ -51,7 +44,7 @@ vi.mock('@/services/tts/NativeTTSClient', () => ({
 }));
 vi.mock('@/services/tts/TTSUtils', () => ({
   TTSUtils: {
-    getPreferredClient: vi.fn().mockReturnValue('edge-tts'),
+    getPreferredClient: vi.fn().mockReturnValue('web-speech'),
     setPreferredClient: vi.fn(),
     setPreferredVoice: vi.fn(),
     getPreferredVoice: vi.fn().mockReturnValue(null),
@@ -144,7 +137,7 @@ describe('TTSController detach/attach', () => {
     ttsNextReturns = [];
     onSectionChange = vi.fn<(sectionIndex: number) => Promise<void>>().mockResolvedValue(undefined);
     ({ view } = makeView());
-    controller = new TTSController(null, view, false, undefined, onSectionChange);
+    controller = new TTSController(null, view, undefined, onSectionChange);
     await controller.init();
     await controller.initViewTTS(0);
   });
@@ -195,7 +188,6 @@ describe('TTSController detach/attach', () => {
     const newSectionChange = vi.fn().mockResolvedValue(undefined);
 
     await controller.attachView(newView, {
-      bookKey: 'hash-new123',
       preprocessCallback: newPreprocess,
       onSectionChange: newSectionChange,
     });
@@ -233,7 +225,7 @@ describe('TTSController detach/attach', () => {
     });
     const getCFISpy = newView.getCFI as ReturnType<typeof vi.fn>;
 
-    const attaching = controller.attachView(newView, { bookKey: 'hash-race' });
+    const attaching = controller.attachView(newView, {});
     await flush();
     // The old cursor advances while prep is in flight (paragraph auto-advance).
     mockTtsInstances[0]!.getLastRange.mockReturnValue(lateRange);
@@ -255,7 +247,7 @@ describe('TTSController detach/attach', () => {
     });
     const { view: newView } = makeView({ createDocument: () => gated, rendered: false });
 
-    const attaching = controller.attachView(newView, { bookKey: 'hash-cancel' });
+    const attaching = controller.attachView(newView, {});
     await flush();
     controller.detachView(); // e.g. the new view closed while attach prepared
     releaseDoc(document.implementation.createHTMLDocument('stale'));

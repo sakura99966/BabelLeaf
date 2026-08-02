@@ -1,7 +1,6 @@
 import { FileSystem } from '@/types/system';
 import { ReadSettings, SystemSettings } from '@/types/settings';
 import { DEFAULT_HIGHLIGHT_COLORS, UserHighlightColor, ViewSettings } from '@/types/book';
-import { v4 as uuidv4 } from 'uuid';
 import {
   DEFAULT_BOOK_LAYOUT,
   DEFAULT_BOOK_STYLE,
@@ -20,11 +19,11 @@ import {
   SETTINGS_FILENAME,
   DEFAULT_MOBILE_SYSTEM_SETTINGS,
   DEFAULT_ANNOTATOR_CONFIG,
-  DEFAULT_WORD_LENS_CONFIG,
   DEFAULT_EINK_VIEW_SETTINGS,
   DEFAULT_VIEW_SETTINGS_CONFIG,
 } from './constants';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
+import { loadTranslationApiKey } from './ai/translationApiKey';
 import { getTargetLang, isCJKEnv } from '@/utils/misc';
 import { safeLoadJSON, safeSaveJSON } from './persistence';
 
@@ -45,7 +44,6 @@ export function getDefaultViewSettings(ctx: Context): ViewSettings {
     ...DEFAULT_TTS_CONFIG,
     ...DEFAULT_SCREEN_CONFIG,
     ...DEFAULT_ANNOTATOR_CONFIG,
-    ...DEFAULT_WORD_LENS_CONFIG,
     ...DEFAULT_VIEW_SETTINGS_CONFIG,
     ...(ctx.isMobile ? DEFAULT_MOBILE_VIEW_SETTINGS : {}),
     ...(ctx.isEink ? DEFAULT_EINK_VIEW_SETTINGS : {}),
@@ -109,7 +107,6 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
     ...(ctx.isMobile ? DEFAULT_MOBILE_SYSTEM_SETTINGS : {}),
     version: SYSTEM_SETTINGS_VERSION,
     localBooksDir: await ctx.fs.getPrefix('Books'),
-    koreaderSyncDeviceId: uuidv4(),
     globalReadSettings: {
       ...DEFAULT_READSETTINGS,
       ...(ctx.isMobile ? DEFAULT_MOBILE_READSETTINGS : {}),
@@ -147,6 +144,20 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
     ...DEFAULT_AI_SETTINGS,
     ...settings.aiSettings,
   };
+  const legacyTranslationApiKey = settings.aiSettings.openrouterApiKey;
+  await loadTranslationApiKey(legacyTranslationApiKey);
+  settings = sanitizeSettingsForPersistence(settings);
+  if (legacyTranslationApiKey) {
+    await safeSaveJSON(ctx.fs, SETTINGS_FILENAME, 'Settings', settings);
+  }
+
+  const supportedTranslationProviders = new Set(['ollama', 'openrouter']);
+  if (!supportedTranslationProviders.has(settings.globalReadSettings.translationProvider)) {
+    settings.globalReadSettings.translationProvider = 'ollama';
+  }
+  if (!supportedTranslationProviders.has(settings.globalViewSettings.translationProvider)) {
+    settings.globalViewSettings.translationProvider = 'ollama';
+  }
 
   settings.localBooksDir = await ctx.fs.getPrefix('Books');
 
@@ -158,19 +169,25 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
     settings.globalViewSettings.annotationQuickAction = 'dictionary';
   }
 
-  if (!settings.kosync.deviceId) {
-    settings.kosync.deviceId = uuidv4();
-    await saveSettings(ctx.fs, settings);
-  }
-
-  if (!settings.replicaDeviceId) {
-    settings.replicaDeviceId = uuidv4();
-    await saveSettings(ctx.fs, settings);
-  }
-
   return settings;
 }
 
+export function sanitizeSettingsForPersistence(settings: SystemSettings): SystemSettings {
+  const sanitized = {
+    ...settings,
+    aiSettings: {
+      ...settings.aiSettings,
+    },
+  };
+  delete sanitized.aiSettings.openrouterApiKey;
+  return sanitized;
+}
+
 export async function saveSettings(fs: FileSystem, settings: SystemSettings): Promise<void> {
-  await safeSaveJSON(fs, SETTINGS_FILENAME, 'Settings', settings);
+  await safeSaveJSON(
+    fs,
+    SETTINGS_FILENAME,
+    'Settings',
+    sanitizeSettingsForPersistence(settings),
+  );
 }

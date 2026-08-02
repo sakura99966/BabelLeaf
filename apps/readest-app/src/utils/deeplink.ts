@@ -1,5 +1,3 @@
-import { READEST_WEB_BASE_URL } from '@/services/constants';
-
 export type AnnotationDeepLink = {
   bookHash: string;
   noteId: string;
@@ -10,27 +8,14 @@ export type AnnotationDeepLink = {
  * Which form of annotation link markdown export embeds: the custom-scheme
  * `readest://` app deeplink or the universal `https://` web link.
  */
-export type AnnotationLinkType = 'app' | 'web';
-
-const ANNOTATION_PATH_PREFIX = '/o/book/';
-
-/**
- * Build the canonical HTTPS URL for an annotation. Used in markdown export
- * and Readwise sync. Mobile App Links (web.readest.com) intercept this URL
- * and open the native app; on desktop browsers it resolves to the smart
- * landing page at /o/book/{hash}/annotation/{id}.
- */
-export const buildAnnotationWebUrl = ({ bookHash, noteId, cfi }: AnnotationDeepLink): string => {
-  const base = `${READEST_WEB_BASE_URL}${ANNOTATION_PATH_PREFIX}${bookHash}/annotation/${noteId}`;
-  return cfi ? `${base}?cfi=${encodeURIComponent(cfi)}` : base;
-};
+export type AnnotationLinkType = 'app';
 
 /**
  * Build the custom-scheme URL. Kept as a parallel form for share-sheet flows
  * and direct deeplink scenarios. Markdown export uses the HTTPS form.
  */
 export const buildAnnotationAppUrl = ({ bookHash, noteId, cfi }: AnnotationDeepLink): string => {
-  const base = `readest://book/${bookHash}/annotation/${noteId}`;
+  const base = `babelleaf://book/${bookHash}/annotation/${noteId}`;
   return cfi ? `${base}?cfi=${encodeURIComponent(cfi)}` : base;
 };
 
@@ -40,8 +25,8 @@ export const buildAnnotationAppUrl = ({ bookHash, noteId, cfi }: AnnotationDeepL
  */
 export const buildAnnotationUrl = (
   link: AnnotationDeepLink,
-  linkType: AnnotationLinkType,
-): string => (linkType === 'app' ? buildAnnotationAppUrl(link) : buildAnnotationWebUrl(link));
+  _linkType: AnnotationLinkType,
+): string => buildAnnotationAppUrl(link);
 
 /**
  * Parse an incoming readest:// or https://web.readest.com annotation URL.
@@ -57,23 +42,11 @@ export const parseAnnotationDeepLink = (url: string): AnnotationDeepLink | null 
     return null;
   }
 
-  const isCustomScheme = parsed.protocol === 'readest:';
-  const isWebHost =
-    (parsed.protocol === 'https:' || parsed.protocol === 'http:') &&
-    parsed.host === 'web.readest.com';
-  if (!isCustomScheme && !isWebHost) return null;
+  if (parsed.protocol !== 'babelleaf:') return null;
 
   // For readest:// URLs the URL parser stores the first path segment in the
   // host. Reconstruct a uniform segment list across both schemes.
-  const segments: string[] = isCustomScheme
-    ? [parsed.host, ...parsed.pathname.split('/')].filter(Boolean)
-    : parsed.pathname.split('/').filter(Boolean);
-
-  // HTTPS landing page is prefixed with /o/. Strip it for uniform parsing.
-  if (isWebHost) {
-    if (segments[0] !== 'o') return null;
-    segments.shift();
-  }
+  const segments = [parsed.host, ...parsed.pathname.split('/')].filter(Boolean);
 
   const cfiParam = parsed.searchParams.get('cfi');
   const cfi = cfiParam ? cfiParam : undefined;
@@ -81,11 +54,6 @@ export const parseAnnotationDeepLink = (url: string): AnnotationDeepLink | null 
   // Hierarchical: book/{hash}/annotation/{id}
   if (segments.length === 4 && segments[0] === 'book' && segments[2] === 'annotation') {
     return { bookHash: segments[1]!, noteId: segments[3]!, cfi };
-  }
-
-  // Legacy flat: annotation/{hash}/{id}
-  if (segments.length === 3 && segments[0] === 'annotation') {
-    return { bookHash: segments[1]!, noteId: segments[2]!, cfi };
   }
 
   return null;
@@ -105,20 +73,9 @@ export const parseBookDeepLink = (url: string): { bookHash: string; autoplay?: b
     return null;
   }
 
-  const isCustomScheme = parsed.protocol === 'readest:';
-  const isWebHost =
-    (parsed.protocol === 'https:' || parsed.protocol === 'http:') &&
-    parsed.host === 'web.readest.com';
-  if (!isCustomScheme && !isWebHost) return null;
+  if (parsed.protocol !== 'babelleaf:') return null;
 
-  const segments: string[] = isCustomScheme
-    ? [parsed.host, ...parsed.pathname.split('/')].filter(Boolean)
-    : parsed.pathname.split('/').filter(Boolean);
-
-  if (isWebHost) {
-    if (segments[0] !== 'o') return null;
-    segments.shift();
-  }
+  const segments = [parsed.host, ...parsed.pathname.split('/')].filter(Boolean);
 
   if (segments.length === 2 && segments[0] === 'book' && segments[1]) {
     // `?autoplay=tts` is appended by the Android Auto cold-resume launch to ask

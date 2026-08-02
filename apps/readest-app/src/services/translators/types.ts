@@ -1,24 +1,20 @@
-import { TranslatorName } from './providers';
+import type { TranslatorName } from './providers';
 
 export interface TranslationProvider {
   name: string;
   label: string;
-  authRequired?: boolean;
-  quotaExceeded?: boolean;
   /**
-   * Marks a provider as temporarily unavailable. Disabled providers are
-   * filtered out of `getTranslators()` / `getTranslator()`, so the UI never
-   * lists them and the fallback logic in `useTranslator` skips over them.
-   * Flip back to `false` (or delete the field) once the provider is healthy
-   * again — no other code changes required.
+   * Marks a provider as temporarily unavailable. Availability checks and
+   * fallback selection skip disabled providers while the registry remains
+   * stable for settings migration and display.
    */
   disabled?: boolean;
+  /** Runtime configuration check. It must not perform a network request. */
+  isConfigured?: () => boolean;
   translate: (
     texts: string[],
     sourceLang: string,
     targetLang: string,
-    token?: string | null,
-    useCache?: boolean,
     signal?: AbortSignal,
   ) => Promise<string[]>;
 }
@@ -36,8 +32,6 @@ export interface UseTranslatorOptions {
 }
 
 export const ErrorCodes = {
-  UNAUTHORIZED: 'Unauthorized',
-  DEEPL_API_ERROR: 'DeepL API Error',
-  DAILY_QUOTA_EXCEEDED: 'Daily Quota Exceeded',
-  INTERNAL_SERVER_ERROR: 'Internal Server Error',
+  PROVIDER_NOT_CONFIGURED: 'Translation provider is not configured',
+  EMPTY_RESPONSE: 'Translation provider returned an empty response',
 };

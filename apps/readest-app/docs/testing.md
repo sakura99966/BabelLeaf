@@ -1,6 +1,6 @@
 # Testing
 
-Readest uses three test tiers, all powered by [Vitest](https://vitest.dev/).
+BabelLeaf uses three Vitest tiers plus platform end-to-end checks.
 
 ## Unit Tests (`pnpm test`)
 
@@ -84,7 +84,7 @@ The `invoke()` helper accesses `window.top.__TAURI_INTERNALS__` (Vitest runs in 
 
 ## Android Device E2E (`pnpm test:android`)
 
-Drives the **installed Readest app** on an adb-connected Android device or
+Drives the **installed BabelLeaf app** on an adb-connected Android device or
 emulator: gestures are injected with `adb shell input`, and the app's state is
 probed through the WebView's **Chrome DevTools Protocol** (forwarded from the
 `webview_devtools_remote_<pid>` abstract socket). This is the only lane that
@@ -107,14 +107,15 @@ ANDROID_SERIAL=emulator-5554 pnpm test:android
 
 - **Config:** `vitest.android.config.mts` (node environment, serial execution, `retry: 1`)
 - **Pattern:** `src/**/*.android.test.ts`
-- **Helpers:** `src/__tests__/android/helpers/` — `adb.ts` (gestures), `cdp.ts` (DevTools client), `reader.ts` (app-level probes)
+- **Helpers:** `src/__tests__/android/helpers/`: `adb.ts` (gestures), `cdp.ts`
+  (DevTools client), and `reader.ts` (app-level probes)
 - **Fixtures:** plain EPUBs from `src/__tests__/fixtures/data/` (e.g. `sample-alice.epub`), opened transiently via a `VIEW` intent so the device library is never modified
 - **Use for:** native text selection, touch gestures, selection handles, anything that only reproduces in the Android WebView compositor.
 
 ### Conventions
 
 - **Probe, don't hardcode:** locate words/handles at runtime via CDP and derive
-  device pixels from `devicePixelRatio` — never bake in coordinates.
+  device pixels from `devicePixelRatio`; never bake in coordinates.
 - **Poll, don't sleep:** use `waitFor()` on an observable condition (selection
   state, handle count, frame position); reserve fixed pauses for gesture
   pacing (long-press hold, corner dwell).
@@ -122,16 +123,17 @@ ANDROID_SERIAL=emulator-5554 pnpm test:android
   paragraph at runtime and derives every gesture target from live layout, so
   any English fixture works regardless of fonts or screen size (hyphenation
   is on by default in the app).
-- **Serial only:** one device, one app — the config disables parallelism.
+- **Serial only:** one device, one app; the config disables parallelism.
 
 ### CI
 
 `.github/workflows/android-e2e.yml` runs the lane on an x86_64 emulator
-(ubuntu runner with KVM): it builds a **debug** APK for `x86_64` (no signing
+(Ubuntu runner with KVM): it builds a **debug** APK for `x86_64` (no signing
 secrets needed), boots a cached AVD via `reactivecircus/android-emulator-runner`,
 installs the APK, and runs `pnpm test:android`. It is intentionally not
 PR-blocking — it runs nightly, on `workflow_dispatch`, or when a PR gets the
-`e2e-android` label.
+`e2e-android` label. If that workflow is not enabled in a fork, run this lane
+on a local emulator or a dedicated mobile CI runner.
 
 ## E2E Tests (WDIO)
 

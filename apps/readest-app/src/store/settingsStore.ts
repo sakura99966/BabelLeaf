@@ -26,7 +26,6 @@ interface SettingsState {
    * Cleared by the panel after consumption. Format is panel-specific —
    * Integrations recognises 'kosync' | 'readwise' | 'hardcover' | 'opds'.
    */
-  requestedSubPage: string | null;
   setSettings: (settings: SystemSettings) => void;
   saveSettings: (envConfig: EnvConfigType, settings: SystemSettings) => Promise<void>;
   setSettingsDialogBookKey: (bookKey: string) => void;
@@ -34,7 +33,6 @@ interface SettingsState {
   setFontPanelView: (view: FontPanelView) => void;
   setActiveSettingsItemId: (id: string | null) => void;
   setRequestedPanel: (panel: string | null) => void;
-  setRequestedSubPage: (subPage: string | null) => void;
 
   applyUILanguage: (uiLanguage?: string) => void;
 }
@@ -46,7 +44,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   fontPanelView: 'main-fonts',
   activeSettingsItemId: null,
   requestedPanel: null,
-  requestedSubPage: null,
   setSettings: (settings) => set({ settings }),
   saveSettings: async (envConfig: EnvConfigType, settings: SystemSettings) => {
     const appService = await envConfig.getAppService();
@@ -60,7 +57,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setFontPanelView: (view) => set({ fontPanelView: view }),
   setActiveSettingsItemId: (id) => set({ activeSettingsItemId: id }),
   setRequestedPanel: (panel) => set({ requestedPanel: panel }),
-  setRequestedSubPage: (subPage) => set({ requestedSubPage: subPage }),
 
   applyUILanguage: (uiLanguage?: string) => {
     const locale = uiLanguage ? uiLanguage : navigator.language;

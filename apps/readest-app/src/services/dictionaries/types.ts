@@ -1,13 +1,13 @@
 /**
  * Pluggable dictionary provider model.
  *
- * Built-in providers (Wiktionary, Wikipedia) and importable providers
- * (StarDict, MDict) all implement {@link DictionaryProvider}. The
+ * Importable providers (StarDict, MDict, DICT, and Slob) implement
+ * {@link DictionaryProvider}. The
  * {@link DictionaryPopup} renders one tab per enabled provider in user-defined
  * order; each provider writes lookup output into a per-tab container.
  */
 
-export type DictionaryProviderKind = 'builtin' | 'stardict' | 'mdict' | 'dict' | 'slob' | 'web';
+export type DictionaryProviderKind = 'stardict' | 'mdict' | 'dict' | 'slob';
 
 export interface DictionaryLookupContext {
   /** Source language hint, e.g. book primary language code (`en`, `zh`). */
@@ -39,7 +39,7 @@ export type DictionaryLookupOutcome =
   | { ok: false; reason: 'empty' | 'unsupported' | 'error'; message?: string };
 
 export interface DictionaryProvider {
-  /** Stable id, e.g. `builtin:wiktionary`, `stardict:abc123`, `mdict:xyz`. */
+  /** Stable id, e.g. `stardict:abc123` or `mdict:xyz`. */
   id: string;
   kind: DictionaryProviderKind;
   /** Localized label shown in the tab strip. */
@@ -53,8 +53,9 @@ export interface DictionaryProvider {
 }
 
 /**
- * Persisted metadata for an imported dictionary. The binary files live on disk
- * under {@link BaseDir} `'Dictionaries'`/<id>/; only this metadata syncs.
+ * Persisted local metadata for an imported dictionary. The binary files live on disk
+ * under {@link BaseDir} `'Dictionaries'`/<id>/; this metadata stays in local
+ * application settings.
  */
 export interface ImportedDictionary {
   id: string;
@@ -62,25 +63,11 @@ export interface ImportedDictionary {
   /** Display name, derived from `.ifo` `bookname`, `.mdx` `Title`, slob `label`, or DICT `00databaseshort`. */
   name: string;
   /**
-   * Stable cross-device content-hash id derived from
-   * `partialMD5(primary) + byteSize + sortedFilenames`. Used as the
-   * `replica_id` for cross-device sync (see services/sync/adapters/dictionary.ts).
-   * Optional for legacy imports written before this field existed; the
-   * sync wiring treats absent contentId as "needs rehash before sync".
+   * Stable content hash derived from
+   * `partialMD5(primary) + byteSize + sortedFilenames`. It is used for local
+   * duplicate detection and remains optional for legacy imports.
    */
   contentId?: string;
-  /**
-   * Reincarnation token (uuid) minted when the user re-imports a file
-   * whose contentId matches a previously tombstoned replica row. Per
-   * remove-wins semantics, a tombstone never disappears at the merge
-   * level — clients interpret `reincarnation != null` as "alive again"
-   * (the original tombstone stays as history). Set only on the
-   * re-import after a delete. Also minted on explicit same-content live
-   * re-import when the local cache has no token, because another device
-   * may have tombstoned the server row while this device still sees the
-   * entry as live.
-   */
-  reincarnation?: string;
   /** Subdirectory under `'Dictionaries'` containing this bundle's files. */
   bundleDir: string;
   /** Filenames inside `bundleDir`. The exact set varies by `kind`. */
@@ -118,12 +105,11 @@ export interface ImportedDictionary {
   lang?: string;
   /** Wall-clock time of import (ms since epoch). */
   addedAt: number;
-  /** Soft-delete marker; `undefined` while available. */
+  /** Legacy soft-delete marker. Tombstoned records are discarded during local hydration. */
   deletedAt?: number;
   /**
-   * True when metadata is present (e.g. synced from another device) but the
-   * binary bundle is missing on this device. The settings UI surfaces a
-   * "Re-import" affordance; the popup hides the provider.
+   * True when persisted metadata remains but the local binary bundle is missing.
+   * The settings UI surfaces a "Re-import" affordance; the popup hides the provider.
    */
   unavailable?: boolean;
   /**
@@ -136,40 +122,14 @@ export interface ImportedDictionary {
   unsupportedReason?: string;
 }
 
-/**
- * A web-search "provider" template — a URL with a `%WORD%` placeholder
- * (URL-encoded substitution at lookup time). Built-in templates (Google,
- * Urban Dictionary, Merriam-Webster) are hardcoded in the registry and
- * reference the IDs in {@link BUILTIN_WEB_SEARCH_IDS}; user-added templates
- * live in {@link DictionarySettings.webSearches} with IDs of the form
- * `web:<uniqueId>`.
- *
- * Web-search providers don't fetch upstream — the popup just renders an
- * "Open in [name]" link that opens the resolved URL externally. Iframe
- * embedding is blocked by every major dictionary site (X-Frame-Options).
- */
-export interface WebSearchEntry {
-  id: string;
-  /** Display name shown in the tab strip and the settings list. */
-  name: string;
-  /** URL with `%WORD%` placeholder, e.g. `https://example.com/?q=%WORD%`. */
-  urlTemplate: string;
-  /** Soft-delete marker; only set on user-added entries. */
-  deletedAt?: number;
-}
-
+/** Persisted display settings for local and system dictionaries. */
 export interface DictionarySettings {
-  /** Provider id order shown in the popup tab strip. Includes builtin ids. */
+  /** Provider id order shown in the popup. Includes the system sentinel. */
   providerOrder: string[];
-  /** Per-id enable flag. Builtins seeded `true`. */
+  /** Per-id enable flag. */
   providerEnabled: Record<string, boolean>;
   /** Last-used tab id; `undefined` falls back to first enabled provider. */
   defaultProviderId?: string;
-  /**
-   * User-defined web search templates. Built-in templates (Google, Urban,
-   * Merriam-Webster) are hardcoded in the registry and not stored here.
-   */
-  webSearches?: WebSearchEntry[];
   /**
    * Font-size multiplier for the dictionary popup content (independent of the
    * main reading view, #4443). `1` = the default sizes; larger values scale
@@ -182,8 +142,6 @@ export interface DictionarySettings {
 
 /** Stable ids for the built-in providers. */
 export const BUILTIN_PROVIDER_IDS = {
-  wiktionary: 'builtin:wiktionary',
-  wikipedia: 'builtin:wikipedia',
   /**
    * "Sentinel" id for the OS-native dictionary (macOS Dictionary.app via the
    * `dict://` URL scheme; iOS `UIReferenceLibraryViewController`; Android
@@ -198,19 +156,3 @@ export const BUILTIN_PROVIDER_IDS = {
 } as const;
 
 export type BuiltinProviderId = (typeof BUILTIN_PROVIDER_IDS)[keyof typeof BUILTIN_PROVIDER_IDS];
-
-/**
- * Stable ids for the built-in web-search templates. The `web:builtin:*`
- * prefix lets the registry recognize and dispatch them without a settings
- * lookup; user-added templates live in `settings.webSearches` with ids of
- * the form `web:<uniqueId>`.
- */
-export const BUILTIN_WEB_SEARCH_IDS = {
-  google: 'web:builtin:google',
-  urban: 'web:builtin:urban',
-  merriamWebster: 'web:builtin:merriam-webster',
-  goodreads: 'web:builtin:goodreads',
-} as const;
-
-export type BuiltinWebSearchId =
-  (typeof BUILTIN_WEB_SEARCH_IDS)[keyof typeof BUILTIN_WEB_SEARCH_IDS];

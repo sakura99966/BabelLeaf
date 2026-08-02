@@ -45,7 +45,7 @@ describe('decideRsvpTtsPosition (slice 5, #3235)', () => {
     expect(result.nextState.hasWordPositions).toBe(true);
   });
 
-  test('sentence + following + same section → drive-estimator (non-Edge, no words seen)', () => {
+  test('sentence + following + same section → drive-estimator (no words seen)', () => {
     const result = decideRsvpTtsPosition(
       freshState(),
       detail({ kind: 'sentence', sequence: 3 }),

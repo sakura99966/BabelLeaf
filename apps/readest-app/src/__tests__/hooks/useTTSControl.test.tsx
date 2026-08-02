@@ -10,10 +10,6 @@ vi.mock('@/context/EnvContext', () => ({
   }),
 }));
 
-vi.mock('@/context/AuthContext', () => ({
-  useAuth: () => ({ user: null }),
-}));
-
 vi.mock('@/store/themeStore', () => ({
   useThemeStore: () => ({ isDarkMode: false }),
 }));
@@ -136,8 +132,7 @@ vi.mock('@/services/tts', () => ({
       setHighlightGranularity: vi.fn(),
       setLang: vi.fn(),
       setRate: vi.fn(),
-      setSentenceGap: vi.fn(),
-      supportsGapControl: vi.fn().mockReturnValue(false),
+      setParagraphGap: vi.fn(),
       setVoice: vi.fn(),
       setTargetLang: vi.fn(),
       speak: vi.fn(),
@@ -152,7 +147,9 @@ vi.mock('@/services/tts', () => ({
       getVoiceId: vi.fn().mockReturnValue(''),
       redispatchPosition: vi.fn(),
       ensureTimeline: vi.fn().mockResolvedValue(null),
+      supportsPlaybackInfo: vi.fn().mockReturnValue(true),
       getPlaybackInfo: vi.fn().mockReturnValue(null),
+      previewSeekTime: vi.fn(),
       seekToTime: vi.fn().mockResolvedValue(undefined),
       detachView: vi.fn(),
       attachView: vi.fn().mockResolvedValue(undefined),
@@ -732,59 +729,10 @@ describe('useTTSControl background session lifecycle', () => {
     );
     expect(liveController.attachView).toHaveBeenCalledWith(
       mockView,
-      expect.objectContaining({ bookKey: 'book-1' }),
+      expect.objectContaining({
+        preprocessCallback: expect.any(Function),
+        onSectionChange: expect.any(Function),
+      }),
     );
-  });
-});
-
-describe('useTTSControl gap control (handleSetSentenceGap / handleSupportsGapControl)', () => {
-  let hookResult: ReturnType<typeof useTTSControl> | null = null;
-
-  const CaptureHarness = () => {
-    hookResult = useTTSControl({ bookKey: 'book-1' });
-    return null;
-  };
-
-  beforeEach(() => {
-    ttsControllerInstances.length = 0;
-    pendingInitResolvers.length = 0;
-    hookResult = null;
-    mockSessionManager.claim.mockClear();
-    mockSessionManager.getSessionByHash.mockReturnValue(null);
-    mockSessionManager.getActiveSession.mockReturnValue(null);
-  });
-
-  afterEach(() => {
-    cleanup();
-  });
-
-  const startSession = async () => {
-    render(<CaptureHarness />);
-    await act(async () => {
-      const p = eventDispatcher.dispatch('tts-speak', { bookKey: 'book-1' });
-      for (let i = 0; i < 10; i++) await Promise.resolve();
-      while (pendingInitResolvers.length > 0) pendingInitResolvers.shift()!();
-      await p;
-    });
-    return ttsControllerInstances[0] as {
-      setSentenceGap: ReturnType<typeof vi.fn>;
-      supportsGapControl: ReturnType<typeof vi.fn>;
-      stop: ReturnType<typeof vi.fn>;
-      start: ReturnType<typeof vi.fn>;
-      state: string;
-    };
-  };
-
-  it('handleSetSentenceGap calls controller.setSentenceGap directly, without stop/start', async () => {
-    const controller = await startSession();
-    controller.state = 'playing';
-
-    act(() => {
-      hookResult!.handleSetSentenceGap(0.5);
-    });
-
-    expect(controller.setSentenceGap).toHaveBeenCalledWith(0.5);
-    expect(controller.stop).not.toHaveBeenCalled();
-    expect(controller.start).not.toHaveBeenCalled();
   });
 });

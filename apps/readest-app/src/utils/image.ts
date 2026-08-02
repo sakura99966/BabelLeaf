@@ -35,6 +35,25 @@ export function imageExtensionFromMime(mimeType: string): string {
   return base === 'jpeg' ? 'jpg' : base;
 }
 
+/**
+ * The local-first reader may render image data from imported books, but it
+ * must never fetch arbitrary remote cover URLs in the background. Tauri asset
+ * URLs and loopback custom protocols are local file transports.
+ */
+export function isLocalImageResource(url: string): boolean {
+  if (!url || url.startsWith('/')) return !!url;
+  try {
+    const parsed = new URL(url);
+    if (['asset:', 'blob:', 'data:', 'tauri:'].includes(parsed.protocol)) return true;
+    return (
+      (parsed.protocol === 'http:' || parsed.protocol === 'https:') &&
+      (parsed.hostname === 'localhost' || parsed.hostname.endsWith('.localhost'))
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Strictly increasing so two saves in the same millisecond still get distinct
 // names.
 let lastGalleryStamp = 0;
@@ -54,135 +73,7 @@ export function galleryFileName(filename: string, now = Date.now()): string {
   const d = new Date(lastGalleryStamp);
   const date = `${d.getFullYear()}${pad(d.getMonth() + 1, 2)}${pad(d.getDate(), 2)}`;
   const time = `${pad(d.getHours(), 2)}${pad(d.getMinutes(), 2)}${pad(d.getSeconds(), 2)}`;
-  return `readest-${date}-${time}-${pad(d.getMilliseconds(), 3)}${ext}`;
-}
-
-/**
- * Process book cover for Discord Rich Presence:
- * - Fit to 512x512 with transparent background
- * - Add Readest icon overlay at bottom right (10px padding)
- * - Return as JPEG blob
- */
-export async function processDiscordCover(coverUrl: string, iconUrl: string): Promise<Blob> {
-  const SIZE = 512;
-  const ICON_WIDTH = 224;
-  const ICON_HEIGHT = 182;
-  const PADDING = 10;
-
-  try {
-    const coverResponse = await fetch(coverUrl);
-    const coverBlob = await coverResponse.blob();
-    const coverImg = new Image();
-    coverImg.crossOrigin = 'anonymous';
-
-    const iconResponse = await fetch(iconUrl);
-    const iconBlob = await iconResponse.blob();
-    const iconImg = new Image();
-    iconImg.crossOrigin = 'anonymous';
-
-    return new Promise((resolve, reject) => {
-      let coverLoaded = false;
-      let iconLoaded = false;
-
-      const checkBothLoaded = () => {
-        if (!coverLoaded || !iconLoaded) return;
-
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-
-          if (!ctx) {
-            reject(new Error('Failed to get canvas context'));
-            return;
-          }
-
-          canvas.width = SIZE;
-          canvas.height = SIZE;
-
-          // Calculate cover dimensions to fit in 512x512
-          const aspectRatio = coverImg.width / coverImg.height;
-          let drawWidth, drawHeight, offsetX, offsetY;
-
-          if (aspectRatio > 1) {
-            // Wider than tall
-            drawWidth = SIZE;
-            drawHeight = SIZE / aspectRatio;
-            offsetX = 0;
-            offsetY = (SIZE - drawHeight) / 2;
-          } else {
-            // Taller than wide
-            drawHeight = SIZE;
-            drawWidth = SIZE * aspectRatio;
-            offsetX = (SIZE - drawWidth) / 2;
-            offsetY = 0;
-          }
-
-          // Draw cover image centered
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(coverImg, offsetX, offsetY, drawWidth, drawHeight);
-
-          // Draw icon at bottom right
-          ctx.drawImage(
-            iconImg,
-            SIZE - ICON_WIDTH - PADDING,
-            SIZE - ICON_HEIGHT - PADDING,
-            ICON_WIDTH,
-            ICON_HEIGHT,
-          );
-
-          // Convert to JPEG blob
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                resolve(blob);
-              } else {
-                reject(new Error('Failed to create blob'));
-              }
-            },
-            'image/jpeg',
-            0.9,
-          );
-        } catch (error) {
-          reject(new Error(`Failed to process cover: ${error}`));
-        }
-      };
-
-      coverImg.onload = () => {
-        coverLoaded = true;
-        checkBothLoaded();
-      };
-
-      iconImg.onload = () => {
-        iconLoaded = true;
-        checkBothLoaded();
-      };
-
-      coverImg.onerror = () => reject(new Error('Failed to load cover image'));
-      iconImg.onerror = () => reject(new Error('Failed to load icon image'));
-
-      const coverObjectUrl = URL.createObjectURL(coverBlob);
-      const iconObjectUrl = URL.createObjectURL(iconBlob);
-
-      coverImg.src = coverObjectUrl;
-      iconImg.src = iconObjectUrl;
-
-      coverImg.onload = function () {
-        URL.revokeObjectURL(coverObjectUrl);
-        coverLoaded = true;
-        checkBothLoaded();
-      };
-
-      iconImg.onload = function () {
-        URL.revokeObjectURL(iconObjectUrl);
-        iconLoaded = true;
-        checkBothLoaded();
-      };
-    });
-  } catch (error) {
-    console.error('Error processing Discord cover:', error);
-    throw error;
-  }
+  return `babelleaf-${date}-${time}-${pad(d.getMilliseconds(), 3)}${ext}`;
 }
 
 export async function fetchImageAsBase64(
@@ -194,6 +85,10 @@ export async function fetchImageAsBase64(
   } = {},
 ): Promise<string> {
   const { targetWidth = 256, format = 'image/jpeg', quality = 0.85 } = options;
+
+  if (!isLocalImageResource(url)) {
+    throw new Error('Only local image resources are supported');
+  }
 
   try {
     const response = await fetch(url);

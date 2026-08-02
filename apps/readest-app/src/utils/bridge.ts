@@ -31,15 +31,6 @@ export interface SetTextSelectionSuppressedRequest {
   suppressed: boolean;
 }
 
-export interface InstallPackageRequest {
-  path: string;
-}
-
-export interface InstallPackageResponse {
-  success: boolean;
-  error?: string;
-}
-
 export interface SetSystemUIVisibilityRequest {
   visible: boolean;
   darkMode: boolean;
@@ -149,15 +140,6 @@ export async function setTextSelectionSuppressed(
   await invoke('plugin:native-bridge|set_text_selection_suppressed', {
     payload: request,
   });
-}
-
-export async function installPackage(
-  request: InstallPackageRequest,
-): Promise<InstallPackageResponse> {
-  const result = await invoke<InstallPackageResponse>('plugin:native-bridge|install_package', {
-    payload: request,
-  });
-  return result;
 }
 
 export async function setSystemUIVisibility(
@@ -283,58 +265,8 @@ export async function captureWebviewRegion(
   });
 }
 
-// ── Sync passphrase keychain ────────────────────────────────────────────
-// Tauri-only. Wired into the TauriPassphraseStore (src/libs/crypto/
-// passphrase.ts) so the user's sync passphrase persists across app
-// launches via the OS keychain (macOS Keychain, Windows Credential
-// Manager, Linux libsecret, iOS Keychain, Android EncryptedSharedPrefs).
-
-export interface SetSyncPassphraseRequest {
-  passphrase: string;
-}
-
-export interface SyncPassphraseResponse {
-  success: boolean;
-  error?: string;
-}
-
-export interface GetSyncPassphraseResponse {
-  passphrase?: string;
-  error?: string;
-}
-
-export interface SyncKeychainAvailableResponse {
-  available: boolean;
-  error?: string;
-}
-
-export async function setSyncPassphrase(
-  request: SetSyncPassphraseRequest,
-): Promise<SyncPassphraseResponse> {
-  return invoke<SyncPassphraseResponse>('plugin:native-bridge|set_sync_passphrase', {
-    payload: request,
-  });
-}
-
-export async function getSyncPassphrase(): Promise<GetSyncPassphraseResponse> {
-  return invoke<GetSyncPassphraseResponse>('plugin:native-bridge|get_sync_passphrase');
-}
-
-export async function clearSyncPassphrase(): Promise<SyncPassphraseResponse> {
-  return invoke<SyncPassphraseResponse>('plugin:native-bridge|clear_sync_passphrase');
-}
-
-export async function isSyncKeychainAvailable(): Promise<SyncKeychainAvailableResponse> {
-  return invoke<SyncKeychainAvailableResponse>('plugin:native-bridge|is_sync_keychain_available');
-}
-
-// ── Keyed secure key-value store ─────────────────────────────────────────
-// Tauri-only. A generic, keyed secret store over the same OS keychain backends
-// as the sync passphrase above, so secrets that aren't the single sync
-// passphrase (the Google Drive OAuth token set, and any future cloud
-// provider's refresh token) get the same XSS-free cross-launch persistence
-// without each needing its own native command. Availability is the same probe
-// as `is_sync_keychain_available`.
+// Tauri-only generic secret storage backed by the operating system's secure
+// credential facility. BabelLeaf uses it for user-supplied translation keys.
 
 export interface SetSecureItemRequest {
   key: string;

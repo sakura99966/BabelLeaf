@@ -5,7 +5,7 @@
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
     <key>NSFaceIDUsageDescription</key>
-    <string>Readest uses Face ID to unlock the app.</string>
+    <string>BabelLeaf uses Face ID to unlock the app.</string>
     <key>LSSupportsOpeningDocumentsInPlace</key>
     <false/>
     <key>UIViewControllerBasedStatusBarAppearance</key>
@@ -51,7 +51,7 @@
         <string>Viewer</string>
         <key>LSItemContentTypes</key>
         <array>
-          <string>com.readest.fb2</string>
+          <string>io.github.sakura99966.babelleaf.fb2</string>
         </array>
       </dict>
 
@@ -64,7 +64,7 @@
         <string>Viewer</string>
         <key>LSItemContentTypes</key>
         <array>
-          <string>com.readest.cbz</string>
+          <string>io.github.sakura99966.babelleaf.cbz</string>
         </array>
       </dict>
 
@@ -155,7 +155,7 @@
 
       <dict>
         <key>UTTypeIdentifier</key>
-        <string>com.readest.fb2</string>
+        <string>io.github.sakura99966.babelleaf.fb2</string>
         <key>UTTypeDescription</key>
         <string>FB2 Document</string>
         <key>UTTypeConformsTo</key>
@@ -175,7 +175,7 @@
 
       <dict>
         <key>UTTypeIdentifier</key>
-        <string>com.readest.cbz</string>
+        <string>io.github.sakura99966.babelleaf.cbz</string>
         <key>UTTypeDescription</key>
         <string>CBZ Archive</string>
         <key>UTTypeConformsTo</key>
@@ -281,7 +281,7 @@
 
       <dict>
         <key>UTTypeIdentifier</key>
-        <string>com.readest.fb2</string>
+        <string>io.github.sakura99966.babelleaf.fb2</string>
         <key>UTTypeDescription</key>
         <string>FB2 Document</string>
         <key>UTTypeConformsTo</key>
@@ -301,7 +301,7 @@
 
       <dict>
         <key>UTTypeIdentifier</key>
-        <string>com.readest.cbz</string>
+        <string>io.github.sakura99966.babelleaf.cbz</string>
         <key>UTTypeDescription</key>
         <string>CBZ Archive</string>
         <key>UTTypeConformsTo</key>

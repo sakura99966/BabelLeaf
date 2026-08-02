@@ -91,7 +91,7 @@ export interface RsvpTtsSyncState {
 
 export interface RsvpTtsPositionDecision {
   // sync           → Edge word-level: controller.syncToCfi(cfi)
-  // drive-estimator→ non-Edge sentence: controller.driveEstimatedFromCfi(cfi)
+  // drive-estimator → sentence-only engine: controller.driveEstimatedFromCfi(cfi)
   // reextract      → different section: trigger re-extract, apply stash after
   // ignore         → drop (wrong book / stale seq / decoupled / malformed /
   //                  fixed-layout where sync is unsupported, decision D7)
@@ -272,7 +272,7 @@ const RSVPControl = forwardRef<RSVPControlHandle, RSVPControlProps>(function RSV
   const [startChoice, setStartChoice] = useState<RsvpStartChoice | null>(null);
   // Derived TTS-sync status for the overlay indicator (slice 8b, #3235).
   const [ttsSyncStatus, setTtsSyncStatus] = useState<TtsSyncStatus>('idle');
-  // True when the last accepted position was sentence-level (non-Edge), so
+  // True when the last accepted position was sentence-level, so
   // following is paced by the estimator — the indicator appends " · estimated".
   const [ttsEstimated, setTtsEstimated] = useState(false);
   // Whether TTS audio is currently engaged (playing or paused) for this book,

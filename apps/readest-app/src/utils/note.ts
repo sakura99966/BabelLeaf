@@ -11,7 +11,6 @@ export type NoteTemplateData = {
       cfi?: string;
       bookHash?: string;
       link?: string;
-      webLink?: string;
       appLink?: string;
       text: string;
       note?: string;

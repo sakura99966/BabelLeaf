@@ -51,7 +51,7 @@ export class SectionTimeline {
     if (Number.isFinite(rate) && rate > 0) this.#rate = rate;
   }
 
-  // Re-pull measured durations (playback and preload record them continuously)
+  // Re-pull measured durations recorded during playback
   // and rebuild the prefix sums.
   refresh(): void {
     const n = this.#sentences.length;

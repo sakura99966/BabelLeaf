@@ -4,7 +4,6 @@ import path from 'node:path';
 
 // Submodules skipped during worktree setup (shared via symlinks or pre-built)
 const SKIPPED_SUBMODULES = [
-  'apps/readest-app/.claude/skills/gstack', // shared via .claude symlink
   'packages/simplecc-wasm', // built assets already in public/vendor
 ];
 
@@ -29,7 +28,7 @@ let worktreePath: string;
 if (/^\d+$/.test(arg)) {
   // PR number -- fetch and set up remote tracking so `git push` works (even for forks)
   localBranch = `pr-${arg}`;
-  worktreePath = path.join(path.dirname(repoRoot), `readest-${localBranch}`);
+  worktreePath = path.join(path.dirname(repoRoot), `babelleaf-${localBranch}`);
 
   // Get PR metadata to determine the source repo and branch
   const prJson = execSync(
@@ -86,12 +85,12 @@ if (/^\d+$/.test(arg)) {
 } else {
   // Branch name -- slashes replaced with dashes for the directory name
   localBranch = arg;
-  worktreePath = path.join(path.dirname(repoRoot), `readest-${arg.replace(/\//g, '-')}`);
+  worktreePath = path.join(path.dirname(repoRoot), `babelleaf-${arg.replace(/\//g, '-')}`);
 
   if (fs.existsSync(worktreePath)) {
     console.error(`Worktree path already exists: ${worktreePath}`);
     console.error('Removing existing worktree...');
-    // Deinit only submodules we manage — skipped ones were never initialized
+    // Deinitialize only submodules we manage; skipped ones were never initialized.
     const initedSubs = execSync(
       'git config --file .gitmodules --get-regexp "submodule\\..*\\.path"',
       { encoding: 'utf8', cwd: worktreePath },
@@ -219,7 +218,7 @@ if (envFiles.length > 0) {
 const srcTarget = path.join(repoRoot, 'target');
 const dstTarget = path.join(worktreePath, 'target');
 if (fs.existsSync(srcTarget) && !fs.existsSync(dstTarget)) {
-  console.error('\n--- Symlinking src-tauri/target ---');
+  console.error('\n--- Linking shared Rust target directory ---');
   fs.symlinkSync(srcTarget, dstTarget, 'junction');
 }
 
@@ -230,7 +229,7 @@ if (fs.existsSync(androidGenDir)) {
   console.error('\n--- Initializing Tauri Android ---');
   fs.rmSync(androidGenDir, { recursive: true });
   execSync('pnpm tauri android init', { stdio: gitStdio, cwd: dstAppDir });
-  execSync('pnpm tauri icon ../../data/icons/readest-book.png', {
+  execSync('pnpm tauri icon src-tauri/icons/icon.png', {
     stdio: gitStdio,
     cwd: dstAppDir,
   });
@@ -240,18 +239,16 @@ if (fs.existsSync(androidGenDir)) {
   });
 }
 
-// Copy Tauri iOS gen from the bare repo, skipping rebuildable artifacts so
-// the worktree owns its own Xcode project. `project.yml` and the Xcode build
-// script walk up to `../../src` / `../../Cargo.toml`, which now resolve to
-// the worktree's Rust source instead of the bare repo's — so `pnpm tauri ios
-// dev` from a worktree actually builds the worktree's code. Symlinking
-// silently routed every iOS build through the bare repo, even when running
-// `pnpm tauri ios dev` from a worktree path.
+// Copy the generated Tauri iOS project from the primary worktree, skipping
+// rebuildable artifacts so the new worktree owns its Xcode project.
+// `project.yml` and the Xcode build script walk up to `../../src` /
+// `../../Cargo.toml`, which now resolve to the new worktree's Rust source.
+// Symlinking this directory would route builds through the primary worktree.
 //
 // Skipped: `build/` (~300 MB of Xcode derived output), `Externals/<arch>/
-// {debug,release}/` (Rust static libs — rebuilt against the worktree's
-// src-tauri), per-user Xcode state, and `Pods/` (defensive; Readest's iOS
-// uses SPM, not Cocoapods).
+// {debug,release}/` (Rust static libraries rebuilt against the worktree's
+// src-tauri), per-user Xcode state, and `Pods/` (defensive; BabelLeaf uses
+// Swift Package Manager rather than CocoaPods).
 const appleGenDir = path.join(genDir, 'apple');
 const srcAppleGen = path.join(srcAppDir, 'src-tauri', 'gen', 'apple');
 if (fs.existsSync(srcAppleGen) && !fs.existsSync(appleGenDir)) {
@@ -279,7 +276,7 @@ for (const sub of ['schemas', 'android/keystore.properties']) {
   const dst = path.join(genDir, sub);
   if (fs.existsSync(src) && !fs.existsSync(dst)) {
     console.error(`  Symlinking src-tauri/gen/${sub}`);
-    fs.symlinkSync(src, dst, 'junction');
+    fs.symlinkSync(src, dst, fs.statSync(src).isDirectory() ? 'junction' : 'file');
   }
 }
 

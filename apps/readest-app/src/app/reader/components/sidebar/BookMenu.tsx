@@ -8,7 +8,6 @@ import { useReaderStore } from '@/store/readerStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useSettingsStore } from '@/store/settingsStore';
 import { useParallelViewStore } from '@/store/parallelViewStore';
 import { eventDispatcher } from '@/utils/event';
 import { FIXED_LAYOUT_FORMATS } from '@/types/book';
@@ -27,7 +26,6 @@ interface BookMenuProps {
 const BookMenu: React.FC<BookMenuProps> = ({ menuClassName, setIsDropdownOpen }) => {
   const _ = useTranslation();
   const { envConfig } = useEnv();
-  const { settings } = useSettingsStore();
   const { bookKeys, recreateViewer, getViewSettings } = useReaderStore();
   const { getVisibleLibrary } = useLibraryStore();
   const { openParallelView } = useBooksManager();
@@ -92,26 +90,6 @@ const BookMenu: React.FC<BookMenuProps> = ({ menuClassName, setIsDropdownOpen })
     setProofreadRulesVisibility(true);
     setIsDropdownOpen?.(false);
   };
-  const handlePullKOSync = () => {
-    eventDispatcher.dispatch('pull-kosync', { bookKey: sideBarBookKey });
-    setIsDropdownOpen?.(false);
-  };
-  const handlePushKOSync = () => {
-    eventDispatcher.dispatch('push-kosync', { bookKey: sideBarBookKey });
-    setIsDropdownOpen?.(false);
-  };
-  const handlePushReadwise = () => {
-    eventDispatcher.dispatch('readwise-push-all', { bookKey: sideBarBookKey });
-    setIsDropdownOpen?.(false);
-  };
-  const handlePushHardcoverNotes = () => {
-    eventDispatcher.dispatch('hardcover-push-notes', { bookKey: sideBarBookKey });
-    setIsDropdownOpen?.(false);
-  };
-  const handlePushHardcoverProgress = () => {
-    eventDispatcher.dispatch('hardcover-push-progress', { bookKey: sideBarBookKey });
-    setIsDropdownOpen?.(false);
-  };
   // Routed through Annotator (per-book, long-lived) so that the
   // confirmation dialog isn't unmounted with the dropdown menu.
   const handleClearAnnotations = () => {
@@ -163,32 +141,6 @@ const BookMenu: React.FC<BookMenuProps> = ({ menuClassName, setIsDropdownOpen })
         ) : (
           <MenuItem label={_('Enter Parallel Read')} onClick={handleSetParallel} />
         ))}
-      {(settings.kosync.enabled || settings.readwise.enabled || settings.hardcover.enabled) && (
-        <hr aria-hidden='true' className='border-base-200 my-1' />
-      )}
-      {settings.kosync.enabled && (
-        <MenuItem label={_('KOReader Sync')} detailsOpen={false} buttonClass='py-2'>
-          <ul className='flex flex-col ps-1'>
-            <MenuItem label={_('Push Progress')} noIcon onClick={handlePushKOSync} />
-            <MenuItem label={_('Pull Progress')} noIcon onClick={handlePullKOSync} />
-          </ul>
-        </MenuItem>
-      )}
-      {settings.readwise.enabled && (
-        <MenuItem label={_('Readwise Sync')} detailsOpen={false} buttonClass='py-2'>
-          <ul className='flex flex-col ps-1'>
-            <MenuItem label={_('Push Highlights')} noIcon onClick={handlePushReadwise} />
-          </ul>
-        </MenuItem>
-      )}
-      {settings.hardcover.enabled && (
-        <MenuItem label={_('Hardcover Sync')} detailsOpen={false} buttonClass='py-2'>
-          <ul className='flex flex-col ps-1'>
-            <MenuItem label={_('Push Progress')} noIcon onClick={handlePushHardcoverProgress} />
-            <MenuItem label={_('Push Notes')} noIcon onClick={handlePushHardcoverNotes} />
-          </ul>
-        </MenuItem>
-      )}
       <hr aria-hidden='true' className='border-base-200 my-1' />
       <MenuItem label={_('Proofread')} onClick={showProofreadRulesWindow} />
       <hr aria-hidden='true' className='border-base-200 my-1' />

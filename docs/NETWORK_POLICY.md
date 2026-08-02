@@ -2,154 +2,141 @@
 
 ## Status
 
-This document defines the **release target** for BabelLeaf. Enforcement is
-currently in progress.
+This policy defines the current product boundary and the conditions required
+before a BabelLeaf build can be described as local-first. The application is
+still pre-release; source-level containment has been implemented, while clean
+runtime traffic capture and several credential/transport hardening checks
+remain release gates.
 
-The Readest-derived source tree still contains code and configuration capable
-of contacting Readest services and other third parties. Until the containment
-work below is implemented and tested, a development build must not be
-represented as fully local-only or privacy-hardened.
+## Policy
 
-## Policy statement
+BabelLeaf accepts reading content through local import and stores application
+state locally. The only intended external network operation is a translation
+request that the user explicitly starts and sends to an endpoint the user
+configured.
 
-BabelLeaf accepts reading content through local import and keeps application
-state local by default. The only intended external network capability is
-translation through an OpenAI-compatible endpoint that the user has explicitly
-configured and enabled.
+A translation endpoint may be:
 
-A configured endpoint may be:
+- a loopback service such as Ollama; or
+- a remote OpenAI-compatible HTTPS service selected by the user.
 
-- a loopback/local service such as Ollama or LM Studio; or
-- a remote HTTPS service chosen by the user.
+When a remote endpoint is used, the text included in that request leaves the
+device and is governed by the selected provider's terms and privacy policy.
+BabelLeaf does not implicitly trust or endorse a provider.
 
-No provider is implicitly trusted or endorsed. When a remote endpoint is used,
-the text required for the requested translation leaves the device and is
-subject to that provider's terms and privacy policy.
+## Capability matrix
 
-## Target capability matrix
+| Capability | Policy |
+| --- | --- |
+| Local document import and rendering | Allowed |
+| Local application assets and Tauri IPC | Allowed |
+| User-configured LLM translation | Allowed after explicit setup and user action |
+| Accounts and authentication | Denied |
+| Cloud file, progress, annotation, or settings synchronization | Denied |
+| OPDS/RSS catalogs, scraping, web clipping, and resource download | Denied |
+| Public sharing and send-to-device services | Denied |
+| Telemetry, analytics, and remote crash reporting | Denied |
+| Automatic update and release checks | Denied |
+| Online metadata or cover lookup | Denied |
+| Online dictionaries and pronunciation services | Denied |
+| Online or cloud TTS | Denied |
+| Remote fonts, scripts, styles, or document subresources | Denied |
+| Billing, payment, donation, and marketing calls | Denied |
 
-| Capability | Release target | Notes |
-| --- | --- | --- |
-| Local document import and rendering | Allowed | Local files only; remote resources embedded or referenced by a document must not be fetched |
-| Local application assets and Tauri IPC | Allowed | Includes loopback/custom-protocol traffic required internally by the desktop runtime |
-| User-configured LLM translation | Allowed, opt-in | Only after explicit configuration and a user translation action |
-| Account and authentication services | Denied | No BabelLeaf account in the first release |
-| Cloud/file/progress/annotation sync | Denied | Includes Readest, WebDAV, S3, Google Drive, OneDrive, KOReader, Readwise, and similar paths |
-| OPDS, RSS, web clipping, scraping, and resource search/download | Denied | Local import is the content acquisition boundary |
-| Public sharing and send-to-device services | Denied | Not part of the first release |
-| Telemetry, analytics, and remote crash reporting | Denied | Diagnostics should remain local unless a user deliberately exports them |
-| Automatic updates and release checks | Denied initially | A BabelLeaf-controlled update design may be proposed in a later ADR |
-| Online book metadata and cover lookup | Denied | Metadata editing and extraction should work locally |
-| Online Wikipedia/Wiktionary lookup | Denied | Offline dictionary adapters are the target |
-| Online or cloud TTS | Denied | Prefer bundled/local voices or operating-system speech APIs |
-| Remote fonts, scripts, styles, images, or document resources | Denied | Required assets must be bundled or locally installed |
-| Billing, donation, payment, and marketing calls | Denied | Not part of the reader runtime |
+External links opened by an explicit user action are not background runtime
+traffic. They must point to BabelLeaf or authoritative third-party
+documentation and must never include book text, credentials, tokens, or local
+paths.
 
-## LLM translation requirements
+## Translation transport requirements
 
-The translation transport must be narrower than a general-purpose HTTP bridge.
-Before release it must satisfy all of the following:
+1. Translation is disabled until the user supplies the required endpoint,
+   model, and credentials.
+2. Opening or importing a book must not send its content anywhere.
+3. Only `http` and `https` endpoints are accepted. URL credentials and
+   unsupported schemes are rejected.
+4. Remote plain HTTP requires a clear warning. Loopback HTTP is permitted for
+   local services.
+5. Redirects must not silently forward credentials or text to another origin.
+6. Input and output sizes, timeouts, concurrency, retries, and cancellation
+   must be bounded.
+7. The interface must identify the reading unit being sent and whether the
+   endpoint is local or remote.
+8. API keys must use a BabelLeaf-specific secure-storage namespace and must not
+   appear in ordinary settings, caches, logs, diagnostics, or exports.
+9. Translation output may be cached locally, but the original book must never
+   be overwritten.
+10. Provider failure must be reported directly. There is no inherited proxy or
+    automatic fallback provider.
 
-1. The user supplies the endpoint, model, and API key. Translation is disabled
-   until configuration is complete and the user enables it.
-2. API keys use platform secure storage. They must not be written to ordinary
-   settings, translation caches, logs, crash reports, analytics, exports, or
-   prompt histories.
-3. Only `http` and `https` endpoints are accepted. URL credentials, ambiguous
-   host syntax, and unsupported schemes are rejected. Remote plain HTTP should
-   require an explicit warning; loopback HTTP is expected for local servers.
-4. Redirects must not silently send credentials or document text to a
-   different origin.
-5. Requests have bounded input/output sizes, timeouts, cancellation, and
-   concurrency/rate controls.
-6. The UI shows what unit is being sent (for example, a selection or paragraph)
-   and whether the endpoint is local or remote.
-7. Translation is initiated by an explicit reading or queued-translation
-   action. Opening a book must not upload its content.
-8. Responses and reusable translation results are cached locally without the
-   API key. The original book is never overwritten.
-9. Endpoint errors are handled directly. BabelLeaf must not fall back to an
-   inherited provider or a developer-operated proxy.
+Future background chapter or full-book jobs require an explicit user-created
+job and remain subject to the same visibility, cancellation, and data-handling
+rules.
 
-Future background chapter/book jobs may run after an explicit user request,
-but they remain subject to the same endpoint, visibility, cancellation, and
-data-handling rules.
-
-## Imported-content requirements
+## Imported content
 
 Documents are untrusted input.
 
-- EPUB/HTML/CSS/SVG and metadata sanitization must prevent scripts and active
-  navigation from escaping the reader.
-- HTTP(S) images, fonts, styles, media, frames, and links referenced by a book
-  must not load automatically.
-- Archive extraction must defend against path traversal, decompression bombs,
-  excessive files, and unreasonable dimensions.
-- PDF and image decoding should use bounded resources and patched libraries.
-- Clicking an external link requires a clear user action and must not attach
-  LLM credentials or document contents.
+- EPUB, HTML, CSS, SVG, and metadata must be sanitized before display.
+- HTTP(S) images, fonts, styles, media, frames, and scripts referenced by a
+  document must not load automatically.
+- Archive handling must defend against path traversal, decompression bombs,
+  excessive entry counts, oversized entries, and unreasonable image
+  dimensions.
+- PDF and image decoding must use bounded resources and maintained libraries.
+- Opening an external link requires a clear user action and must not attach
+  credentials or document content.
 
-## Inherited Readest paths to contain
+## Source-level enforcement
 
-The migration audit identified, at minimum, these categories:
+The current cleanup removes inherited implementations and entry points for:
 
-- Readest/Supabase authentication and environment initialization;
-- cloud and third-party synchronization;
-- application updater endpoints and keys;
-- PostHog/Sentry telemetry;
-- OPDS/RSS, web clipping, public sharing, and send-to-device flows;
-- online metadata and cover lookup;
-- Wikipedia/Wiktionary and remote dictionary resources;
-- Edge/cloud speech and pronunciation;
-- remote fonts and remotely referenced book resources;
-- DeepL, Azure, Google, Yandex, or other legacy translation providers;
-- generic Rust HTTP, WebSocket, OAuth, download, and upload bridges;
-- broad Tauri HTTP permissions and content-security-policy origins.
+- Readest/Supabase accounts and authentication;
+- WebDAV, S3, Google Drive, OneDrive, KOReader, replica, settings, dictionary,
+  font, and texture synchronization;
+- OPDS, RSS, URL clipping, Send, browser-extension, and public-share flows;
+- Stripe, Apple/Google in-app purchase, subscription, and usage services;
+- PostHog, Sentry, Discord presence, and inherited updater behavior;
+- online metadata, Wikipedia, Wiktionary, and web-search dictionary providers;
+- Edge/WebSocket TTS, audio download caches, and remote font loading;
+- DeepL, Azure, Google, and Yandex translation providers;
+- the general-purpose reader chat/RAG assistant;
+- hosted API routes, Cloudflare/Docker deployment, app-store automation, and
+  upstream release assets.
 
-This list is a starting point, not proof of completeness.
+Automated contracts reject the return of key files, dependencies, native
+commands, permissions, identifiers, and fixed service endpoints.
 
-## Enforcement plan
+Tauri's HTTP and CSP permissions must accept dynamic destinations because the
+translation endpoint is user-defined. That platform permission is not itself
+authorization for arbitrary feature code to access the network. The source
+tree, provider registry, settings model, and runtime tests collectively define
+the narrower boundary.
 
-- [x] Add a typed product capability table whose BabelLeaf defaults deny every
-      external capability except `llmTranslation`.
-- [x] Gate the first audited startup paths: Supabase account restoration,
-      PostHog, Replica cloud synchronization, settings synchronization, and
-      inherited updater checks.
-- [x] Gate persisted transfer queues, third-party file-sync passes, OPDS
-      subscriptions, replica pull hooks, and inherited remote-font injection at
-      their startup and service boundaries.
-- [x] Hard-disable native Sentry initialization and DSN propagation for
-      BabelLeaf builds.
-- [ ] Complete the startup audit and gate every remaining denied service.
-- [ ] Remove denied UI entry points and reject the same operations at the
-      service/native boundary.
-- [x] Park inherited Readest publishing/deployment workflows and remove its
-      updater endpoints from the BabelLeaf Tauri configuration.
-- [x] Isolate the existing desktop secure-storage service name and park the
-      inherited NSIS thumbnail hook until BabelLeaf has a separately verified
-      CLSID and native installer.
-- [x] Remove custom deep-link registration until the BabelLeaf scheme and every
-      producing/consuming runtime path are migrated together.
-- [ ] Remove or fully isolate the remaining inherited authentication, sync,
-      billing, telemetry/crash-reporting, and update implementations.
-- [ ] Bundle or replace remote fonts and other runtime assets.
-- [ ] Block remote subresources from imported documents.
-- [ ] Replace legacy translators with a single controlled adapter.
-- [ ] Store LLM credentials under a BabelLeaf-specific secure-storage
-      namespace.
-- [ ] Reduce Tauri CSP and permissions to the origins and commands actually
-      required.
-- [ ] Add automated tests that fail on unapproved URLs, capabilities, redirects,
-      startup calls, and remote document resources.
-- [ ] Capture and inspect network traffic from clean install, import, reading,
-      lookup, TTS, translation, and shutdown test scenarios.
+## Release gates
 
-All items above must be completed or explicitly revised in a reviewed decision
-before a build is described as conforming to this policy.
+A release candidate must satisfy all of the following:
 
-## Reporting a network-policy issue
+- dependency installation from the committed lock file;
+- TypeScript, formatting, lint, unit, browser, Tauri, and Rust verification;
+- static scans for prohibited endpoints, packages, commands, and platform
+  capabilities;
+- tests for endpoint validation, redirects, cancellation, request bounds, and
+  credential handling;
+- tests proving imported documents cannot fetch remote subresources;
+- clean-profile traffic capture covering startup, import, reading, lookup,
+  speech, translation, and shutdown;
+- installation, responsive startup, and uninstall validation of the exact
+  Windows package;
+- equivalent native build and runtime validation before any macOS, Android, or
+  iOS release.
 
-Do not include book text, API keys, tokens, local paths, or private endpoint
-details in a public report. Follow the private reporting instructions in
-[`SECURITY.md`](../SECURITY.md) and provide the smallest redacted reproduction
-that demonstrates the unexpected connection.
+Until these gates pass, a development build must not be described as
+privacy-hardened or release-ready.
+
+## Reporting
+
+Do not place book text, API keys, access tokens, private endpoint details, or
+local paths in a public report. Follow [SECURITY.md](../SECURITY.md) and submit
+the smallest redacted reproduction that demonstrates the unexpected
+connection.

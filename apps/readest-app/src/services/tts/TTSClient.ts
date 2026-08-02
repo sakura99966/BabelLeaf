@@ -14,13 +14,8 @@ export interface TTSCapabilities {
   // Reports word-boundary timings during playback: the controller highlights
   // word-by-word and suppresses the sentence highlight.
   wordBoundaries: boolean;
-  // Has a real audio clock: getChunkPosition() returns positions, enabling
-  // the scrubber/seek via the section timeline.
+  // Audio is rendered through a clock owned by the application.
   mediaClock: boolean;
-  // The inter-sentence gap setting applies.
-  gapControl: boolean;
-  // Rate changes apply to in-flight audio without restarting the session.
-  liveRateChange: boolean;
 }
 
 export interface TTSClient {
@@ -28,7 +23,7 @@ export interface TTSClient {
   initialized: boolean;
   init(): Promise<boolean>;
   shutdown(): Promise<void>;
-  speak(ssml: string, signal: AbortSignal, preload?: boolean): AsyncIterable<TTSMessageEvent>;
+  speak(ssml: string, signal: AbortSignal): AsyncIterable<TTSMessageEvent>;
   pause(): Promise<boolean>;
   resume(): Promise<boolean>;
   stop(): Promise<void>;
@@ -40,17 +35,6 @@ export interface TTSClient {
   getVoices(lang: string): Promise<TTSVoicesGroup[]>;
   getGranularities(): TTSGranularity[];
   getCapabilities(): TTSCapabilities;
-  // Ordered sentence labels for a section (timeline enumeration), consumed
-  // by clients with a persistent cache to drive section-pack compaction.
-  registerSectionManifest?(section: number, marks: string[]): void;
-  // Cached per-ordinal audio durations (seconds) for a section under the
-  // current voice; empty when the client has no persistent cache.
-  getSectionDurations?(section: number): Promise<Map<number, number>>;
   getVoiceId(): string;
   getSpeakingLang(): string;
-  // Playback position within the currently audible sentence, in trimmed media
-  // seconds at rate 1.0, clamped to [0, sentenceDuration]. Only meaningful
-  // when capabilities.mediaClock is true; the section timeline treats absence
-  // as sentence-granularity positions.
-  getChunkPosition?(): number | null;
 }

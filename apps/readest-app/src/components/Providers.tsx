@@ -64,11 +64,6 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
       initSystemThemeListener(appService);
       appService.loadSettings().then((settings) => {
         const globalViewSettings = settings.globalViewSettings;
-        // Keep legacy profiles private when they are first opened by BabelLeaf.
-        if (settings.telemetryEnabled) {
-          settings.telemetryEnabled = false;
-          void appService.saveSettings(settings);
-        }
         applyUILanguage(globalViewSettings.uiLanguage);
         // Seed the customTextureStore with the disk-loaded textures (preserving
         // their saved ids) so the boot-time applyBackgroundTexture below can

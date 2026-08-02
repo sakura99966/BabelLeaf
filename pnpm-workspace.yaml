@@ -9,15 +9,12 @@ allowBuilds:
   geckodriver: true
   protobufjs: true
   sharp: true
-  workerd: true
 
 onlyBuiltDependencies:
   - sharp
 
 patchedDependencies:
-  '@ai-sdk/provider-utils@3.0.25': patches/@ai-sdk__provider-utils@3.0.25.patch
   '@ai-sdk/provider-utils@4.0.27': patches/@ai-sdk__provider-utils@4.0.27.patch
-  mdast-util-gfm-autolink-literal@2.0.1: patches/mdast-util-gfm-autolink-literal@2.0.1.patch
 
 overrides:
   glob: '>=11.1.0'
@@ -53,7 +50,6 @@ overrides:
   '@babel/runtime': '>=7.26.10'
   '@babel/helpers': '>=7.26.10'
   '@babel/core': '>=7.29.6'
-  mdast-util-gfm-autolink-literal: 2.0.1
   uuid: '>=14.0.0'
   ws: '>=8.21.0'
   '@emnapi/core': 1.8.1

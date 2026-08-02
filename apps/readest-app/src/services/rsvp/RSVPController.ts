@@ -16,7 +16,7 @@ const DEFAULT_CJK_CHAR_MODE = false;
 const DEFAULT_START_DELAY_SECONDS = 3;
 const START_DELAY_OPTIONS = [0, 1, 2, 3];
 
-// Slice 5 (#3235): non-Edge TTS estimator. Sentence-only voices give us one
+// Slice 5 (#3235): sentence-only TTS estimator. Sentence-only voices give us one
 // mark per sentence; RSVP jumps to the sentence's first word then SELF-PACES
 // forward through the following words at a rate estimated from the TTS voice
 // rate, until the next sentence mark snaps it back into alignment.
@@ -74,7 +74,7 @@ export class RSVPController extends EventTarget {
   // fires — the external driver owns advancement via syncToCfi.
   #externallyDriven = false;
 
-  // Slice 5 (#3235): non-Edge estimator pacing. Its own timer + the cap anchor
+  // Slice 5 (#3235): sentence-only estimator pacing. Its own timer + the cap anchor
   // it self-advances from. Kept separate from playbackTimer so the estimator and
   // the normal WPM auto-advance can never co-run; both are gated by
   // #externallyDriven anyway, but separate state keeps the cap bookkeeping clean.
@@ -801,10 +801,10 @@ export class RSVPController extends EventTarget {
     this.emitStateChange();
   }
 
-  // Slice 5 (#3235): cap exposed for the non-Edge estimator's tests + callers.
+  // Slice 5 (#3235): cap exposed for the sentence-only estimator's tests + callers.
   static readonly ESTIMATED_MAX_WORDS_AHEAD = ESTIMATED_MAX_WORDS_AHEAD;
 
-  // Slice 5 (#3235): estimated reading rate for a non-Edge TTS voice rate.
+  // Slice 5 (#3235): estimated reading rate for a sentence-only TTS voice.
   //   clamp(BASE * ttsRate, FLOOR, CEIL)
   static estimatedWpmFromRate(ttsRate: number): number {
     const wpm = ESTIMATED_TTS_WPM_BASE * (ttsRate || 1);
@@ -833,7 +833,7 @@ export class RSVPController extends EventTarget {
     }
   }
 
-  // Slice 5 (#3235): drive RSVP from a non-Edge sentence mark. Jumps to the
+  // Slice 5 (#3235): drive RSVP from a sentence-only mark. Jumps to the
   // sentence's first word (syncToCfi — corrects any drift; that's the "snap"),
   // then SELF-PACES forward through the following words on a timer at the given
   // estimated wpm. Capped at ESTIMATED_MAX_WORDS_AHEAD past the anchor so a fast

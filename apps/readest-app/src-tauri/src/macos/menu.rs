@@ -55,10 +55,7 @@ pub fn handle_menu_event(app: &AppHandle, event: &MenuEvent) {
     if event.id() == "open_file" {
         handle_open_file(app);
     } else if event.id() == "babelleaf_home" {
-        let _ = opener.open_url(
-            "https://github.com/sakura99966/BabelLeaf",
-            None::<&str>,
-        );
+        let _ = opener.open_url("https://github.com/sakura99966/BabelLeaf", None::<&str>);
     } else if event.id() == "report_issue" {
         let _ = opener.open_url(
             "https://github.com/sakura99966/BabelLeaf/issues",

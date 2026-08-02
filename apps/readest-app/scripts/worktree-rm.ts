@@ -1,7 +1,7 @@
 import { execSync, type StdioOptions } from 'node:child_process';
 import path from 'node:path';
 
-const SKIPPED_SUBMODULES = ['apps/readest-app/.claude/skills/gstack', 'packages/simplecc-wasm'];
+const SKIPPED_SUBMODULES = ['packages/simplecc-wasm'];
 
 const arg = process.argv[2];
 if (!arg) {
@@ -15,9 +15,9 @@ const gitStdio: StdioOptions = ['inherit', process.stderr, process.stderr];
 // Resolve worktree path from the argument
 let dirName: string;
 if (/^\d+$/.test(arg)) {
-  dirName = `readest-pr-${arg}`;
+  dirName = `babelleaf-pr-${arg}`;
 } else {
-  dirName = `readest-${arg.replace(/\//g, '-')}`;
+  dirName = `babelleaf-${arg.replace(/\//g, '-')}`;
 }
 const worktreePath = path.join(path.dirname(repoRoot), dirName);
 
@@ -31,7 +31,7 @@ if (!found) {
 
 console.error(`Removing worktree: ${worktreePath}`);
 
-// Deinit only submodules we manage — skipped ones were never initialized
+// Deinitialize only submodules we manage; skipped ones were never initialized.
 const initedSubs = execSync('git config --file .gitmodules --get-regexp "submodule\\..*\\.path"', {
   encoding: 'utf8',
   cwd: worktreePath,

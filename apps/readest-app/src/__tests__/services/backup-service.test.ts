@@ -254,12 +254,6 @@ describe('reviveRestoredBooks', () => {
     expect(revived[0]!.book.updatedAt).toBe(future + 1);
   });
 
-  it('clears syncedAt so the next push re-uploads the book', () => {
-    const revived = [makeRevived({ hash: 'a', updatedAt: 100, syncedAt: 999 })];
-    reviveRestoredBooks(revived, NOW);
-    expect(revived[0]!.book.syncedAt).toBeNull();
-  });
-
   it('restores download state from the backup record', () => {
     const revived = [
       makeRevived(

@@ -7,22 +7,6 @@ use crate::NativeBridgeExt;
 use crate::Result;
 
 #[command]
-pub(crate) async fn auth_with_safari<R: Runtime>(
-    app: AppHandle<R>,
-    payload: AuthRequest,
-) -> Result<AuthResponse> {
-    app.native_bridge().auth_with_safari(payload)
-}
-
-#[command]
-pub(crate) async fn auth_with_custom_tab<R: Runtime>(
-    app: AppHandle<R>,
-    payload: AuthRequest,
-) -> Result<AuthResponse> {
-    app.native_bridge().auth_with_custom_tab(payload)
-}
-
-#[command]
 pub(crate) async fn copy_uri_to_path<R: Runtime>(
     app: AppHandle<R>,
     payload: CopyURIRequest,
@@ -52,14 +36,6 @@ pub(crate) async fn set_text_selection_suppressed<R: Runtime>(
     payload: SetTextSelectionSuppressedRequest,
 ) -> Result<()> {
     app.native_bridge().set_text_selection_suppressed(payload)
-}
-
-#[command]
-pub(crate) async fn install_package<R: Runtime>(
-    app: AppHandle<R>,
-    payload: InstallPackageRequest,
-) -> Result<InstallPackageResponse> {
-    app.native_bridge().install_package(payload)
 }
 
 #[command]
@@ -101,44 +77,6 @@ pub(crate) async fn lock_screen_orientation<R: Runtime>(
 }
 
 #[command]
-pub(crate) async fn iap_is_available<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<IAPIsAvailableResponse> {
-    app.native_bridge().iap_is_available()
-}
-
-#[command]
-pub(crate) async fn iap_initialize<R: Runtime>(
-    app: AppHandle<R>,
-    payload: IAPInitializeRequest,
-) -> Result<IAPInitializeResponse> {
-    app.native_bridge().iap_initialize(payload)
-}
-
-#[command]
-pub(crate) async fn iap_fetch_products<R: Runtime>(
-    app: AppHandle<R>,
-    payload: IAPFetchProductsRequest,
-) -> Result<IAPFetchProductsResponse> {
-    app.native_bridge().iap_fetch_products(payload)
-}
-
-#[command]
-pub(crate) async fn iap_purchase_product<R: Runtime>(
-    app: AppHandle<R>,
-    payload: IAPPurchaseProductRequest,
-) -> Result<IAPPurchaseProductResponse> {
-    app.native_bridge().iap_purchase_product(payload)
-}
-
-#[command]
-pub(crate) async fn iap_restore_purchases<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<IAPRestorePurchasesResponse> {
-    app.native_bridge().iap_restore_purchases()
-}
-
-#[command]
 pub(crate) async fn get_system_color_scheme<R: Runtime>(
     app: AppHandle<R>,
 ) -> Result<GetSystemColorSchemeResponse> {
@@ -172,14 +110,6 @@ pub(crate) async fn get_external_sdcard_path<R: Runtime>(
     app: AppHandle<R>,
 ) -> Result<GetExternalSDCardPathResponse> {
     app.native_bridge().get_external_sdcard_path()
-}
-
-#[command]
-pub(crate) async fn open_external_url<R: Runtime>(
-    app: AppHandle<R>,
-    payload: OpenExternalUrlRequest,
-) -> Result<OpenExternalUrlResponse> {
-    app.native_bridge().open_external_url(payload)
 }
 
 /// See [`ShowLookupPopoverRequest`] in `models.rs` for platform-by-
@@ -216,46 +146,10 @@ pub(crate) async fn select_directory<R: Runtime>(
 }
 
 #[command]
-pub(crate) async fn get_storefront_region_code<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<GetStorefrontRegionCodeResponse> {
-    app.native_bridge().get_storefront_region_code()
-}
-
-#[command]
 pub(crate) async fn request_manage_storage_permission<R: Runtime>(
     app: AppHandle<R>,
 ) -> Result<RequestManageStoragePermissionResponse> {
     app.native_bridge().request_manage_storage_permission()
-}
-
-#[command]
-pub(crate) async fn set_sync_passphrase<R: Runtime>(
-    app: AppHandle<R>,
-    payload: SetSyncPassphraseRequest,
-) -> Result<SyncPassphraseResponse> {
-    app.native_bridge().set_sync_passphrase(payload)
-}
-
-#[command]
-pub(crate) async fn get_sync_passphrase<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<GetSyncPassphraseResponse> {
-    app.native_bridge().get_sync_passphrase()
-}
-
-#[command]
-pub(crate) async fn clear_sync_passphrase<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<SyncPassphraseResponse> {
-    app.native_bridge().clear_sync_passphrase()
-}
-
-#[command]
-pub(crate) async fn is_sync_keychain_available<R: Runtime>(
-    app: AppHandle<R>,
-) -> Result<SyncKeychainAvailableResponse> {
-    app.native_bridge().is_sync_keychain_available()
 }
 
 #[command]

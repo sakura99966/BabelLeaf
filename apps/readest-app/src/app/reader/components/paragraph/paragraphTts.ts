@@ -75,8 +75,8 @@ export const computeParagraphHighlightOffsets = (
 
 export type ParagraphTtsHighlightAction = 'word' | 'sentence' | 'skip';
 
-// Decide what to highlight for a `tts-position` event (#3235). Edge TTS emits
-// BOTH a per-sentence mark and per-word boundaries; once words have been seen we
+// Decide what to highlight for a `tts-position` event (#3235). Engines may emit
+// both a per-sentence mark and per-word boundaries; once words have been seen we
 // keep the fine-grained word highlight and skip the coarse sentence event so the
 // whole sentence doesn't flicker over the current word. Engines without word
 // boundaries (WebSpeech/Native) only emit sentence events → sentence highlight.

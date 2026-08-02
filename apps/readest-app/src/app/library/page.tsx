@@ -34,7 +34,6 @@ import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { useUICSS } from '@/hooks/useUICSS';
-import { useDemoBooks } from './hooks/useDemoBooks';
 import { useAutoImportFolders } from './hooks/useAutoImportFolders';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useBackgroundTexture } from '@/hooks/useBackgroundTexture';
@@ -201,7 +200,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
 
   const iconSize = useResponsiveSize(18);
   const viewSettings = settings.globalViewSettings;
-  const demoBooks = useDemoBooks();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const handleScrollerRef = useCallback((el: HTMLDivElement | null) => {
     scrollRef.current = el;
@@ -443,7 +441,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
               books: libraryBooks,
               transient: temp,
             },
-            { appService, settings, isLoggedIn: false },
+            { appService, settings },
           );
           if (book) {
             bookIds.push(book.hash);
@@ -613,23 +611,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     }
   }, [libraryBooks, searchParams, settings.libraryGroupBy]);
 
-  useEffect(() => {
-    if (demoBooks.length > 0 && libraryLoaded) {
-      const newLibrary = [...libraryBooks];
-      for (const book of demoBooks) {
-        const idx = newLibrary.findIndex((b) => b.hash === book.hash);
-        if (idx === -1) {
-          newLibrary.push(book);
-        } else {
-          newLibrary[idx] = book;
-        }
-      }
-      setLibrary(newLibrary);
-      appService?.saveLibraryBooks(newLibrary);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demoBooks, libraryLoaded]);
-
   const importBooks = async (
     files: SelectedFile[],
     groupId?: string,
@@ -700,7 +681,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
             groupId: resolvedGroupId,
             groupName: resolvedGroupName,
           },
-          { appService, settings: liveSettings, isLoggedIn: false, appBooksPrefix },
+          { appService, settings: liveSettings, appBooksPrefix },
         );
         if (!book) return null;
         successfulImports.push(book.title);
