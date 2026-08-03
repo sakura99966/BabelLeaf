@@ -69,6 +69,12 @@ export interface TTSViewBindings {
   onSectionChange?: (sectionIndex: number) => Promise<void>;
 }
 
+/** Optional dependency-injection seam used by browser and platform tests. */
+export type TTSClientFactory = (
+  controller: TTSController,
+  kind: 'web' | 'native',
+) => TTSClient | null;
+
 // Node filter shared by the live TTS instance and the timeline enumeration —
 // the two MUST segment identically or timeline sentences drift from marks.
 const createTTSNodeFilter = () =>
@@ -174,13 +180,14 @@ export class TTSController extends EventTarget {
     view: FoliateView,
     preprocessCallback?: (ssml: string) => Promise<string>,
     onSectionChange?: (sectionIndex: number) => Promise<void>,
+    clientFactory?: TTSClientFactory,
   ) {
     super();
-    this.ttsWebClient = new WebSpeechClient(this);
+    this.ttsWebClient = clientFactory?.(this, 'web') ?? new WebSpeechClient(this);
     // Native TTS is backed by Android TextToSpeech and iOS AVSpeechSynthesizer.
     // TODO: implement native TTS client for desktop platforms.
     if (appService?.isAndroidApp || appService?.isIOSApp) {
-      this.ttsNativeClient = new NativeTTSClient(this);
+      this.ttsNativeClient = clientFactory?.(this, 'native') ?? new NativeTTSClient(this);
     }
     this.ttsClient = this.ttsWebClient;
     this.appService = appService;

@@ -119,11 +119,6 @@ export function useTextTranslation(
     const observer = createTranslationObserver();
     observerRef.current = observer;
     const nodes = walkTextNodes(view, ['pre', 'code', 'math']);
-    console.log(
-      'Observing text nodes for translation:',
-      nodes.length,
-      // nodes.map((n) => n.textContent),
-    );
     allTextNodes.current = nodes;
     nodes.forEach((el) => observer.observe(el));
   };
@@ -315,8 +310,8 @@ export function useTextTranslation(
         el.appendChild(wrapper);
         translatedElements.current.push(el);
       });
-    } catch (err) {
-      console.warn('Translation failed:', err);
+    } catch {
+      console.warn('Translation failed');
     }
   };
 
@@ -352,7 +347,6 @@ export function useTextTranslation(
       }
       const { startIndex, endIndex } = findNodeIndicesInRange(range, nodes);
       if (startIndex === -1) {
-        console.log('Range not found in text nodes');
         return;
       }
       const beforeContext = 2;

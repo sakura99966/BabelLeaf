@@ -11,6 +11,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import {
   ensureSharedAudioContext,
   TTSController,
+  type TTSClientFactory,
   TTSHighlightOptions,
   TTSVoicesGroup,
 } from '@/services/tts';
@@ -27,9 +28,14 @@ import { getBookHashFromKey, ttsSessionManager } from '@/services/tts/TTSSession
 interface UseTTSControlProps {
   bookKey: string;
   onRequestHidePanel?: () => void;
+  ttsClientFactory?: TTSClientFactory;
 }
 
-export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProps) => {
+export const useTTSControl = ({
+  bookKey,
+  onRequestHidePanel,
+  ttsClientFactory,
+}: UseTTSControlProps) => {
   const _ = useTranslation();
   const { appService } = useEnv();
   const { isDarkMode } = useThemeStore();
@@ -768,6 +774,7 @@ export const useTTSControl = ({ bookKey, onRequestHidePanel }: UseTTSControlProp
           view,
           preprocessSSMLForTTS,
           handleSectionChange,
+          ttsClientFactory,
         );
         ttsControllerRef.current = ttsController;
         setTtsController(ttsController);

@@ -120,6 +120,10 @@ jobs:
         working-directory: apps/readest-app
         run: pnpm build
 
+      - name: check generated output contracts
+        working-directory: apps/readest-app
+        run: pnpm check:all
+
   test_app:
     runs-on: ubuntu-latest
     strategy:
@@ -311,10 +315,43 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  windows_browser_tests:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: 'true'
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+
+      - name: setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: install dependencies
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm setup-vendors
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm exec playwright install chromium
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: run browser-backed application tests
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: pnpm test:browser
+
   ci_gate:
     name: required-checks
     if: ${{ always() }}
-    needs: [rust_lint, check_app, test_app, build_tauri_app, windows_installer_smoke]
+    needs: [rust_lint, check_app, test_app, build_tauri_app, windows_installer_smoke, windows_browser_tests]
     runs-on: ubuntu-latest
     steps:
       - name: verify required job results
@@ -324,13 +361,14 @@ jobs:
           TEST_APP_RESULT: ${{ needs.test_app.result }}
           BUILD_TAURI_RESULT: ${{ needs.build_tauri_app.result }}
           WINDOWS_SMOKE_RESULT: ${{ needs.windows_installer_smoke.result }}
+          WINDOWS_BROWSER_RESULT: ${{ needs.windows_browser_tests.result }}
         run: |
           # rust_lint is intentionally allowed to skip when no native files changed.
           if [ "$RUST_LINT_RESULT" != "success" ] && [ "$RUST_LINT_RESULT" != "skipped" ]; then
             echo "rust_lint: $RUST_LINT_RESULT"
             exit 1
           fi
-          for result in "$CHECK_APP_RESULT" "$TEST_APP_RESULT" "$BUILD_TAURI_RESULT" "$WINDOWS_SMOKE_RESULT"; do
+          for result in "$CHECK_APP_RESULT" "$TEST_APP_RESULT" "$BUILD_TAURI_RESULT" "$WINDOWS_SMOKE_RESULT" "$WINDOWS_BROWSER_RESULT"; do
             if [ "$result" != "success" ]; then
               echo "required job result: $result"
               exit 1

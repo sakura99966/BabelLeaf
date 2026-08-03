@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode, RefObject } from 'react';
 
@@ -8,7 +8,10 @@ import { FoliateView, wrappedFoliateView } from '@/types/view';
 import type { Book, BookConfig, PageInfo, ViewSettings } from '@/types/book';
 import type { FileSystem } from '@/types/system';
 import type { TTSClient, TTSMessageEvent } from '@/services/tts/TTSClient';
+import type { TTSClientFactory } from '@/services/tts/TTSController';
 import type { SystemSettings } from '@/types/settings';
+import { EnvContextProvider } from '@/context/EnvContext';
+import type { EnvConfigType } from '@/services/environment';
 import { getDefaultViewSettings } from '@/services/settingsService';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
@@ -69,23 +72,14 @@ function makeMockTTSClient(name: string): TTSClient {
   };
 }
 
-vi.mock('@/services/tts/WebSpeechClient', () => ({
-  WebSpeechClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    Object.assign(this, makeMockTTSClient('web'));
-  }),
-}));
-vi.mock('@/services/tts/NativeTTSClient', () => ({
-  NativeTTSClient: vi.fn().mockImplementation(function (this: Record<string, unknown>) {
-    Object.assign(this, makeMockTTSClient('native'));
-  }),
-}));
+const testTTSClientFactory: TTSClientFactory = (_controller, kind) => makeMockTTSClient(kind);
 
-// useEnv throws outside its provider; stub it as a test-side module mock.
 // A null appService exercises the web/desktop code paths in useTTSControl.
-vi.mock('@/context/EnvContext', () => ({
-  useEnv: () => ({ envConfig: {}, appService: null }),
-  EnvProvider: ({ children }: { children: ReactNode }) => children,
-}));
+const TestEnvProvider = ({ children }: { children: ReactNode }) => (
+  <EnvContextProvider value={{ envConfig: {} as EnvConfigType, appService: null }}>
+    {children}
+  </EnvContextProvider>
+);
 // ---------------------------------------------------------------------------
 // Fixture: sample-alice.epub spine (all linear), 0-based section indices:
 //   0 cover · 1 title · 2 about · 3 main0=Ch1 · 4 main1=Ch2 · 5 main2=Ch3
@@ -274,7 +268,12 @@ describe('TTS auto-advance across a chapter boundary (browser e2e)', () => {
     expect(view.renderer.primaryIndex).toBe(CH4_SECTION_INDEX);
     expect(useReaderStore.getState().getProgress(BOOK_KEY)?.sectionLabel).toMatch(/Chapter 4/);
 
-    const { result, unmount } = renderHook(() => useTTSControl({ bookKey: BOOK_KEY }));
+    const { result, unmount } = renderHook(
+      () => useTTSControl({ bookKey: BOOK_KEY, ttsClientFactory: testTTSClientFactory }),
+      {
+        wrapper: TestEnvProvider,
+      },
+    );
 
     // Start TTS at the last paragraph of Ch4 (index pins the start section).
     await act(async () => {
@@ -370,7 +369,10 @@ describe('TTS auto-advance across a chapter boundary (browser e2e)', () => {
     eventDispatcher.on('tts-position', onPosition);
     eventDispatcher.on('tts-playback-state', onPlaybackState);
 
-    const { unmount } = renderHook(() => useTTSControl({ bookKey: BOOK_KEY }));
+    const { unmount } = renderHook(
+      () => useTTSControl({ bookKey: BOOK_KEY, ttsClientFactory: testTTSClientFactory }),
+      { wrapper: TestEnvProvider },
+    );
 
     try {
       await act(async () => {
@@ -501,8 +503,13 @@ describe('TTS auto-advance across a chapter boundary (browser e2e)', () => {
     // Mount the two hooks in SEPARATE React roots (separate renderHook calls)
     // so a store write from one doesn't synchronously re-enter the other's
     // render commit — mirrors how the app mounts them in distinct components.
-    const tts = renderHook(() => useTTSControl({ bookKey: BOOK_KEY }));
-    const para = renderHook(() => useParagraphMode({ bookKey: BOOK_KEY, viewRef }));
+    const tts = renderHook(
+      () => useTTSControl({ bookKey: BOOK_KEY, ttsClientFactory: testTTSClientFactory }),
+      { wrapper: TestEnvProvider },
+    );
+    const para = renderHook(() => useParagraphMode({ bookKey: BOOK_KEY, viewRef }), {
+      wrapper: TestEnvProvider,
+    });
     const ttsApi = () => tts.result.current;
     const paragraphApi = () => para.result.current;
     const unmount = () => {

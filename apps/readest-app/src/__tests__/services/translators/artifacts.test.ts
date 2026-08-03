@@ -5,6 +5,7 @@ import {
   getTranslationArtifactPath,
   parseTranslationArtifact,
   serializeTranslationArtifact,
+  TRANSLATION_ARTIFACT_BASE,
   TranslationArtifactStore,
   upsertTranslationSegments,
 } from '@/services/translators/artifacts';
@@ -89,23 +90,39 @@ describe('translation artifacts', () => {
     ).toThrow('source changed');
   });
 
-  test('stores artifacts under Cache and recovers through the safe JSON path', async () => {
+  test('stores artifacts under durable Data and recovers through the safe JSON path', async () => {
     const { files, fs } = makeFileSystem();
     const store = new TranslationArtifactStore(fs);
     const artifact = makeArtifact();
 
     await store.save(artifact);
     const path = getTranslationArtifactPath(artifact);
-    expect(fs.createDir).toHaveBeenCalledWith('translation-artifacts', 'Cache', true);
-    expect(files.has(`Cache/${path}`)).toBe(true);
-    expect(files.has(`Cache/${path}.bak`)).toBe(true);
+    expect(fs.createDir).toHaveBeenCalledWith(
+      'translation-artifacts',
+      TRANSLATION_ARTIFACT_BASE,
+      true,
+    );
+    expect(files.has(`${TRANSLATION_ARTIFACT_BASE}/${path}`)).toBe(true);
+    expect(files.has(`${TRANSLATION_ARTIFACT_BASE}/${path}.bak`)).toBe(true);
     await expect(store.load(artifact)).resolves.toMatchObject({ bookHash: 'book/one' });
 
-    files.set(`Cache/${path}`, '{broken');
+    files.set(`${TRANSLATION_ARTIFACT_BASE}/${path}`, '{broken');
     await expect(store.load(artifact)).resolves.toMatchObject({ bookHash: 'book/one' });
     await store.remove(artifact);
+    expect(files.has(`${TRANSLATION_ARTIFACT_BASE}/${path}`)).toBe(false);
+    expect(files.has(`${TRANSLATION_ARTIFACT_BASE}/${path}.bak`)).toBe(false);
+  });
+
+  test('migrates a 0.2.1 Cache artifact into durable Data storage', async () => {
+    const { files, fs } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = makeArtifact();
+    const path = getTranslationArtifactPath(artifact);
+    files.set(`Cache/${path}`, serializeTranslationArtifact(artifact));
+
+    await expect(store.load(artifact)).resolves.toMatchObject({ bookHash: 'book/one' });
+    expect(files.has(`${TRANSLATION_ARTIFACT_BASE}/${path}`)).toBe(true);
     expect(files.has(`Cache/${path}`)).toBe(false);
-    expect(files.has(`Cache/${path}.bak`)).toBe(false);
   });
 
   test('rejects unsupported schema versions', () => {

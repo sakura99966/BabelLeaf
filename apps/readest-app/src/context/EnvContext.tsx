@@ -5,7 +5,7 @@ import { EnvConfigType } from '../services/environment';
 import { AppService } from '@/types/system';
 import env from '../services/environment';
 
-interface EnvContextType {
+export interface EnvContextType {
   envConfig: EnvConfigType;
   appService: AppService | null;
 }
@@ -31,6 +31,19 @@ export const EnvProvider = ({ children }: { children: ReactNode }) => {
   const value = useMemo(() => ({ envConfig, appService }), [envConfig, appService]);
   return <EnvContext.Provider value={value}>{children}</EnvContext.Provider>;
 };
+
+/**
+ * Supplies an already-created environment value. Production uses EnvProvider;
+ * this narrow provider also gives browser tests a deterministic local-only
+ * environment without relying on module mocks across browser workers.
+ */
+export const EnvContextProvider = ({
+  value,
+  children,
+}: {
+  value: EnvContextType;
+  children: ReactNode;
+}) => <EnvContext.Provider value={value}>{children}</EnvContext.Provider>;
 
 export const useEnv = (): EnvContextType => {
   const context = useContext(EnvContext);

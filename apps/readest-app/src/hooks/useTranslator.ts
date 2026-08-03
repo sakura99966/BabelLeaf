@@ -1,10 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import {
-  getTranslator,
-  getTranslators,
-  isTranslatorAvailable,
-  type TranslatorName,
-} from '@/services/translators';
+import { getTranslator, getTranslators, type TranslatorName } from '@/services/translators';
 import { getFromCache, storeInCache, UseTranslatorOptions } from '@/services/translators';
 import { polish, preprocess } from '@/services/translators';
 import { getLocale } from '@/utils/misc';
@@ -26,12 +21,9 @@ export function useTranslator({
   }, [provider, sourceLang, targetLang]);
 
   useEffect(() => {
-    const availableTranslators = getTranslators().filter(isTranslatorAvailable);
-    const selectedTranslator =
-      availableTranslators.find((t) => t.name === provider) ||
-      availableTranslators[0] ||
-      getTranslator(provider) ||
-      getTranslators()[0];
+    // Keep the user's explicit provider selection. Falling back to another
+    // configured provider could send book text to an unintended service.
+    const selectedTranslator = getTranslator(provider);
     if (!selectedTranslator) {
       setTransltor(undefined);
       return;

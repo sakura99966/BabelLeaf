@@ -125,14 +125,6 @@
     "process:allow-exit",
     "process:allow-restart",
     "opener:default",
-    {
-      "identifier": "opener:allow-open-url",
-      "allow": [
-        {
-          "url": "alipays:*"
-        }
-      ]
-    },
     "biometric:default",
     "haptics:allow-vibrate",
     "haptics:allow-impact-feedback",

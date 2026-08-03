@@ -429,7 +429,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       const settings = await appService.loadSettings();
       const bookIds: string[] = [];
       for (const file of openWithFiles) {
-        console.log('Open with book:', file);
         try {
           const temp = appService.isMobile ? false : !settings.autoImportBooksOnOpen;
           // A file shared into Readest on mobile (the OS share-sheet) is a
@@ -446,14 +445,13 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           if (book) {
             bookIds.push(book.hash);
           }
-        } catch (error) {
-          console.log('Failed to import book:', file, error);
+        } catch {
+          console.warn('Failed to import an open-with book');
         }
       }
       setLibrary(libraryBooks);
       appService.saveLibraryBooks(libraryBooks);
 
-      console.log('Opening books:', bookIds);
       if (bookIds.length > 0) {
         setPendingNavigationBookIds(bookIds);
         return true;
@@ -477,7 +475,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         bookIds.push(book.hash);
       }
     }
-    console.log('Opening last books:', bookIds);
     if (bookIds.length > 0) {
       setPendingNavigationBookIds(bookIds);
       return true;
@@ -692,7 +689,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         const baseFilename = getFilename(filename);
         const errorMessage = error instanceof Error ? _(getImportErrorMessage(error.message)) : '';
         failedImports.push({ filename: baseFilename, errorMessage });
-        console.error('Failed to import book:', filename, error);
+        console.error('Failed to import book', error);
         return null;
       }
     };
@@ -788,7 +785,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       } catch (e) {
         // One unreadable/temporarily-missing folder must not abort the others
         // or nag the user (unlike the manual path, which nudges a re-pick).
-        console.error('Auto-import: failed to scan folder', folder, e);
+        console.error('Auto-import: failed to scan folder', e);
       }
     }
     if (newFiles.length > 0) {
@@ -903,7 +900,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
 
   const handleImportBooksFromFiles = async () => {
     setIsSelectMode(false);
-    console.log('Importing books from files...');
     selectFiles({ type: 'books', multiple: true }).then((result) => {
       if (result.files.length === 0 || result.error) return;
       const groupId = searchParams?.get('group') || '';

@@ -74,7 +74,6 @@ export function useAppUrlIngress() {
 
     const dispatch = (urls: string[], action?: 'VIEW' | 'SEND') => {
       if (!urls.length) return;
-      console.log('App incoming URL:', urls, 'action:', action);
       eventDispatcher.dispatch('app-incoming-url', { urls, action });
     };
 

@@ -57,12 +57,11 @@ export const loadCacheFromDB = async (
     onlyLoadLanguages?: { source?: string[]; target?: string[] };
   } = {},
 ): Promise<void> => {
+  let db: IDBDatabase | undefined;
   try {
-    const db = await openDatabase();
-    const transaction = db.transaction(STORE_NAME, 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-
-    let request: IDBRequest;
+    db = await openDatabase();
+    const store = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME);
+    let entries: CacheEntry[];
     if (options.onlyLoadProviders && options.onlyLoadProviders.length > 0) {
       const providerPromises = options.onlyLoadProviders.map((provider) => {
         return new Promise<CacheEntry[]>((resolve) => {
@@ -79,26 +78,19 @@ export const loadCacheFromDB = async (
         });
       });
 
-      const allEntries = (await Promise.all(providerPromises)).flat();
-      processLoadedEntries(allEntries, options);
+      entries = (await Promise.all(providerPromises)).flat();
     } else {
-      request = store.getAll();
-
-      request.onsuccess = () => {
-        const entries = request.result as CacheEntry[];
-        processLoadedEntries(entries, options);
-      };
-
-      request.onerror = (event) => {
-        console.error('Error loading cache from IndexedDB:', event);
-      };
+      entries = await new Promise<CacheEntry[]>((resolve) => {
+        const request = store.getAll();
+        request.onsuccess = () => resolve(request.result as CacheEntry[]);
+        request.onerror = () => resolve([]);
+      });
     }
-
-    transaction.oncomplete = () => {
-      db.close();
-    };
+    processLoadedEntries(entries, options);
   } catch (error) {
     console.error('Failed to load cache from IndexedDB:', error);
+  } finally {
+    db?.close();
   }
 };
 
@@ -309,19 +301,13 @@ export const clearCache = async (filter?: CacheFilterOptions): Promise<number> =
 
       request.onsuccess = () => {
         const entries = request.result as CacheEntry[];
-        const filteredEntries = entries.filter((entry) => {
-          if (filter.provider && entry.provider !== filter.provider) {
-            return false;
-          }
-
-          if (filter.maxAge && Date.now() - entry.timestamp >= filter.maxAge) {
-            return true;
-          }
-
+        const entriesToDelete = entries.filter((entry) => {
+          if (filter.provider && entry.provider !== filter.provider) return false;
+          if (filter.maxAge && Date.now() - entry.timestamp < filter.maxAge) return false;
           return true;
         });
 
-        filteredEntries.forEach((entry) => {
+        entriesToDelete.forEach((entry) => {
           store.delete(entry.key);
         });
       };

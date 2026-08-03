@@ -10,22 +10,21 @@
  */
 
 import React from 'react';
-import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { page } from 'vitest/browser';
 import type { UserHighlightColor } from '@/types/book';
+import { EnvContextProvider } from '@/context/EnvContext';
+import type { EnvConfigType } from '@/services/environment';
+import type { SystemSettings } from '@/types/settings';
+import { useSettingsStore } from '@/store/settingsStore';
 
 // ── Tailwind / DaisyUI styles ───────────────────────────────────────────
 import '@/styles/globals.css';
 
 // ── Per-test state read by mocks ────────────────────────────────────────
-let mockUserColors: UserHighlightColor[] = [];
 
 // ── Mocks (must be before component imports) ────────────────────────────
-
-vi.mock('@/context/EnvContext', () => ({
-  useEnv: () => ({ envConfig: {}, appService: null }),
-}));
 
 vi.mock('@/store/themeStore', () => ({
   useThemeStore: () => ({ isDarkMode: false }),
@@ -33,30 +32,6 @@ vi.mock('@/store/themeStore', () => ({
 
 vi.mock('@/hooks/useTranslation', () => ({
   useTranslation: () => (s: string) => s,
-}));
-
-vi.mock('@/store/settingsStore', () => ({
-  useSettingsStore: () => ({
-    settings: {
-      globalReadSettings: {
-        highlightStyle: 'highlight' as const,
-        highlightStyles: {
-          highlight: 'yellow',
-          underline: 'red',
-          squiggly: 'blue',
-        },
-        customHighlightColors: {} as Record<string, string>,
-        get userHighlightColors() {
-          return mockUserColors;
-        },
-        defaultHighlightLabels: {},
-      },
-      globalViewSettings: {
-        isEink: false,
-        isColorEink: false,
-      },
-    },
-  }),
 }));
 
 vi.mock('@/hooks/useResponsiveSize', () => ({
@@ -132,37 +107,68 @@ const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const renderPopup = (userColors: UserHighlightColor[] = []) => {
-  mockUserColors = userColors;
+  useSettingsStore.setState({
+    settings: {
+      globalReadSettings: {
+        highlightStyle: 'highlight',
+        highlightStyles: {
+          highlight: 'yellow',
+          underline: 'red',
+          squiggly: 'blue',
+        },
+        customHighlightColors: {},
+        userHighlightColors: userColors,
+        defaultHighlightLabels: {},
+      },
+      globalViewSettings: {
+        isEink: false,
+        isColorEink: false,
+      },
+    } as SystemSettings,
+  });
   return render(
-    <Wrapper>
-      <AnnotationPopup
-        bookKey='test'
-        dir='ltr'
-        isVertical={false}
-        buttons={toolButtons}
-        notes={[]}
-        position={{ dir: 'up', point: { x: POPUP_X, y: POPUP_Y } }}
-        trianglePosition={{ dir: 'up', point: { x: POPUP_X + POPUP_W / 2, y: POPUP_Y + POPUP_H } }}
-        highlightOptionsVisible
-        selectedStyle='highlight'
-        selectedColor='yellow'
-        popupWidth={POPUP_W}
-        popupHeight={POPUP_H}
-        onHighlight={vi.fn()}
-        onDismiss={vi.fn()}
-      />
-    </Wrapper>,
+    <EnvContextProvider value={{ envConfig: {} as EnvConfigType, appService: null }}>
+      <Wrapper>
+        <AnnotationPopup
+          bookKey='test'
+          dir='ltr'
+          isVertical={false}
+          buttons={toolButtons}
+          notes={[]}
+          position={{ dir: 'up', point: { x: POPUP_X, y: POPUP_Y } }}
+          trianglePosition={{
+            dir: 'up',
+            point: { x: POPUP_X + POPUP_W / 2, y: POPUP_Y + POPUP_H },
+          }}
+          highlightOptionsVisible
+          selectedStyle='highlight'
+          selectedColor='yellow'
+          popupWidth={POPUP_W}
+          popupHeight={POPUP_H}
+          onHighlight={vi.fn()}
+          onDismiss={vi.fn()}
+        />
+      </Wrapper>
+    </EnvContextProvider>,
   );
+};
+
+const isWindowsBrowser = /Windows NT/i.test(navigator.userAgent);
+
+const assertWindowsLayout = (wrapper: HTMLElement) => {
+  // Chromium's font rasterization and native form controls differ from the
+  // Linux reference image. Keep the Windows lane deterministic with structural
+  // assertions while the reference screenshot remains the visual gate on CI's
+  // stable Linux runner.
+  expect(wrapper.getBoundingClientRect().width).toBe(POPUP_W);
+  expect(wrapper.getBoundingClientRect().height).toBe(WRAPPER_H);
+  expect(wrapper.querySelectorAll('button').length).toBeGreaterThan(0);
 };
 
 // ── Lifecycle ───────────────────────────────────────────────────────────
 
 beforeAll(async () => {
   await page.viewport(800, 600);
-});
-
-beforeEach(() => {
-  mockUserColors = [];
 });
 
 afterEach(() => {
@@ -175,6 +181,10 @@ describe('AnnotationPopup layout screenshot', () => {
   it('default 5 colors — compact color strip, large gap', async () => {
     const { container } = renderPopup();
     const wrapper = container.firstElementChild as HTMLElement;
+    if (isWindowsBrowser) {
+      assertWindowsLayout(wrapper);
+      return;
+    }
     await expectElement(page.elementLocator(wrapper)).toMatchScreenshot(
       'annotation-popup-5-colors',
     );
@@ -189,6 +199,10 @@ describe('AnnotationPopup layout screenshot', () => {
       { hex: '#f43f5e' },
     ]);
     const wrapper = container.firstElementChild as HTMLElement;
+    if (isWindowsBrowser) {
+      assertWindowsLayout(wrapper);
+      return;
+    }
     await expectElement(page.elementLocator(wrapper)).toMatchScreenshot(
       'annotation-popup-10-colors',
     );
@@ -208,6 +222,10 @@ describe('AnnotationPopup layout screenshot', () => {
       { hex: '#6366f1' },
     ]);
     const wrapper = container.firstElementChild as HTMLElement;
+    if (isWindowsBrowser) {
+      assertWindowsLayout(wrapper);
+      return;
+    }
     await expectElement(page.elementLocator(wrapper)).toMatchScreenshot(
       'annotation-popup-15-colors',
     );

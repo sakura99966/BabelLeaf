@@ -1,10 +1,10 @@
 {
-  "name": "Readest",
-  "short_name": "Readest",
+  "name": "BabelLeaf",
+  "short_name": "BabelLeaf",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "description": "Readest is an open-source eBook reader supporting EPUB, PDF, and sync across devices.",
+  "description": "BabelLeaf is an open-source, local-first eBook reader with optional user-triggered AI translation.",
   "icons": [
     {
       "src": "/icon.png",

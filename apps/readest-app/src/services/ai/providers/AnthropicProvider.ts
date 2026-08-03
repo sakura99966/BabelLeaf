@@ -5,8 +5,11 @@ import { getAIFetch } from '../utils/httpFetch';
 /** Official Anthropic Messages API endpoint. This value is not user-editable. */
 export const ANTHROPIC_API_BASE_URL = 'https://api.anthropic.com';
 
-/** Pinned translation model; changing it requires an explicit release update. */
-export const ANTHROPIC_TRANSLATION_MODEL = 'claude-sonnet-4-20250514';
+/**
+ * Pinned supported translation model. Changing it requires an explicit
+ * release update because the model name is application-controlled.
+ */
+export const ANTHROPIC_TRANSLATION_MODEL = 'claude-sonnet-4-6';
 
 export const ANTHROPIC_API_VERSION = '2023-06-01';
 

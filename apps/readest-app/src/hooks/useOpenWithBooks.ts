@@ -117,7 +117,7 @@ export function useOpenWithBooks() {
             }
           } catch (e) {
             // Path/permission issue — let importBook surface the real error.
-            console.warn('Pre-hash failed, falling back to transient import:', file, e);
+            console.warn('Pre-hash failed, falling back to transient import:', e);
           }
 
           if (existingHash) {
@@ -137,7 +137,7 @@ export function useOpenWithBooks() {
             libraryMutated = true;
           }
         } catch (e) {
-          console.warn('Failed to open file transiently:', file, e);
+          console.warn('Failed to open file transiently:', e);
         }
       }
 
@@ -178,7 +178,6 @@ export function useOpenWithBooks() {
         // the current book to return to the library, then re-open the
         // new one — same UX as most OS image viewers.
         if (typeof window !== 'undefined' && window.location.pathname.startsWith('/reader')) {
-          console.log('Ignoring Open-with VIEW intent: reader already active');
           return;
         }
         await openTransient(filePaths);

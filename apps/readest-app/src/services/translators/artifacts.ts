@@ -1,9 +1,11 @@
-import type { AppService, FileSystem } from '@/types/system';
+import type { AppService, BaseDir, FileSystem } from '@/types/system';
 import { safeLoadJSON, safeSaveJSON } from '@/services/persistence';
 
 export const TRANSLATION_ARTIFACT_SCHEMA_VERSION = 1 as const;
 export const TRANSLATION_ARTIFACT_DIR = 'translation-artifacts';
 export const TRANSLATION_PROMPT_VERSION = 'translation-v1';
+export const TRANSLATION_ARTIFACT_BASE: BaseDir = 'Data';
+const LEGACY_TRANSLATION_ARTIFACT_BASE: BaseDir = 'Cache';
 
 export type TranslationSegmentStatus = 'pending' | 'translated' | 'reviewed' | 'failed';
 
@@ -191,30 +193,56 @@ const safePathPart = (value: string): string => {
 export const getTranslationArtifactPath = (key: TranslationArtifactKey): string =>
   `${TRANSLATION_ARTIFACT_DIR}/${safePathPart(key.bookHash)}.${safePathPart(key.provider)}.${safePathPart(key.targetLang)}.json`;
 
-/** Persistent local-only store. The Cache base keeps artifacts out of backups. */
+/** Persistent local-only store. Artifacts live in durable application data. */
 export class TranslationArtifactStore {
   constructor(private readonly fs: TranslationArtifactStorage) {}
 
-  async load(key: TranslationArtifactKey): Promise<TranslationArtifact | null> {
+  private async loadFromBase(
+    key: TranslationArtifactKey,
+    base: BaseDir,
+  ): Promise<TranslationArtifact | null> {
     const filename = getTranslationArtifactPath({ ...key });
-    const raw = await safeLoadJSON<unknown>(this.fs, filename, 'Cache', null);
+    const raw = await safeLoadJSON<unknown>(this.fs, filename, base, null);
     return raw === null ? null : parseTranslationArtifact(raw);
   }
 
+  async load(key: TranslationArtifactKey): Promise<TranslationArtifact | null> {
+    const current = await this.loadFromBase(key, TRANSLATION_ARTIFACT_BASE);
+    if (current) return current;
+
+    // One-time migration for artifacts written by 0.2.1. Save to durable
+    // storage before removing the cache copy so a failed migration is safe.
+    const legacy = await this.loadFromBase(key, LEGACY_TRANSLATION_ARTIFACT_BASE);
+    if (!legacy) return null;
+    await this.save(legacy);
+    await this.removeFromBase(key, LEGACY_TRANSLATION_ARTIFACT_BASE);
+    return legacy;
+  }
+
   async save(artifact: TranslationArtifact): Promise<void> {
-    await this.fs.createDir(TRANSLATION_ARTIFACT_DIR, 'Cache', true);
-    await safeSaveJSON(this.fs, getTranslationArtifactPath(artifact), 'Cache', artifact);
+    await this.fs.createDir(TRANSLATION_ARTIFACT_DIR, TRANSLATION_ARTIFACT_BASE, true);
+    await safeSaveJSON(
+      this.fs,
+      getTranslationArtifactPath(artifact),
+      TRANSLATION_ARTIFACT_BASE,
+      artifact,
+    );
+  }
+
+  private async removeFromBase(key: TranslationArtifactKey, base: BaseDir): Promise<void> {
+    const filename = getTranslationArtifactPath({ ...key });
+    for (const candidate of [filename, `${filename}.bak`]) {
+      if (!(await this.fs.exists(candidate, base))) continue;
+      if (this.fs.removeFile) {
+        await this.fs.removeFile(candidate, base);
+      } else if (this.fs.deleteFile) {
+        await this.fs.deleteFile(candidate, base);
+      }
+    }
   }
 
   async remove(key: TranslationArtifactKey): Promise<void> {
-    const filename = getTranslationArtifactPath({ ...key });
-    for (const candidate of [filename, `${filename}.bak`]) {
-      if (!(await this.fs.exists(candidate, 'Cache'))) continue;
-      if (this.fs.removeFile) {
-        await this.fs.removeFile(candidate, 'Cache');
-      } else if (this.fs.deleteFile) {
-        await this.fs.deleteFile(candidate, 'Cache');
-      }
-    }
+    await this.removeFromBase(key, TRANSLATION_ARTIFACT_BASE);
+    await this.removeFromBase(key, LEGACY_TRANSLATION_ARTIFACT_BASE);
   }
 }

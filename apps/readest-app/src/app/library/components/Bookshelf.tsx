@@ -357,7 +357,6 @@ const Bookshelf: React.FC<BookshelfProps> = ({
 
     if (importBookUrl && appService) {
       const importBook = async () => {
-        console.log('Importing book from URL:', importBookUrl);
         const book = await appService.importBook(importBookUrl, libraryBooks);
         if (book) {
           setLibrary(libraryBooks);

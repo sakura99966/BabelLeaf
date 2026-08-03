@@ -43,4 +43,9 @@ describe('translation network contract', () => {
       'http://localhost:*/*',
     ]);
   });
+
+  test('does not retain retired payment URL permissions', () => {
+    const capability = readJson<Record<string, unknown>>('src-tauri/capabilities/default.json');
+    expect(JSON.stringify(capability)).not.toContain('alipays');
+  });
 });
