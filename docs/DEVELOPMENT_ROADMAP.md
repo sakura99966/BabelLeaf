@@ -3,7 +3,7 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `v0.3.1` (release commit recorded at closure)
+- Current implementation baseline: `v0.3.1` at main merge commit `7d83b2d279b9e1ae53afa45ba516bef3507efd83`
 - Roadmap revision: 1
 - Approved scope date: 2026-08-04
 - Target stable release: `1.0.0`
