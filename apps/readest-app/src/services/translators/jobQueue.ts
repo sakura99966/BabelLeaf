@@ -23,6 +23,10 @@ export interface TranslationJobSnapshot {
   id: string;
   kind: TranslationJobKind;
   bookHash: string;
+  /** Optional display metadata; older persisted jobs do not contain it. */
+  bookTitle?: string;
+  /** Set when the snapshot was reconstructed from a previous process run. */
+  recovered?: boolean;
   provider: string;
   sourceLang: string;
   targetLang: string;
@@ -40,6 +44,7 @@ export interface TranslationJobInput {
   id: string;
   kind: TranslationJobKind;
   bookHash: string;
+  bookTitle?: string;
   provider: string;
   sourceLang: string;
   targetLang: string;
@@ -156,6 +161,8 @@ export class TranslationJobQueue {
       id: input.id,
       kind: input.kind,
       bookHash: input.bookHash,
+      ...(input.bookTitle ? { bookTitle: input.bookTitle } : {}),
+      ...(recovered ? { recovered: true } : {}),
       provider: input.provider,
       sourceLang: input.sourceLang,
       targetLang: input.targetLang,
@@ -232,6 +239,21 @@ export class TranslationJobQueue {
   retryItem(id: string): Promise<TranslationJobSnapshot> {
     const item = this.snapshot.items.find((candidate) => candidate.id === id);
     return this.retryItems(item ? [item] : []);
+  }
+
+  /** Explicitly invalidate completed results before a user-requested rerun. */
+  invalidateCompleted(): void {
+    if (this.snapshot.status === 'running' || this.snapshot.status === 'queued') return;
+    let invalidated = false;
+    for (const item of this.snapshot.items) {
+      if (item.status !== 'completed') continue;
+      item.status = 'pending';
+      item.attempts = 0;
+      delete item.error;
+      delete item.translatedText;
+      invalidated = true;
+    }
+    if (invalidated) this.setStatus('queued');
   }
 
   private retryItems(items: TranslationJobItem[]): Promise<TranslationJobSnapshot> {

@@ -1,6 +1,6 @@
 {
   "name": "@readest/readest-app",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -50,7 +50,7 @@
     "build-win-x64:unsigned": "dotenv -e .env.tauri -- tauri build --ci --no-sign --target x86_64-pc-windows-msvc --bundles nsis -- --locked",
     "test:windows-installer": "powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/test-windows-installer.ps1",
     "build-win-x64:smoke": "dotenv -e .env.tauri -- tauri build --ci --no-sign --target x86_64-pc-windows-msvc --bundles nsis --config src-tauri/tauri.windows.smoke.conf.json -- --locked",
-    "test:windows-installer:smoke": "powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/test-windows-installer.ps1 -TauriConfigPath src-tauri/tauri.windows.smoke.conf.json -ExpectedProductName \"BabelLeaf Smoke\" -ExpectedBundleIdentifier io.github.sakura99966.babelleaf.smoke -ArtifactsDirectory artifacts/windows-installer-smoke-isolated",
+    "test:windows-installer:smoke": "powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/test-windows-installer.ps1 -IsolatedProfile -TauriConfigPath src-tauri/tauri.windows.smoke.conf.json -ExpectedProductName \"BabelLeaf Smoke\" -ExpectedBundleIdentifier io.github.sakura99966.babelleaf.smoke -ArtifactsDirectory artifacts/windows-installer-smoke-isolated",
     "test:windows-installer:isolated": "powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File scripts/test-windows-installer.ps1 -IsolatedProfile -ArtifactsDirectory ../../target/windows-installer-smoke-isolated",
     "build-win-arm64": "dotenv -e .env.tauri.local -- tauri build --target aarch64-pc-windows-msvc --bundles nsis",
     "build-linux-x64": "dotenv -e .env.tauri.local -- tauri build --target x86_64-unknown-linux-gnu --bundles appimage",

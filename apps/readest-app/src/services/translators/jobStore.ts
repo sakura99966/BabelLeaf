@@ -1,4 +1,4 @@
-import type { BaseDir, FileSystem } from '@/types/system';
+import type { AppService, BaseDir, FileSystem } from '@/types/system';
 import { safeLoadJSON, safeSaveJSON } from '@/services/persistence';
 import type {
   TranslationJobItemStatus,
@@ -12,7 +12,10 @@ export const TRANSLATION_JOB_SCHEMA_VERSION = 1 as const;
 
 export interface TranslationJobStorage
   extends Pick<FileSystem, 'createDir' | 'readFile' | 'writeFile' | 'exists'> {
+  readDir?: FileSystem['readDir'];
+  readDirectory?: AppService['readDirectory'];
   removeFile?: FileSystem['removeFile'];
+  deleteFile?: AppService['deleteFile'];
 }
 
 export interface PersistedTranslationJob {
@@ -124,6 +127,16 @@ export const parseTranslationJob = (value: unknown): PersistedTranslationJob => 
               throw new Error('Invalid translation job kind');
             })(),
       bookHash: requiredString(raw['bookHash'], 'snapshot.bookHash'),
+      ...(raw['bookTitle'] === undefined
+        ? {}
+        : { bookTitle: requiredString(raw['bookTitle'], 'snapshot.bookTitle') }),
+      ...(raw['recovered'] === undefined
+        ? {}
+        : typeof raw['recovered'] === 'boolean'
+          ? { recovered: raw['recovered'] }
+          : (() => {
+              throw new Error('Invalid translation job recovered flag');
+            })()),
       provider: requiredString(raw['provider'], 'snapshot.provider'),
       sourceLang: requiredString(raw['sourceLang'], 'snapshot.sourceLang'),
       targetLang: requiredString(raw['targetLang'], 'snapshot.targetLang'),
@@ -162,11 +175,54 @@ export class TranslationJobStore {
 
   async remove(jobId: string): Promise<void> {
     const filename = getTranslationJobPath(jobId);
-    if (!this.fs.removeFile) return;
+    if (!this.fs.removeFile && !this.fs.deleteFile) return;
     for (const candidate of [filename, `${filename}.bak`]) {
       if (await this.fs.exists(candidate, TRANSLATION_JOB_STORE_BASE)) {
-        await this.fs.removeFile(candidate, TRANSLATION_JOB_STORE_BASE);
+        if (this.fs.removeFile) {
+          await this.fs.removeFile(candidate, TRANSLATION_JOB_STORE_BASE);
+        } else {
+          await this.fs.deleteFile!(candidate, TRANSLATION_JOB_STORE_BASE);
+        }
       }
     }
+  }
+
+  /** List durable jobs for the dashboard without requiring a known job id. */
+  async list(options: { bookHash?: string } = {}): Promise<TranslationJobSnapshot[]> {
+    if (!this.fs.readDir && !this.fs.readDirectory) return [];
+    const files = this.fs.readDir
+      ? await this.fs.readDir(TRANSLATION_JOB_STORE_DIR, TRANSLATION_JOB_STORE_BASE)
+      : await this.fs.readDirectory!(TRANSLATION_JOB_STORE_DIR, TRANSLATION_JOB_STORE_BASE);
+    const snapshots: TranslationJobSnapshot[] = [];
+    for (const file of files) {
+      const relativePath = file.path.replaceAll('\\', '/');
+      const filename = relativePath.startsWith(`${TRANSLATION_JOB_STORE_DIR}/`)
+        ? relativePath
+        : `${TRANSLATION_JOB_STORE_DIR}/${relativePath}`;
+      if (!/\.json$/i.test(filename) || /\.bak$/i.test(filename)) continue;
+      const raw = await safeLoadJSON<unknown>(this.fs, filename, TRANSLATION_JOB_STORE_BASE, null);
+      if (raw === null) continue;
+      try {
+        const snapshot = parseTranslationJob(raw).snapshot;
+        if (!options.bookHash || snapshot.bookHash === options.bookHash) snapshots.push(snapshot);
+      } catch (reason) {
+        // A malformed historical job must not prevent the dashboard from
+        // showing valid jobs. The file remains available for diagnostics.
+        console.warn(`Ignoring malformed translation job ${filename}:`, reason);
+      }
+    }
+    return snapshots.sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  /** Remove only old terminal history, keeping active/recoverable jobs intact. */
+  async prune(options: { bookHash?: string; keepLatest?: number } = {}): Promise<number> {
+    const keepLatest = Math.max(0, Math.floor(options.keepLatest ?? 20));
+    const jobs = await this.list({ bookHash: options.bookHash });
+    const terminal = jobs.filter((job) =>
+      ['completed', 'failed', 'cancelled'].includes(job.status),
+    );
+    const removable = terminal.slice(keepLatest);
+    for (const job of removable) await this.remove(job.id);
+    return removable.length;
   }
 }

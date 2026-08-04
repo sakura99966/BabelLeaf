@@ -3,7 +3,7 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `v0.3.0` at `a6c252474`
+- Current implementation baseline: `v0.3.1` (release commit recorded at closure)
 - Roadmap revision: 1
 - Approved scope date: 2026-08-04
 - Target stable release: `1.0.0`
@@ -71,16 +71,16 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 
 ## Current baseline and requirement coverage
 
-| Requirement | Current state at 0.3.0 | Remaining milestone |
+| Requirement | Current state at 0.3.1 | Remaining milestone |
 | --- | --- | --- |
 | Local library and reader | Implemented from the Readest baseline | Format and platform matrix hardened through 0.8 |
 | EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing or rendering paths exist; not every variant is guaranteed | Fixture matrix in 0.3.2, image pipeline in 0.4, cross-platform proof in 0.8 |
-| Selection and viewport translation | Implemented | Product and provider UX hardening in 0.3.1 |
-| Chapter and full-book translation | Persistent bounded queue delivered | Dashboard, review, interoperability, and stress testing in 0.3.1-0.3.2 |
+| Selection and viewport translation | Implemented | Provider UX hardening and platform validation through 0.8 |
+| Chapter and full-book translation | Persistent bounded queue, recovery dashboard, retry, and review delivered | Interchange, anchors, and stress testing in 0.3.2 |
 | DeepSeek V4, OpenAI, Claude, Ollama | Named adapter framework delivered | Release-time endpoint/model verification and platform validation through 0.8 |
-| Bilingual reading and sidecar | Initial aligned layouts and portable sidecar delivered | Stable anchors, editing, migration, and cross-platform portability through 0.8 |
-| Glossary and translation memory | Storage and runtime enforcement delivered | End-user management and interchange in 0.3.1-0.3.2 |
-| Human review | Reviewed segment state delivered | Full review workspace in 0.3.1 |
+| Bilingual reading and sidecar | Aligned layouts, portable sidecar, machine-result retention, and review recovery delivered | Stable anchors, interchange, migration, and cross-platform portability through 0.8 |
+| Glossary and translation memory | Runtime enforcement plus validated management, limits, invalidation visibility, and import/export delivered | TMX/TBX/XLIFF interchange in 0.3.2 |
+| Human review | Full review workspace with edit, approve, revert, status filters, provenance, keyboard paging, autosaved drafts, and recovery delivered | Cross-format alignment and platform validation through 0.8 |
 | Local dictionaries and word lookup | Baseline capability exists | Simplified-Chinese UX and native platform validation in 0.5-0.8 |
 | Local or native speech | Baseline capability exists | Queue, language/voice selection, accessibility, and native validation in 0.5-0.8 |
 | Scanned PDF and comic OCR | Not implemented | 0.4.0 |
@@ -417,7 +417,7 @@ No work may be declared complete because a build command alone succeeded. Packag
 
 ## Roadmap governance
 
-- The next implementation target after 0.3.0 is 0.3.1.
+- The next implementation target after 0.3.1 is 0.3.2, subject to release acceptance.
 - Development must stop at each version boundary for review and acceptance before entering the next version unless the user explicitly authorizes continuous work through named versions.
 - P0 and P1 defects found in review belong to the current version and must be resolved before the next version begins.
 - Research spikes may occur ahead of schedule only in disposable branches or ignored evaluation directories and may not become production dependencies without the milestone's selection gate.

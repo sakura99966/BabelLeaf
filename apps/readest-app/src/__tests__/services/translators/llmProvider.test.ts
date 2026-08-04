@@ -19,6 +19,7 @@ import {
   getTranslators,
   isTranslatorAvailable,
 } from '@/services/translators/providers';
+import { normalizeTranslationProviderError } from '@/services/translators/providers/llm';
 
 describe('LLM translation providers', () => {
   beforeEach(() => {
@@ -84,5 +85,21 @@ describe('LLM translation providers', () => {
 
     getSettings.mockReturnValue({ aiSettings: { provider: 'anthropic' } });
     expect(isTranslatorAvailable(getTranslator('anthropic')!)).toBe(false);
+  });
+
+  it('normalizes cancellation, timeout, redirect, rate-limit, and credential failures', () => {
+    expect(
+      normalizeTranslationProviderError(new DOMException('aborted', 'AbortError')).message,
+    ).toBe('Translation request cancelled');
+    expect(
+      normalizeTranslationProviderError(new Error('timeout'), { timedOut: true }).message,
+    ).toBe('Translation request timed out');
+    expect(
+      normalizeTranslationProviderError({ status: 302, message: 'redirect' }).message,
+    ).toContain('redirected');
+    expect(normalizeTranslationProviderError({ statusCode: 429 }).message).toContain('rate limit');
+    expect(
+      normalizeTranslationProviderError({ status: 401, message: 'Bearer sk-secret' }).message,
+    ).toBe('Translation provider rejected the API key');
   });
 });

@@ -58,4 +58,21 @@ describe('translation memory', () => {
     expect(restored.size()).toBe(2);
     expect(restored.lookup({ ...query, sourceText: 'Three' })).toBe('三');
   });
+
+  test('supports inspection, replacement, deletion, and bounded invalidation metadata', async () => {
+    const memory = new TranslationMemory({ maxEntries: 2 });
+    await memory.remember({ ...query, sourceText: 'One' }, '一');
+    await memory.remember({ ...query, sourceText: 'Two', glossaryVersion: 2 }, '二');
+    const stats = memory.getStats();
+    expect(stats).toMatchObject({ entries: 2, limit: 2 });
+    const key = memory.snapshot().entries[0]!.key;
+    await expect(memory.remove(key)).resolves.toBe(true);
+    await memory.replace({
+      schemaVersion: 1,
+      updatedAt: 3,
+      entries: memory.snapshot().entries,
+    });
+    expect(memory.size()).toBe(1);
+    await expect(memory.remove('missing')).resolves.toBe(false);
+  });
 });

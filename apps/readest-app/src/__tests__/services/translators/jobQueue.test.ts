@@ -123,6 +123,22 @@ describe('TranslationJobQueue', () => {
     expect(queue.getSnapshot().items[0]).toMatchObject({ status: 'completed', attempts: 1 });
   });
 
+  test('requires explicit invalidation before re-running completed results', async () => {
+    let calls = 0;
+    const queue = new TranslationJobQueue(makeInput(1, 1), async () => {
+      calls += 1;
+      return `result-${calls}`;
+    });
+    await queue.start();
+    expect(calls).toBe(1);
+    await expect(queue.start()).resolves.toMatchObject({ status: 'completed' });
+    expect(calls).toBe(1);
+    queue.invalidateCompleted();
+    await queue.start();
+    expect(calls).toBe(2);
+    expect(queue.getSnapshot().items[0]?.translatedText).toBe('result-2');
+  });
+
   test('recovers running work as paused and retains completed results', async () => {
     const base = makeInput(2, 1);
     const recovered = {

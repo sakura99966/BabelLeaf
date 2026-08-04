@@ -13,6 +13,8 @@ export interface TranslationSegment {
   id: string;
   sourceText: string;
   translatedText?: string;
+  /** Original machine result retained after a human review edit. */
+  machineTranslatedText?: string;
   sourceLang: string;
   targetLang: string;
   status: TranslationSegmentStatus;
@@ -31,6 +33,7 @@ export interface TranslationArtifact {
   promptVersion: string;
   sourceLang: string;
   targetLang: string;
+  glossaryVersion?: number;
   updatedAt: number;
   segments: TranslationSegment[];
 }
@@ -91,7 +94,13 @@ const parseSegment = (value: unknown): TranslationSegment => {
     updatedAt,
   };
 
-  for (const field of ['translatedText', 'chapterId', 'sourceLocator', 'error'] as const) {
+  for (const field of [
+    'translatedText',
+    'machineTranslatedText',
+    'chapterId',
+    'sourceLocator',
+    'error',
+  ] as const) {
     const fieldValue = value[field];
     if (fieldValue !== undefined) {
       if (typeof fieldValue !== 'string')
@@ -106,18 +115,27 @@ const parseSegment = (value: unknown): TranslationSegment => {
 export const createTranslationArtifact = (
   input: Omit<TranslationArtifact, 'schemaVersion' | 'updatedAt' | 'segments'> &
     Partial<Pick<TranslationArtifact, 'updatedAt' | 'segments'>>,
-): TranslationArtifact => ({
-  schemaVersion: TRANSLATION_ARTIFACT_SCHEMA_VERSION,
-  bookHash: requiredString(input.bookHash, 'bookHash'),
-  ...(input.sourceFingerprint ? { sourceFingerprint: input.sourceFingerprint } : {}),
-  provider: requiredString(input.provider, 'provider'),
-  ...(input.model ? { model: input.model } : {}),
-  promptVersion: requiredString(input.promptVersion, 'promptVersion'),
-  sourceLang: requiredString(input.sourceLang, 'sourceLang'),
-  targetLang: requiredString(input.targetLang, 'targetLang'),
-  updatedAt: input.updatedAt ?? Date.now(),
-  segments: input.segments ? input.segments.map((segment) => ({ ...segment })) : [],
-});
+): TranslationArtifact => {
+  if (
+    input.glossaryVersion !== undefined &&
+    (!Number.isInteger(input.glossaryVersion) || input.glossaryVersion < 0)
+  ) {
+    throw new Error('Invalid translation artifact glossary version');
+  }
+  return {
+    schemaVersion: TRANSLATION_ARTIFACT_SCHEMA_VERSION,
+    bookHash: requiredString(input.bookHash, 'bookHash'),
+    ...(input.sourceFingerprint ? { sourceFingerprint: input.sourceFingerprint } : {}),
+    provider: requiredString(input.provider, 'provider'),
+    ...(input.model ? { model: input.model } : {}),
+    promptVersion: requiredString(input.promptVersion, 'promptVersion'),
+    sourceLang: requiredString(input.sourceLang, 'sourceLang'),
+    targetLang: requiredString(input.targetLang, 'targetLang'),
+    ...(input.glossaryVersion === undefined ? {} : { glossaryVersion: input.glossaryVersion }),
+    updatedAt: input.updatedAt ?? Date.now(),
+    segments: input.segments ? input.segments.map((segment) => ({ ...segment })) : [],
+  };
+};
 
 /**
  * Parse an artifact at a trust boundary. Credentials and arbitrary fields are
@@ -145,6 +163,18 @@ export const parseTranslationArtifact = (value: unknown): TranslationArtifact =>
     promptVersion: requiredString(value['promptVersion'], 'promptVersion'),
     sourceLang: requiredString(value['sourceLang'], 'sourceLang'),
     targetLang: requiredString(value['targetLang'], 'targetLang'),
+    ...(value['glossaryVersion'] === undefined
+      ? {}
+      : {
+          glossaryVersion:
+            typeof value['glossaryVersion'] === 'number' &&
+            Number.isInteger(value['glossaryVersion']) &&
+            value['glossaryVersion'] >= 0
+              ? value['glossaryVersion']
+              : (() => {
+                  throw new Error('Invalid translation artifact glossary version');
+                })(),
+        }),
     updatedAt,
     segments: value['segments'].map(parseSegment),
   };
@@ -183,6 +213,58 @@ export const upsertTranslationSegments = (
     updatedAt: now,
     segments: Array.from(byId.values()),
   };
+};
+
+/** Store a human edit without requiring an active translation queue. */
+export const reviewTranslationSegment = (
+  artifact: TranslationArtifact,
+  id: string,
+  translatedText: string,
+  now = Date.now(),
+): TranslationArtifact => {
+  const segment = artifact.segments.find((candidate) => candidate.id === id);
+  if (!segment) throw new Error(`Translation segment not found: ${id}`);
+  if (!translatedText.trim()) throw new Error('Reviewed translation cannot be empty');
+  return upsertTranslationSegments(
+    artifact,
+    [
+      {
+        ...segment,
+        ...(segment.machineTranslatedText || segment.translatedText
+          ? { machineTranslatedText: segment.machineTranslatedText ?? segment.translatedText }
+          : {}),
+        translatedText: translatedText.trim(),
+        status: 'reviewed',
+        error: undefined,
+      },
+    ],
+    now,
+  );
+};
+
+/** Restore the last machine result after a reviewer discards a manual edit. */
+export const revertTranslationSegment = (
+  artifact: TranslationArtifact,
+  id: string,
+  now = Date.now(),
+): TranslationArtifact => {
+  const segment = artifact.segments.find((candidate) => candidate.id === id);
+  const machineText = segment?.machineTranslatedText ?? segment?.translatedText;
+  if (!segment || !machineText?.trim()) {
+    throw new Error(`Machine translation not available: ${id}`);
+  }
+  return upsertTranslationSegments(
+    artifact,
+    [
+      {
+        ...segment,
+        translatedText: machineText,
+        status: 'translated',
+        error: undefined,
+      },
+    ],
+    now,
+  );
 };
 
 const safePathPart = (value: string): string => {

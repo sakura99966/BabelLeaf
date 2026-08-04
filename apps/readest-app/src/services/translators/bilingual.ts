@@ -4,11 +4,16 @@ export interface BilingualTranslationPair {
   id: string;
   sourceText: string;
   translatedText: string;
+  machineTranslatedText?: string;
   sourceLang: string;
   targetLang: string;
-  status: Extract<TranslationSegment['status'], 'translated' | 'reviewed'>;
+  status: TranslationSegment['status'];
   chapterId?: string;
   sourceLocator?: string;
+  error?: string;
+  provider?: string;
+  model?: string;
+  glossaryVersion?: number;
 }
 
 export interface BilingualTranslationResult {
@@ -45,10 +50,43 @@ export const toBilingualTranslationResult = (
     id: segment.id,
     sourceText: segment.sourceText,
     translatedText: segment.translatedText,
+    ...(segment.machineTranslatedText
+      ? { machineTranslatedText: segment.machineTranslatedText }
+      : {}),
     sourceLang: segment.sourceLang,
     targetLang: segment.targetLang,
     status: segment.status,
     ...(segment.chapterId ? { chapterId: segment.chapterId } : {}),
     ...(segment.sourceLocator ? { sourceLocator: segment.sourceLocator } : {}),
+    ...(segment.error ? { error: segment.error } : {}),
+    ...(artifact.provider ? { provider: artifact.provider } : {}),
+    ...(artifact.model ? { model: artifact.model } : {}),
+    ...(artifact.glossaryVersion === undefined
+      ? {}
+      : { glossaryVersion: artifact.glossaryVersion }),
   })),
 });
+
+/** Convert every durable segment into the review workspace view model. */
+export const toTranslationReviewPairs = (
+  artifact: TranslationArtifact,
+): BilingualTranslationPair[] =>
+  artifact.segments.map((segment) => ({
+    id: segment.id,
+    sourceText: segment.sourceText,
+    translatedText: segment.translatedText ?? '',
+    ...(segment.machineTranslatedText
+      ? { machineTranslatedText: segment.machineTranslatedText }
+      : {}),
+    sourceLang: segment.sourceLang,
+    targetLang: segment.targetLang,
+    status: segment.status,
+    ...(segment.chapterId ? { chapterId: segment.chapterId } : {}),
+    ...(segment.sourceLocator ? { sourceLocator: segment.sourceLocator } : {}),
+    ...(segment.error ? { error: segment.error } : {}),
+    ...(artifact.provider ? { provider: artifact.provider } : {}),
+    ...(artifact.model ? { model: artifact.model } : {}),
+    ...(artifact.glossaryVersion === undefined
+      ? {}
+      : { glossaryVersion: artifact.glossaryVersion }),
+  }));

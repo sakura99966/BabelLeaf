@@ -72,7 +72,7 @@ they contain no API keys. The existing reader translation toggle remains the
 low-latency viewport workflow, while the workbench is the durable chapter/book
 workflow.
 
-## 0.3 delivered batch workflow
+## 0.3 and 0.3.1 delivered batch workflow
 
 Version 0.3 adds a local-only chapter/full-book queue. Jobs are bounded,
 pauseable, cancellable, persisted under application data, and recoverable after
@@ -88,11 +88,22 @@ text extraction. CBZ/FBZ are detected as image-only and report that OCR is
 required; DRM or encrypted inputs receive an explicit diagnostic. No source
 file is modified.
 
-The following end-user features remain out of scope for the 0.3 release:
+Version 0.3.1 adds end-user management around that workflow. Glossaries and
+translation memory can be inspected, validated, imported, exported, edited,
+bounded, and cleaned locally. The review workspace preserves the machine
+result before a human edit, supports approval and reversion, exposes provider
+and glossary provenance, filters durable statuses, and stores interrupted
+drafts for recovery. The batch dashboard lists durable jobs after restart,
+marks recovered snapshots, exposes failure details and retry actions, and
+offers explicit invalidation before a completed result is rerun, and cleans only
+old terminal history. Provider transport errors are normalized into
+direct cancellation, timeout, redirect, rate-limit, credential, and failure
+messages without exposing credentials.
+
+The following end-user features remain out of scope for the 0.3.x releases:
 
 - manual prompt editing and arbitrary endpoint/model fields;
 - automatic background translation;
-- glossary editing screens and a full interactive review workspace;
 - scanned-PDF OCR translation and comic text detection, cleanup, and
   typesetting.
 

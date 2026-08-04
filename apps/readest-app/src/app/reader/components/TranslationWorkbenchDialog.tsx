@@ -7,7 +7,10 @@ import { useReaderStore } from '@/store/readerStore';
 import { getLocale } from '@/utils/misc';
 import { saveViewSettings } from '@/helpers/settings';
 import Dialog from '@/components/Dialog';
+import SegmentedControl from '@/components/SegmentedControl';
 import BilingualTranslationView from './BilingualTranslationView';
+import TranslationGlossaryPanel from './TranslationGlossaryPanel';
+import TranslationMemoryPanel from './TranslationMemoryPanel';
 import {
   createEmptyTranslationArtifact,
   extractTranslationItems,
@@ -17,7 +20,9 @@ import {
 import {
   parseTranslationSidecar,
   serializeTranslationSidecar,
-  toBilingualTranslationResult,
+  toTranslationReviewPairs,
+  reviewTranslationSegment,
+  revertTranslationSegment,
   TRANSLATION_PROMPT_VERSION,
   TranslationArtifactStore,
   TranslationJobStore,
@@ -38,6 +43,9 @@ interface TranslationWorkbenchDialogProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+type WorkbenchTab = 'jobs' | 'review' | 'glossary' | 'memory';
+type ReviewStatusFilter = 'all' | 'pending' | 'translated' | 'reviewed' | 'failed';
 
 const getBookHash = (bookKey: string, hash?: string): string => hash || bookKey.split('-')[0] || '';
 
@@ -88,6 +96,31 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   const [glossary, setGlossary] =
     useState<Awaited<ReturnType<TranslationGlossaryStore['load']>>>(null);
   const [translationMemory, setTranslationMemory] = useState<TranslationMemory | null>(null);
+  const [tab, setTab] = useState<WorkbenchTab>('jobs');
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatusFilter>('all');
+  const [reviewQuery, setReviewQuery] = useState('');
+  const [jobs, setJobs] = useState<TranslationJobSnapshot[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+
+  const refreshJobs = useCallback(async () => {
+    if (!jobStore || !bookHash) return;
+    setLoadingJobs(true);
+    try {
+      setJobs(await jobStore.list({ bookHash }));
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setLoadingJobs(false);
+    }
+  }, [bookHash, jobStore]);
+
+  const updateJob = useCallback((next: TranslationJobSnapshot) => {
+    setJobs((current) =>
+      [next, ...current.filter((job) => job.id !== next.id)].sort(
+        (a, b) => b.updatedAt - a.updatedAt,
+      ),
+    );
+  }, []);
 
   const resetController = useCallback(() => {
     unsubscribeRef.current?.();
@@ -145,6 +178,11 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     };
   }, [glossaryStore, isOpen, memoryStore]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    void refreshJobs();
+  }, [isOpen, refreshJobs]);
+
   useEffect(
     () => () => {
       controllerRef.current?.cancel();
@@ -158,19 +196,26 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     setSelectedPairId(viewSettings?.translationWorkbenchSegmentId);
   }, [bookHash, isOpen, provider, targetLang, viewSettings?.translationWorkbenchSegmentId]);
 
-  const handleStart = async () => {
+  const handleStart = async (
+    requestedScope = scope,
+    action: 'start' | 'resume' | 'retry' | 'invalidate' = 'start',
+  ) => {
     if (controllerRef.current && snapshot?.status === 'completed') {
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
       controllerRef.current = null;
       setSnapshot(null);
     }
-    if (!artifact || !bookData?.bookDoc || controllerRef.current) return;
+    if (!artifact || !bookData?.bookDoc) return;
+    if (controllerRef.current) {
+      setError(_('Another translation job is active. Pause or cancel it before switching jobs.'));
+      return;
+    }
     setError(null);
     try {
       const items = await extractTranslationItems(bookData.bookDoc, {
         format: bookData.book?.format,
-        ...(scope === 'chapter' ? { sectionIndices: [chapterIndex] } : {}),
+        ...(requestedScope === 'chapter' ? { sectionIndices: [chapterIndex] } : {}),
       });
       if (items.length === 0) {
         setError(_('No translation available.'));
@@ -179,11 +224,13 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       const controller = await (jobStore
         ? TranslationBatchController.restore({
             artifact,
-            kind: scope,
+            kind: requestedScope,
+            bookTitle: bookData.book?.title,
             artifactStore: store ?? undefined,
             jobStore,
             glossary,
             translationMemory: translationMemory ?? undefined,
+            ...(action === 'invalidate' ? { invalidateCompleted: true } : {}),
             maxAttempts: 3,
             concurrency: 2,
             items,
@@ -199,10 +246,12 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
           })
         : new TranslationBatchController({
             artifact,
-            kind: scope,
+            kind: requestedScope,
+            bookTitle: bookData.book?.title,
             artifactStore: store ?? undefined,
             glossary,
             translationMemory: translationMemory ?? undefined,
+            ...(action === 'invalidate' ? { invalidateCompleted: true } : {}),
             maxAttempts: 3,
             concurrency: 2,
             items,
@@ -217,10 +266,20 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
             },
           }));
       controllerRef.current = controller;
-      unsubscribeRef.current = controller.subscribe((next) => setSnapshot(next));
-      const result = await controller.start();
+      unsubscribeRef.current = controller.subscribe((next) => {
+        setSnapshot(next);
+        updateJob(next);
+      });
+      const result =
+        action === 'resume'
+          ? await controller.resume()
+          : action === 'retry'
+            ? await controller.retryFailed()
+            : await controller.start();
       setArtifact(controller.getArtifact());
       setSnapshot(result);
+      updateJob(result);
+      void refreshJobs();
     } catch (reason: unknown) {
       if (reason instanceof TranslationExtractionError) {
         setError(
@@ -242,6 +301,8 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       const result = await controller.resume();
       setArtifact(controller.getArtifact());
       setSnapshot(result);
+      updateJob(result);
+      void refreshJobs();
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
@@ -254,6 +315,8 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       const result = await controller.retryFailed();
       setArtifact(controller.getArtifact());
       setSnapshot(result);
+      updateJob(result);
+      void refreshJobs();
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
@@ -263,21 +326,47 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     const controller = controllerRef.current;
     if (!controller) return;
     controller.cancel();
-    setSnapshot(controller.getSnapshot());
+    const cancelled = controller.getSnapshot();
+    setSnapshot(cancelled);
     setArtifact(controller.getArtifact());
+    updateJob(cancelled);
     unsubscribeRef.current?.();
     unsubscribeRef.current = null;
     controllerRef.current = null;
   };
 
   const handleReviewPair = async (pair: BilingualTranslationPair, translatedText: string) => {
-    const controller = controllerRef.current;
-    if (!controller) {
-      setError(_('Start the translation job before editing a segment.'));
-      return;
-    }
     try {
-      const updated = await controller.reviewSegment(pair.id, translatedText);
+      const controller = controllerRef.current;
+      const updated = controller
+        ? await controller.reviewSegment(pair.id, translatedText)
+        : artifact
+          ? reviewTranslationSegment(artifact, pair.id, translatedText)
+          : null;
+      if (!updated) throw new Error(_('No translation artifact is loaded.'));
+      await store?.save(updated);
+      setArtifact(updated);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+      throw reason;
+    }
+  };
+
+  const handleApprovePair = async (pair: BilingualTranslationPair) => {
+    if (!pair.translatedText.trim()) throw new Error(_('Reviewed translation cannot be empty'));
+    await handleReviewPair(pair, pair.translatedText);
+  };
+
+  const handleRevertPair = async (pair: BilingualTranslationPair) => {
+    try {
+      const controller = controllerRef.current;
+      const updated = controller
+        ? await controller.revertSegment(pair.id)
+        : artifact
+          ? revertTranslationSegment(artifact, pair.id)
+          : null;
+      if (!updated) throw new Error(_('No translation artifact is loaded.'));
+      await store?.save(updated);
       setArtifact(updated);
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -310,6 +399,7 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       await store?.save(imported);
       setArtifact(imported);
       resetController();
+      void refreshJobs();
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
@@ -325,6 +415,52 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       mimeType: 'application/json',
     });
     if (!saved) setError(_('Unable to save file'));
+  };
+
+  const handleDeleteJob = async (job: TranslationJobSnapshot) => {
+    if (!jobStore) return;
+    if (!(await appService?.ask(_('Delete this translation job record?')))) return;
+    try {
+      await jobStore.remove(job.id);
+      setJobs((current) => current.filter((candidate) => candidate.id !== job.id));
+      if (snapshot?.id === job.id) resetController();
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const handlePruneJobs = async () => {
+    if (!jobStore) return;
+    if (!(await appService?.ask(_('Remove old completed translation history?')))) return;
+    try {
+      await jobStore.prune({ bookHash, keepLatest: 20 });
+      await refreshJobs();
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const handleJobAction = async (
+    job: TranslationJobSnapshot,
+    action: 'resume' | 'retry' | 'start' | 'invalidate',
+  ) => {
+    if (snapshot?.id === job.id && controllerRef.current) {
+      if (action === 'retry') return void handleRetry();
+      if (action === 'resume') return void handleResume();
+      if (action === 'start') {
+        try {
+          const result = await controllerRef.current.start();
+          setArtifact(controllerRef.current.getArtifact());
+          setSnapshot(result);
+          updateJob(result);
+          void refreshJobs();
+        } catch (reason: unknown) {
+          setError(reason instanceof Error ? reason.message : String(reason));
+        }
+        return;
+      }
+    }
+    await handleStart(job.kind, action);
   };
 
   const persistWorkbenchPage = useCallback(
@@ -362,13 +498,40 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     [bookKey, envConfig, getView],
   );
 
-  const bilingual = artifact ? toBilingualTranslationResult(artifact) : null;
+  const reviewPairs = useMemo(() => {
+    const normalized = reviewQuery.trim().toLocaleLowerCase();
+    return (artifact ? toTranslationReviewPairs(artifact) : []).filter((pair) => {
+      const matchesStatus = reviewStatus === 'all' || pair.status === reviewStatus;
+      const matchesQuery =
+        !normalized ||
+        [pair.sourceText, pair.translatedText, pair.chapterId, pair.error]
+          .filter(Boolean)
+          .some((value) => value!.toLocaleLowerCase().includes(normalized));
+      return matchesStatus && matchesQuery;
+    });
+  }, [artifact, reviewQuery, reviewStatus]);
   const sections = bookData?.bookDoc?.sections ?? [];
   const running = snapshot?.status === 'running' || snapshot?.status === 'queued';
   const paused = snapshot?.status === 'paused';
   const completedCount = snapshot?.completed ?? 0;
   const totalCount = snapshot?.total ?? artifact?.segments.length ?? 0;
   const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 100;
+  const statusLabel = (status: TranslationJobSnapshot['status']) =>
+    ({
+      queued: _('Queued'),
+      running: _('Running'),
+      paused: _('Paused'),
+      completed: _('Completed'),
+      failed: _('Failed'),
+      cancelled: _('Cancelled'),
+    })[status];
+  const segmentStatusLabel = (status: BilingualTranslationPair['status']) =>
+    ({
+      pending: _('Pending'),
+      translated: _('Translated'),
+      reviewed: _('Reviewed'),
+      failed: _('Failed'),
+    })[status];
 
   return (
     <Dialog
@@ -380,116 +543,332 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       useOverlayScroll
     >
       <div className='space-y-4 pb-4'>
-        <div className='flex flex-wrap items-end gap-3'>
-          <label className='flex flex-col gap-1 text-xs'>
-            <span className='text-base-content/60'>{_('Scope')}</span>
-            <select
-              className='select select-bordered select-sm'
-              value={scope}
-              onChange={(event) => setScope(event.target.value as TranslationJobKind)}
-              disabled={Boolean(controllerRef.current && snapshot?.status !== 'completed')}
-            >
-              <option value='book'>{_('Book')}</option>
-              <option value='chapter'>{_('Chapter')}</option>
-            </select>
-          </label>
-          {scope === 'chapter' && (
-            <label className='flex min-w-48 flex-col gap-1 text-xs'>
-              <span className='text-base-content/60'>{_('Chapter')}</span>
-              <select
-                className='select select-bordered select-sm'
-                value={chapterIndex}
-                onChange={(event) => setChapterIndex(Number(event.target.value))}
-                disabled={Boolean(controllerRef.current && snapshot?.status !== 'completed')}
-              >
-                {sections.map((section, index) => (
-                  <option
-                    key={`${section.id}-${index}`}
-                    value={index}
-                    disabled={section.linear === 'no'}
-                  >
-                    {section.id || `${_('Chapter')} ${index + 1}`}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-        <div className='flex flex-wrap items-center gap-2'>
-          <button className='btn btn-outline btn-sm' onClick={handleImport} disabled={running}>
-            {_('Import')}
-          </button>
-          <button className='btn btn-outline btn-sm' onClick={handleExport} disabled={!artifact}>
-            {_('Export')}
-          </button>
-          {(!controllerRef.current || snapshot?.status === 'completed') && (
-            <button
-              className='btn btn-primary btn-sm'
-              onClick={() => void handleStart()}
-              disabled={loadingArtifact || !artifact}
-            >
-              {_('Start')}
-            </button>
-          )}
-          {running && (
-            <button
-              className='btn btn-outline btn-sm'
-              onClick={() => controllerRef.current?.pause()}
-            >
-              {_('Pause')}
-            </button>
-          )}
-          {paused && (
-            <button className='btn btn-primary btn-sm' onClick={() => void handleResume()}>
-              {_('Resume')}
-            </button>
-          )}
-          {snapshot?.status === 'failed' && controllerRef.current && (
-            <button className='btn btn-warning btn-sm' onClick={() => void handleRetry()}>
-              {_('Retry failed')}
-            </button>
-          )}
-          {(running || paused) && (
-            <button className='btn btn-ghost btn-sm' onClick={handleCancel}>
-              {_('Cancel')}
-            </button>
-          )}
-        </div>
+        <SegmentedControl<WorkbenchTab>
+          fullWidth
+          ariaLabel={_('Translation workspace')}
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'jobs', label: _('Jobs') },
+            { value: 'review', label: _('Review') },
+            { value: 'glossary', label: _('Glossary') },
+            { value: 'memory', label: _('Memory') },
+          ]}
+        />
 
-        {snapshot && (
-          <div className='space-y-1'>
-            <div className='flex justify-between text-xs'>
-              <span>{snapshot.status}</span>
-              <span>
-                {completedCount}/{totalCount} ({progress}%)
-              </span>
+        {tab === 'jobs' && (
+          <>
+            <div className='flex flex-wrap items-end gap-3'>
+              <label className='flex flex-col gap-1 text-xs'>
+                <span className='text-base-content/60'>{_('Scope')}</span>
+                <select
+                  className='select select-bordered select-sm'
+                  value={scope}
+                  onChange={(event) => setScope(event.target.value as TranslationJobKind)}
+                  disabled={Boolean(controllerRef.current && snapshot?.status !== 'completed')}
+                >
+                  <option value='book'>{_('Book')}</option>
+                  <option value='chapter'>{_('Chapter')}</option>
+                </select>
+              </label>
+              {scope === 'chapter' && (
+                <label className='flex min-w-48 flex-col gap-1 text-xs'>
+                  <span className='text-base-content/60'>{_('Chapter')}</span>
+                  <select
+                    className='select select-bordered select-sm'
+                    value={chapterIndex}
+                    onChange={(event) => setChapterIndex(Number(event.target.value))}
+                    disabled={Boolean(controllerRef.current && snapshot?.status !== 'completed')}
+                  >
+                    {sections.map((section, index) => (
+                      <option
+                        key={`${section.id}-${index}`}
+                        value={index}
+                        disabled={section.linear === 'no'}
+                      >
+                        {section.id || `${_('Chapter')} ${index + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
-            <progress className='progress progress-primary w-full' value={progress} max={100} />
-          </div>
+            <div className='flex flex-wrap items-center gap-2'>
+              <button className='btn btn-outline btn-sm' onClick={handleImport} disabled={running}>
+                {_('Import')}
+              </button>
+              <button
+                className='btn btn-outline btn-sm'
+                onClick={handleExport}
+                disabled={!artifact}
+              >
+                {_('Export')}
+              </button>
+              {(!controllerRef.current || snapshot?.status === 'completed') && (
+                <button
+                  className='btn btn-primary btn-sm'
+                  onClick={() => void handleStart()}
+                  disabled={loadingArtifact || !artifact}
+                >
+                  {_('Start')}
+                </button>
+              )}
+              {running && (
+                <button
+                  className='btn btn-outline btn-sm'
+                  onClick={() => controllerRef.current?.pause()}
+                >
+                  {_('Pause')}
+                </button>
+              )}
+              {paused && (
+                <button className='btn btn-primary btn-sm' onClick={() => void handleResume()}>
+                  {_('Resume')}
+                </button>
+              )}
+              {snapshot?.status === 'failed' && controllerRef.current && (
+                <button className='btn btn-warning btn-sm' onClick={() => void handleRetry()}>
+                  {_('Retry failed')}
+                </button>
+              )}
+              {(running || paused) && (
+                <button className='btn btn-ghost btn-sm' onClick={handleCancel}>
+                  {_('Cancel')}
+                </button>
+              )}
+            </div>
+
+            {snapshot && (
+              <div className='space-y-2 rounded-lg border border-base-300 p-3'>
+                <div className='flex justify-between text-xs'>
+                  <span>{statusLabel(snapshot.status)}</span>
+                  <span>
+                    {completedCount}/{totalCount} ({progress}%) · {snapshot.failed} {_('failed')}
+                  </span>
+                </div>
+                <progress className='progress progress-primary w-full' value={progress} max={100} />
+                {snapshot.failed > 0 && (
+                  <div className='space-y-1 text-xs'>
+                    {snapshot.items
+                      .filter((item) => item.status === 'failed')
+                      .slice(0, 5)
+                      .map((item) => (
+                        <p key={item.id} className='text-error break-words'>
+                          {item.id}: {item.error || _('Translation failed')}
+                        </p>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className='space-y-2'>
+              <div className='flex items-center justify-between gap-2'>
+                <h3 className='font-semibold'>{_('Batch jobs')}</h3>
+                <div className='flex gap-1'>
+                  <button
+                    type='button'
+                    className='btn btn-ghost btn-xs'
+                    onClick={() => void refreshJobs()}
+                    disabled={loadingJobs}
+                  >
+                    {loadingJobs ? _('Loading...') : _('Refresh')}
+                  </button>
+                  <button
+                    type='button'
+                    className='btn btn-ghost btn-xs'
+                    onClick={() => void handlePruneJobs()}
+                    disabled={loadingJobs || jobs.length === 0}
+                  >
+                    {_('Clean history')}
+                  </button>
+                </div>
+              </div>
+              <div className='overflow-x-auto rounded-lg border border-base-300'>
+                <table className='table table-zebra table-sm'>
+                  <thead>
+                    <tr>
+                      <th>{_('Scope')}</th>
+                      <th>{_('Status')}</th>
+                      <th>{_('Progress')}</th>
+                      <th>{_('Updated')}</th>
+                      <th>{_('Actions')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jobs.map((job) => (
+                      <tr key={job.id}>
+                        <td>{job.kind === 'book' ? _('Book') : _('Chapter')}</td>
+                        <td>
+                          <span className='flex flex-wrap gap-1'>
+                            <span className='badge badge-ghost badge-sm'>
+                              {statusLabel(job.status)}
+                            </span>
+                            {job.recovered && (
+                              <span className='badge badge-warning badge-sm'>{_('Recovered')}</span>
+                            )}
+                          </span>
+                        </td>
+                        <td className='text-xs'>
+                          {job.completed}/{job.total} · {job.failed} {_('failed')}
+                        </td>
+                        <td className='text-xs'>{new Date(job.updatedAt).toLocaleString()}</td>
+                        <td>
+                          <div className='flex flex-wrap gap-1'>
+                            {(job.status === 'paused' || job.status === 'queued') && (
+                              <button
+                                type='button'
+                                className='btn btn-primary btn-xs'
+                                onClick={() =>
+                                  void handleJobAction(
+                                    job,
+                                    job.status === 'paused' ? 'resume' : 'start',
+                                  )
+                                }
+                              >
+                                {_('Resume')}
+                              </button>
+                            )}
+                            {job.status === 'failed' && (
+                              <button
+                                type='button'
+                                className='btn btn-warning btn-xs'
+                                onClick={() => void handleJobAction(job, 'retry')}
+                              >
+                                {_('Retry')}
+                              </button>
+                            )}
+                            {(job.status === 'completed' || job.status === 'failed') && (
+                              <button
+                                type='button'
+                                className='btn btn-ghost btn-xs'
+                                onClick={() => setTab('review')}
+                              >
+                                {_('Review')}
+                              </button>
+                            )}
+                            {job.status === 'completed' && (
+                              <button
+                                type='button'
+                                className='btn btn-ghost btn-xs'
+                                onClick={() => void handleJobAction(job, 'invalidate')}
+                              >
+                                {_('Rerun')}
+                              </button>
+                            )}
+                            {(job.status === 'completed' || job.status === 'cancelled') && (
+                              <button
+                                type='button'
+                                className='btn btn-ghost btn-xs text-error'
+                                onClick={() => void handleDeleteJob(job)}
+                              >
+                                {_('Delete')}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {jobs.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className='text-base-content/60 text-center text-sm'>
+                          {_('No batch jobs for this book.')}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
 
-        {error && <p className='text-error text-sm'>{error}</p>}
-        {loadingArtifact && <p className='text-base-content/60 text-sm'>{_('Loading...')}</p>}
-        {!loadingArtifact && bilingual && (
-          <BilingualTranslationView
-            pairs={bilingual.pairs}
-            sourceLabel={_('Original Text')}
-            translatedLabel={_('Translated Text')}
-            emptyLabel={_('No translation available.')}
-            previousLabel={_('Previous')}
-            nextLabel={_('Next')}
-            layout='columns'
-            locateLabel={_('Locate')}
-            initialPage={viewSettings?.translationWorkbenchPage ?? 0}
-            pageKey={`${bookHash}:${provider}:${targetLang}`}
-            selectedPairId={selectedPairId}
-            onPageChange={persistWorkbenchPage}
-            onLocatePair={handleLocatePair}
-            reviewLabel={_('Review')}
-            saveReviewLabel={_('Save')}
-            cancelReviewLabel={_('Cancel')}
-            onReviewPair={handleReviewPair}
+        {tab === 'review' && (
+          <>
+            <div className='flex flex-wrap gap-2'>
+              <select
+                className='select select-bordered select-sm'
+                value={reviewStatus}
+                onChange={(event) => setReviewStatus(event.target.value as ReviewStatusFilter)}
+                aria-label={_('Review status')}
+              >
+                <option value='all'>{_('All statuses')}</option>
+                <option value='pending'>{_('Pending')}</option>
+                <option value='translated'>{_('Translated')}</option>
+                <option value='reviewed'>{_('Reviewed')}</option>
+                <option value='failed'>{_('Failed')}</option>
+              </select>
+              <input
+                className='input input-bordered input-sm min-w-48 flex-1'
+                value={reviewQuery}
+                onChange={(event) => setReviewQuery(event.target.value)}
+                placeholder={_('Search source, translation, or error')}
+                aria-label={_('Search review segments')}
+              />
+            </div>
+            {error && <p className='text-error text-sm'>{error}</p>}
+            {loadingArtifact && <p className='text-base-content/60 text-sm'>{_('Loading...')}</p>}
+            {!loadingArtifact && artifact && (
+              <>
+                <p className='text-base-content/60 text-xs'>
+                  {_('Provider')}: {artifact.provider}
+                  {artifact.model ? `/${artifact.model}` : ''} · {_('Glossary version')}:{' '}
+                  {artifact.glossaryVersion ?? _('None')}
+                </p>
+                <BilingualTranslationView
+                  pairs={reviewPairs}
+                  sourceLabel={_('Original Text')}
+                  translatedLabel={_('Translated Text')}
+                  emptyLabel={_('No review segments match the current filter.')}
+                  previousLabel={_('Previous')}
+                  nextLabel={_('Next')}
+                  layout='columns'
+                  locateLabel={_('Locate')}
+                  initialPage={viewSettings?.translationWorkbenchPage ?? 0}
+                  pageKey={`${bookHash}:${provider}:${targetLang}:review:${reviewStatus}:${reviewQuery}`}
+                  draftKey={`${bookHash}:${provider}:${targetLang}`}
+                  selectedPairId={selectedPairId}
+                  onPageChange={persistWorkbenchPage}
+                  onLocatePair={handleLocatePair}
+                  reviewLabel={_('Edit')}
+                  approveLabel={_('Approve')}
+                  revertLabel={_('Revert to machine translation')}
+                  machineTranslationLabel={_('Machine translation')}
+                  draftRecoveredLabel={_('Recovered draft')}
+                  saveReviewLabel={_('Save')}
+                  cancelReviewLabel={_('Cancel')}
+                  onReviewPair={handleReviewPair}
+                  onApprovePair={handleApprovePair}
+                  onRevertPair={handleRevertPair}
+                  statusLabel={segmentStatusLabel}
+                  errorLabel={_('Error')}
+                />
+              </>
+            )}
+          </>
+        )}
+
+        {tab === 'glossary' && (
+          <TranslationGlossaryPanel
+            appService={appService}
+            store={glossaryStore}
+            glossary={glossary}
+            onChange={setGlossary}
           />
+        )}
+
+        {tab === 'memory' && (
+          <TranslationMemoryPanel
+            appService={appService}
+            memory={translationMemory}
+            glossaryVersion={glossary?.updatedAt}
+            onChange={() => setTranslationMemory((current) => current)}
+          />
+        )}
+
+        {tab === 'jobs' && error && <p className='text-error text-sm'>{error}</p>}
+        {tab === 'jobs' && loadingArtifact && (
+          <p className='text-base-content/60 text-sm'>{_('Loading...')}</p>
         )}
       </div>
     </Dialog>
