@@ -9,6 +9,9 @@ import {
   TranslationArtifactStore,
 } from '@/services/translators/artifacts';
 import { extractTranslationItems, TranslationBatchController } from '@/services/translators/batch';
+import { TranslationJobStore } from '@/services/translators/jobStore';
+import { createTranslationGlossary } from '@/services/translators/glossary';
+import { TranslationMemory } from '@/services/translators/memory';
 
 const makeFileSystem = () => {
   const files = new Map<string, string>();
@@ -183,5 +186,100 @@ describe('translation batch services', () => {
           translate,
         }),
     ).toThrow('source changed');
+  });
+
+  test('enforces glossary terms, uses translation memory, and supports human review', async () => {
+    const artifact = createTranslationArtifact({
+      bookHash: 'glossary-book',
+      provider: 'deepseek',
+      promptVersion: 'translation-v1',
+      sourceLang: 'en',
+      targetLang: 'zh-CN',
+    });
+    const memory = new TranslationMemory();
+    const translate = vi.fn(async (item) => `translated ${item.text}`);
+    const glossary = createTranslationGlossary([
+      { source: 'New York', target: '纽约', sourceLang: 'en', targetLang: 'zh-CN' },
+    ]);
+    const controller = new TranslationBatchController({
+      artifact,
+      translationMemory: memory,
+      glossary,
+      items: [{ id: 'segment-0', text: 'Visit New York.' }],
+      translate,
+    });
+
+    await controller.start();
+    expect(translate).toHaveBeenCalledWith(
+      expect.objectContaining({ text: expect.stringContaining('__BABELLEAF_GLOSSARY_') }),
+      expect.any(AbortSignal),
+    );
+    expect(controller.getArtifact().segments[0]).toMatchObject({
+      status: 'translated',
+      translatedText: 'translated Visit 纽约.',
+    });
+
+    const reviewed = await controller.reviewSegment('segment-0', '访问纽约。');
+    expect(reviewed.segments[0]).toMatchObject({
+      status: 'reviewed',
+      translatedText: '访问纽约。',
+    });
+
+    const memoryHitController = new TranslationBatchController({
+      artifact: createTranslationArtifact({
+        bookHash: 'memory-book',
+        provider: 'deepseek',
+        promptVersion: 'translation-v1',
+        sourceLang: 'en',
+        targetLang: 'zh-CN',
+      }),
+      translationMemory: memory,
+      items: [{ id: 'segment-0', text: 'Visit New York.' }],
+      translate,
+      glossary,
+    });
+    await memoryHitController.start();
+    expect(translate).toHaveBeenCalledTimes(1);
+  });
+
+  test('retries transient failures and recovers a persisted failed job', async () => {
+    const { fs } = makeFileSystem();
+    const artifactStore = new TranslationArtifactStore(fs);
+    const jobStore = new TranslationJobStore(fs);
+    const artifact = createTranslationArtifact({
+      bookHash: 'retry-book',
+      provider: 'deepseek',
+      promptVersion: 'translation-v1',
+      sourceLang: 'en',
+      targetLang: 'zh-CN',
+    });
+    let calls = 0;
+    const translate = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('temporary');
+      return '成功';
+    });
+    const controller = new TranslationBatchController({
+      artifact,
+      artifactStore,
+      jobStore,
+      maxAttempts: 2,
+      items: [{ id: 'segment-0', text: 'Retry me' }],
+      translate,
+    });
+    const result = await controller.start();
+    expect(result.status).toBe('completed');
+    expect(result.items[0]).toMatchObject({ attempts: 2, status: 'completed' });
+    await controller.flush();
+
+    const restored = await TranslationBatchController.restore({
+      artifact: controller.getArtifact(),
+      artifactStore,
+      jobStore,
+      items: [{ id: 'segment-0', text: 'Retry me' }],
+      translate,
+    });
+    expect(restored.getSnapshot().status).toBe('completed');
+    expect(restored.getArtifact().segments[0]?.translatedText).toBe('成功');
   });
 });

@@ -81,4 +81,37 @@ describe('BilingualTranslationView', () => {
     );
     expect(document.querySelector('[data-translation-segment-id="segment-0"]')).toBeTruthy();
   });
+
+  it('supports editing and saving a reviewed translation without changing the source', async () => {
+    const onReviewPair = vi.fn(async () => undefined);
+    render(
+      <BilingualTranslationView
+        pairs={makePairs(1)}
+        sourceLabel='Original'
+        translatedLabel='Translated'
+        emptyLabel='Empty'
+        previousLabel='Previous'
+        nextLabel='Next'
+        reviewLabel='Review'
+        saveReviewLabel='Save'
+        cancelReviewLabel='Cancel'
+        onReviewPair={onReviewPair}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    const editor = screen.getByRole('textbox');
+    fireEvent.change(editor, { target: { value: '人工校订' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await vi.waitFor(() =>
+      expect(onReviewPair).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'segment-0',
+          sourceText: 'source-0',
+        }),
+        '人工校订',
+      ),
+    );
+    expect(screen.getByText('source-0')).toBeTruthy();
+  });
 });

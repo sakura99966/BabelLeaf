@@ -72,11 +72,27 @@ they contain no API keys. The existing reader translation toggle remains the
 low-latency viewport workflow, while the workbench is the durable chapter/book
 workflow.
 
-The following end-user features remain out of scope for the 0.2 release:
+## 0.3 delivered batch workflow
+
+Version 0.3 adds a local-only chapter/full-book queue. Jobs are bounded,
+pauseable, cancellable, persisted under application data, and recoverable after
+an interrupted run. Failed items have an explicit retry budget and can be
+retried without changing completed segments. A glossary protects configured
+terms during provider requests, and a bounded translation memory avoids
+repeating an identical request for the same language/provider/model/glossary
+version. Reviewed segment text is stored in the same sidecar artifact with a
+`reviewed` status.
+
+The 0.3 format matrix verifies EPUB, PDF, MOBI/AZW/AZW3, FB2, TXT, and Markdown
+text extraction. CBZ/FBZ are detected as image-only and report that OCR is
+required; DRM or encrypted inputs receive an explicit diagnostic. No source
+file is modified.
+
+The following end-user features remain out of scope for the 0.3 release:
 
 - manual prompt editing and arbitrary endpoint/model fields;
 - automatic background translation;
-- translation memory, glossary editing, and an interactive human-review editor;
+- glossary editing screens and a full interactive review workspace;
 - scanned-PDF OCR translation and comic text detection, cleanup, and
   typesetting.
 

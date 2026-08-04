@@ -15,6 +15,7 @@ export interface TranslationJobItem {
   sourceLocator?: string;
   translatedText?: string;
   status: TranslationJobItemStatus;
+  attempts: number;
   error?: string;
 }
 
@@ -30,6 +31,7 @@ export interface TranslationJobSnapshot {
   completed: number;
   failed: number;
   cancelled: number;
+  maxAttempts: number;
   updatedAt: number;
   items: TranslationJobItem[];
 }
@@ -46,6 +48,10 @@ export interface TranslationJobInput {
       Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator'>>
   >;
   concurrency?: number;
+  /** Maximum provider attempts for one item. Defaults to one. */
+  maxAttempts?: number;
+  /** A durable snapshot recovered after an interrupted application run. */
+  initialSnapshot?: TranslationJobSnapshot;
 }
 
 export type TranslateJobItem = (item: TranslationJobItem, signal: AbortSignal) => Promise<string>;
@@ -55,6 +61,9 @@ export type TranslationJobListener = (snapshot: TranslationJobSnapshot) => void;
 const clampConcurrency = (value: number | undefined): number =>
   Math.max(1, Math.min(4, Math.floor(value ?? 2)));
 
+const clampAttempts = (value: number | undefined): number =>
+  Math.max(1, Math.min(5, Math.floor(value ?? 1)));
+
 const errorMessage = (error: unknown): string => {
   if (error instanceof Error && error.message) return error.message;
   return typeof error === 'string' && error ? error : 'Translation failed';
@@ -63,12 +72,12 @@ const errorMessage = (error: unknown): string => {
 const copyItem = (item: TranslationJobItem): TranslationJobItem => ({ ...item });
 
 /**
- * Bounded, pauseable translation work queue. It keeps all state in memory and
- * deliberately delegates persistence to TranslationArtifactStore so a future
- * UI can save checkpoints without coupling the scheduler to a platform.
+ * Bounded, pauseable translation work queue. The queue is platform agnostic;
+ * callers can persist the emitted snapshots through TranslationJobStore.
  */
 export class TranslationJobQueue {
   private readonly concurrency: number;
+  private readonly maxAttempts: number;
   private readonly translate: TranslateJobItem;
   private readonly controller = new AbortController();
   private readonly listeners = new Set<TranslationJobListener>();
@@ -77,22 +86,94 @@ export class TranslationJobQueue {
 
   constructor(input: TranslationJobInput, translate: TranslateJobItem) {
     this.concurrency = clampConcurrency(input.concurrency);
+    this.maxAttempts = clampAttempts(input.maxAttempts ?? input.initialSnapshot?.maxAttempts);
     this.translate = translate;
-    this.snapshot = {
+    this.snapshot = this.createSnapshot(input);
+  }
+
+  private createSnapshot(input: TranslationJobInput): TranslationJobSnapshot {
+    const recovered = input.initialSnapshot;
+    if (recovered) {
+      const identity = [
+        ['id', recovered.id, input.id],
+        ['kind', recovered.kind, input.kind],
+        ['bookHash', recovered.bookHash, input.bookHash],
+        ['provider', recovered.provider, input.provider],
+        ['sourceLang', recovered.sourceLang, input.sourceLang],
+        ['targetLang', recovered.targetLang, input.targetLang],
+      ] as const;
+      const mismatch = identity.find(([, previous, current]) => previous !== current);
+      if (mismatch) {
+        throw new Error(`Translation job identity changed: ${mismatch[0]}`);
+      }
+    }
+    const recoveredItems = new Map(recovered?.items.map((item) => [item.id, item]) ?? []);
+    const items = input.items.map((item) => {
+      const previous = recoveredItems.get(item.id);
+      if (previous && previous.text !== item.text) {
+        throw new Error(`Translation job source changed: ${item.id}`);
+      }
+      if (!previous) {
+        return { ...item, status: 'pending' as const, attempts: 0 };
+      }
+
+      // A process interrupted while an item was running must be retried. A
+      // completed or failed item remains durable and can be explicitly retried.
+      if (previous.status === 'running') {
+        return {
+          ...item,
+          status: 'pending' as const,
+          attempts: previous.attempts ?? 0,
+          error: undefined,
+          translatedText: undefined,
+        };
+      }
+      if (previous.status === 'cancelled') {
+        return {
+          ...item,
+          status: 'pending' as const,
+          attempts: 0,
+          error: undefined,
+          translatedText: undefined,
+        };
+      }
+      return {
+        ...item,
+        status: previous.status,
+        attempts: previous.attempts ?? 0,
+        ...(previous.translatedText ? { translatedText: previous.translatedText } : {}),
+        ...(previous.error ? { error: previous.error } : {}),
+      };
+    });
+    const recoveredStatus = recovered?.status ?? 'queued';
+    const status =
+      recoveredStatus === 'running'
+        ? 'paused'
+        : recoveredStatus === 'cancelled' && items.some((item) => item.status === 'pending')
+          ? 'queued'
+          : recoveredStatus;
+    const snapshot: TranslationJobSnapshot = {
       id: input.id,
       kind: input.kind,
       bookHash: input.bookHash,
       provider: input.provider,
       sourceLang: input.sourceLang,
       targetLang: input.targetLang,
-      status: 'queued',
-      total: input.items.length,
+      status:
+        status === 'completed' && items.some((item) => item.status === 'pending')
+          ? 'paused'
+          : status,
+      total: items.length,
       completed: 0,
       failed: 0,
       cancelled: 0,
+      maxAttempts: this.maxAttempts,
       updatedAt: Date.now(),
-      items: input.items.map((item) => ({ ...item, status: 'pending' })),
+      items,
     };
+    this.snapshot = snapshot;
+    this.updateCounts();
+    return snapshot;
   }
 
   getSnapshot(): TranslationJobSnapshot {
@@ -137,6 +218,35 @@ export class TranslationJobQueue {
           this.snapshot.status === 'paused' ? this.start() : this.getSnapshot(),
         );
       }
+      return this.start();
+    }
+    return Promise.resolve(this.getSnapshot());
+  }
+
+  /** Requeue all failed items without touching completed translations. */
+  retryFailed(): Promise<TranslationJobSnapshot> {
+    return this.retryItems(this.snapshot.items.filter((item) => item.status === 'failed'));
+  }
+
+  /** Requeue one failed item, useful for a human-reviewed retry action. */
+  retryItem(id: string): Promise<TranslationJobSnapshot> {
+    const item = this.snapshot.items.find((candidate) => candidate.id === id);
+    return this.retryItems(item ? [item] : []);
+  }
+
+  private retryItems(items: TranslationJobItem[]): Promise<TranslationJobSnapshot> {
+    if (this.snapshot.status === 'running' || this.snapshot.status === 'queued') {
+      return Promise.resolve(this.getSnapshot());
+    }
+    for (const item of items) {
+      if (item.status !== 'failed') continue;
+      item.status = 'pending';
+      item.attempts = 0;
+      delete item.error;
+      delete item.translatedText;
+    }
+    if (items.some((item) => item.status === 'pending')) {
+      this.setStatus('queued');
       return this.start();
     }
     return Promise.resolve(this.getSnapshot());
@@ -198,6 +308,7 @@ export class TranslationJobQueue {
       if (!item) return;
 
       item.status = 'running';
+      item.attempts += 1;
       delete item.error;
       this.updateCounts();
       this.emit();
@@ -208,8 +319,14 @@ export class TranslationJobQueue {
           item.status = 'cancelled';
           delete item.translatedText;
         } else if (!translatedText.trim()) {
-          item.status = 'failed';
-          item.error = 'Translation provider returned an empty response';
+          const emptyResponseError = 'Translation provider returned an empty response';
+          if (item.attempts < this.maxAttempts) {
+            item.status = 'pending';
+            item.error = emptyResponseError;
+          } else {
+            item.status = 'failed';
+            item.error = emptyResponseError;
+          }
         } else {
           item.status = 'completed';
           item.translatedText = translatedText;
@@ -218,6 +335,9 @@ export class TranslationJobQueue {
         if (this.controller.signal.aborted || this.isCancelled()) {
           item.status = 'cancelled';
           delete item.error;
+        } else if (item.attempts < this.maxAttempts) {
+          item.status = 'pending';
+          item.error = errorMessage(error);
         } else {
           item.status = 'failed';
           item.error = errorMessage(error);

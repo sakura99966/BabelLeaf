@@ -12,6 +12,7 @@ import {
   createEmptyTranslationArtifact,
   extractTranslationItems,
   TranslationBatchController,
+  TranslationExtractionError,
 } from '@/services/translators/batch';
 import {
   parseTranslationSidecar,
@@ -19,6 +20,11 @@ import {
   toBilingualTranslationResult,
   TRANSLATION_PROMPT_VERSION,
   TranslationArtifactStore,
+  TranslationJobStore,
+  TranslationGlossaryStore,
+  TranslationMemory,
+  TranslationMemoryFileStore,
+  diagnoseTranslationFormat,
   type BilingualTranslationPair,
   type TranslationArtifact,
   type TranslationJobKind,
@@ -55,6 +61,18 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     () => (appService ? new TranslationArtifactStore(appService) : null),
     [appService],
   );
+  const jobStore = useMemo(
+    () => (appService ? new TranslationJobStore(appService) : null),
+    [appService],
+  );
+  const glossaryStore = useMemo(
+    () => (appService ? new TranslationGlossaryStore(appService) : null),
+    [appService],
+  );
+  const memoryStore = useMemo(
+    () => (appService ? new TranslationMemoryFileStore(appService) : null),
+    [appService],
+  );
   const { translate } = useTranslator({ provider, sourceLang, targetLang });
   const controllerRef = useRef<TranslationBatchController | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -67,6 +85,9 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   const [selectedPairId, setSelectedPairId] = useState<string | undefined>(
     viewSettings?.translationWorkbenchSegmentId,
   );
+  const [glossary, setGlossary] =
+    useState<Awaited<ReturnType<TranslationGlossaryStore['load']>>>(null);
+  const [translationMemory, setTranslationMemory] = useState<TranslationMemory | null>(null);
 
   const resetController = useCallback(() => {
     unsubscribeRef.current?.();
@@ -107,6 +128,23 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     };
   }, [bookHash, isOpen, provider, resetController, sourceLang, store, targetLang]);
 
+  useEffect(() => {
+    if (!isOpen || !glossaryStore || !memoryStore) return;
+    let active = true;
+    void Promise.all([glossaryStore.load(), TranslationMemory.load(memoryStore)])
+      .then(([loadedGlossary, loadedMemory]) => {
+        if (!active) return;
+        setGlossary(loadedGlossary);
+        setTranslationMemory(loadedMemory);
+      })
+      .catch((reason: unknown) => {
+        if (active) setError(reason instanceof Error ? reason.message : String(reason));
+      });
+    return () => {
+      active = false;
+    };
+  }, [glossaryStore, isOpen, memoryStore]);
+
   useEffect(
     () => () => {
       controllerRef.current?.cancel();
@@ -121,44 +159,79 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   }, [bookHash, isOpen, provider, targetLang, viewSettings?.translationWorkbenchSegmentId]);
 
   const handleStart = async () => {
+    if (controllerRef.current && snapshot?.status === 'completed') {
+      unsubscribeRef.current?.();
+      unsubscribeRef.current = null;
+      controllerRef.current = null;
+      setSnapshot(null);
+    }
     if (!artifact || !bookData?.bookDoc || controllerRef.current) return;
     setError(null);
     try {
       const items = await extractTranslationItems(bookData.bookDoc, {
+        format: bookData.book?.format,
         ...(scope === 'chapter' ? { sectionIndices: [chapterIndex] } : {}),
       });
       if (items.length === 0) {
         setError(_('No translation available.'));
         return;
       }
-      const controller = new TranslationBatchController({
-        artifact,
-        kind: scope,
-        artifactStore: store ?? undefined,
-        concurrency: 2,
-        items,
-        translate: async (item, signal) => {
-          const translated = await translate([item.text], {
-            source: artifact.sourceLang,
-            target: artifact.targetLang,
-            useCache: true,
-            signal,
-          });
-          return translated[0] || '';
-        },
-      });
+      const controller = await (jobStore
+        ? TranslationBatchController.restore({
+            artifact,
+            kind: scope,
+            artifactStore: store ?? undefined,
+            jobStore,
+            glossary,
+            translationMemory: translationMemory ?? undefined,
+            maxAttempts: 3,
+            concurrency: 2,
+            items,
+            translate: async (item, signal) => {
+              const translated = await translate([item.text], {
+                source: artifact.sourceLang,
+                target: artifact.targetLang,
+                useCache: true,
+                signal,
+              });
+              return translated[0] || '';
+            },
+          })
+        : new TranslationBatchController({
+            artifact,
+            kind: scope,
+            artifactStore: store ?? undefined,
+            glossary,
+            translationMemory: translationMemory ?? undefined,
+            maxAttempts: 3,
+            concurrency: 2,
+            items,
+            translate: async (item, signal) => {
+              const translated = await translate([item.text], {
+                source: artifact.sourceLang,
+                target: artifact.targetLang,
+                useCache: true,
+                signal,
+              });
+              return translated[0] || '';
+            },
+          }));
       controllerRef.current = controller;
       unsubscribeRef.current = controller.subscribe((next) => setSnapshot(next));
       const result = await controller.start();
       setArtifact(controller.getArtifact());
       setSnapshot(result);
-      if (result.status === 'completed' || result.status === 'failed') {
-        unsubscribeRef.current?.();
-        unsubscribeRef.current = null;
-        controllerRef.current = null;
-      }
     } catch (reason: unknown) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      if (reason instanceof TranslationExtractionError) {
+        setError(
+          reason.code === 'drm'
+            ? diagnoseTranslationFormat(bookData.book?.format || 'unknown', { error: reason })
+                .message
+            : reason.message,
+        );
+      } else {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      }
     }
   };
 
@@ -169,11 +242,18 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       const result = await controller.resume();
       setArtifact(controller.getArtifact());
       setSnapshot(result);
-      if (result.status === 'completed' || result.status === 'failed') {
-        unsubscribeRef.current?.();
-        unsubscribeRef.current = null;
-        controllerRef.current = null;
-      }
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
+  const handleRetry = async () => {
+    const controller = controllerRef.current;
+    if (!controller) return;
+    try {
+      const result = await controller.retryFailed();
+      setArtifact(controller.getArtifact());
+      setSnapshot(result);
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason));
     }
@@ -188,6 +268,21 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     unsubscribeRef.current?.();
     unsubscribeRef.current = null;
     controllerRef.current = null;
+  };
+
+  const handleReviewPair = async (pair: BilingualTranslationPair, translatedText: string) => {
+    const controller = controllerRef.current;
+    if (!controller) {
+      setError(_('Start the translation job before editing a segment.'));
+      return;
+    }
+    try {
+      const updated = await controller.reviewSegment(pair.id, translatedText);
+      setArtifact(updated);
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+      throw reason;
+    }
   };
 
   const handleImport = async () => {
@@ -292,7 +387,7 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
               className='select select-bordered select-sm'
               value={scope}
               onChange={(event) => setScope(event.target.value as TranslationJobKind)}
-              disabled={Boolean(controllerRef.current)}
+              disabled={Boolean(controllerRef.current && snapshot?.status !== 'completed')}
             >
               <option value='book'>{_('Book')}</option>
               <option value='chapter'>{_('Chapter')}</option>
@@ -305,7 +400,7 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
                 className='select select-bordered select-sm'
                 value={chapterIndex}
                 onChange={(event) => setChapterIndex(Number(event.target.value))}
-                disabled={Boolean(controllerRef.current)}
+                disabled={Boolean(controllerRef.current && snapshot?.status !== 'completed')}
               >
                 {sections.map((section, index) => (
                   <option
@@ -327,7 +422,7 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
           <button className='btn btn-outline btn-sm' onClick={handleExport} disabled={!artifact}>
             {_('Export')}
           </button>
-          {!controllerRef.current && (
+          {(!controllerRef.current || snapshot?.status === 'completed') && (
             <button
               className='btn btn-primary btn-sm'
               onClick={() => void handleStart()}
@@ -347,6 +442,11 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
           {paused && (
             <button className='btn btn-primary btn-sm' onClick={() => void handleResume()}>
               {_('Resume')}
+            </button>
+          )}
+          {snapshot?.status === 'failed' && controllerRef.current && (
+            <button className='btn btn-warning btn-sm' onClick={() => void handleRetry()}>
+              {_('Retry failed')}
             </button>
           )}
           {(running || paused) && (
@@ -385,6 +485,10 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
             selectedPairId={selectedPairId}
             onPageChange={persistWorkbenchPage}
             onLocatePair={handleLocatePair}
+            reviewLabel={_('Review')}
+            saveReviewLabel={_('Save')}
+            cancelReviewLabel={_('Cancel')}
+            onReviewPair={handleReviewPair}
           />
         )}
       </div>

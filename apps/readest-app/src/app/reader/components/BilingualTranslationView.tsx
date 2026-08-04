@@ -15,6 +15,10 @@ interface BilingualTranslationViewProps {
   selectedPairId?: string;
   onPageChange?: (page: number) => void;
   onLocatePair?: (pair: BilingualTranslationPair) => void;
+  reviewLabel?: string;
+  saveReviewLabel?: string;
+  cancelReviewLabel?: string;
+  onReviewPair?: (pair: BilingualTranslationPair, translatedText: string) => Promise<void> | void;
 }
 
 export const BILINGUAL_PAIRS_PER_PAGE = 100;
@@ -40,9 +44,16 @@ const BilingualTranslationView: React.FC<BilingualTranslationViewProps> = ({
   selectedPairId,
   onPageChange,
   onLocatePair,
+  reviewLabel,
+  saveReviewLabel,
+  cancelReviewLabel,
+  onReviewPair,
 }) => {
   const pageCount = getBilingualPageCount(pairs.length);
   const [page, setPage] = useState(() => clampBilingualPage(initialPage, pageCount));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
     setPage(clampBilingualPage(initialPage, pageCount));
@@ -102,10 +113,66 @@ const BilingualTranslationView: React.FC<BilingualTranslationViewProps> = ({
             </p>
           </div>
           <div className='min-w-0'>
-            <div className='text-base-content/60 mb-1 text-xs'>{translatedLabel}</div>
-            <p className='whitespace-pre-wrap break-words text-sm' lang={pair.targetLang}>
-              {pair.translatedText}
-            </p>
+            <div className='text-base-content/60 mb-1 flex items-center justify-between gap-2 text-xs'>
+              <span>{translatedLabel}</span>
+              {onReviewPair && editingId !== pair.id && (
+                <button
+                  type='button'
+                  className='btn btn-ghost btn-xs'
+                  onClick={() => {
+                    setEditingId(pair.id);
+                    setDraft(pair.translatedText);
+                  }}
+                >
+                  {reviewLabel}
+                </button>
+              )}
+            </div>
+            {editingId === pair.id ? (
+              <div className='space-y-2'>
+                <textarea
+                  className='textarea textarea-bordered min-h-24 w-full text-sm'
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  lang={pair.targetLang}
+                  disabled={savingId === pair.id}
+                />
+                <div className='flex gap-2'>
+                  <button
+                    type='button'
+                    className='btn btn-primary btn-xs'
+                    disabled={!draft.trim() || savingId === pair.id}
+                    onClick={() => {
+                      if (!onReviewPair) return;
+                      setSavingId(pair.id);
+                      void Promise.resolve(onReviewPair(pair, draft.trim()))
+                        .then(
+                          () => setEditingId(null),
+                          () => {
+                            // The parent reports the failure; keep the editor
+                            // open so the user can correct or retry the text.
+                          },
+                        )
+                        .finally(() => setSavingId(null));
+                    }}
+                  >
+                    {saveReviewLabel}
+                  </button>
+                  <button
+                    type='button'
+                    className='btn btn-ghost btn-xs'
+                    disabled={savingId === pair.id}
+                    onClick={() => setEditingId(null)}
+                  >
+                    {cancelReviewLabel}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className='whitespace-pre-wrap break-words text-sm' lang={pair.targetLang}>
+                {pair.translatedText}
+              </p>
+            )}
           </div>
         </article>
       ))}

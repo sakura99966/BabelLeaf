@@ -109,4 +109,55 @@ describe('TranslationJobQueue', () => {
     expect(cancelled.cancelled).toBe(3);
     expect(cancelled.items.every((item) => item.status === 'cancelled')).toBe(true);
   });
+
+  test('retries failed items on demand and resets the attempt budget', async () => {
+    let calls = 0;
+    const queue = new TranslationJobQueue({ ...makeInput(1, 1), maxAttempts: 1 }, async () => {
+      calls += 1;
+      if (calls === 1) throw new Error('temporary');
+      return 'ok';
+    });
+
+    await expect(queue.start()).resolves.toMatchObject({ status: 'failed', failed: 1 });
+    await expect(queue.retryFailed()).resolves.toMatchObject({ status: 'completed', completed: 1 });
+    expect(queue.getSnapshot().items[0]).toMatchObject({ status: 'completed', attempts: 1 });
+  });
+
+  test('recovers running work as paused and retains completed results', async () => {
+    const base = makeInput(2, 1);
+    const recovered = {
+      ...base,
+      status: 'running' as const,
+      total: 2,
+      completed: 1,
+      failed: 0,
+      cancelled: 0,
+      maxAttempts: 3,
+      updatedAt: Date.now(),
+      items: [
+        {
+          id: 'segment-0',
+          text: 'Text 0',
+          status: 'completed' as const,
+          attempts: 1,
+          translatedText: 'ok',
+        },
+        { id: 'segment-1', text: 'Text 1', status: 'running' as const, attempts: 1 },
+      ],
+    };
+    const queue = new TranslationJobQueue(
+      { ...base, maxAttempts: 3, initialSnapshot: recovered },
+      async (item) => `译文:${item.text}`,
+    );
+
+    expect(queue.getSnapshot().status).toBe('paused');
+    expect(queue.getSnapshot().items[0]).toMatchObject({
+      status: 'completed',
+      translatedText: 'ok',
+    });
+    expect(queue.getSnapshot().items[1]).toMatchObject({ status: 'pending', attempts: 1 });
+    const result = await queue.resume();
+    expect(result.status).toBe('completed');
+    expect(result.completed).toBe(2);
+  });
 });
