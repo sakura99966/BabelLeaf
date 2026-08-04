@@ -19,6 +19,7 @@ export interface TranslationSidecar {
   promptVersion: string;
   sourceLang: string;
   targetLang: string;
+  glossaryVersion?: number;
   updatedAt: number;
   segments: TranslationSegment[];
 }
@@ -39,6 +40,9 @@ export const createTranslationSidecar = (artifact: TranslationArtifact): Transla
     promptVersion: normalized.promptVersion,
     sourceLang: normalized.sourceLang,
     targetLang: normalized.targetLang,
+    ...(normalized.glossaryVersion === undefined
+      ? {}
+      : { glossaryVersion: normalized.glossaryVersion }),
     updatedAt: normalized.updatedAt,
     segments: normalized.segments.map((segment) => ({ ...segment })),
   };

@@ -7,6 +7,8 @@ import {
   serializeTranslationArtifact,
   TRANSLATION_ARTIFACT_BASE,
   TranslationArtifactStore,
+  reviewTranslationSegment,
+  revertTranslationSegment,
   upsertTranslationSegments,
 } from '@/services/translators/artifacts';
 
@@ -127,5 +129,33 @@ describe('translation artifacts', () => {
 
   test('rejects unsupported schema versions', () => {
     expect(() => parseTranslationArtifact({ schemaVersion: 99 })).toThrow('Unsupported');
+  });
+
+  test('retains machine output while saving and reverting a human review', () => {
+    const artifact = upsertTranslationSegments(
+      makeArtifact(),
+      [
+        {
+          id: 'segment-1',
+          sourceText: 'Hello',
+          sourceLang: 'en',
+          targetLang: 'zh-CN',
+          status: 'translated',
+          translatedText: '你好',
+          updatedAt: 1,
+        },
+      ],
+      1,
+    );
+    const reviewed = reviewTranslationSegment(artifact, 'segment-1', '您好', 2);
+    expect(reviewed.segments[0]).toMatchObject({
+      translatedText: '您好',
+      machineTranslatedText: '你好',
+      status: 'reviewed',
+    });
+    expect(revertTranslationSegment(reviewed, 'segment-1', 3).segments[0]).toMatchObject({
+      translatedText: '你好',
+      status: 'translated',
+    });
   });
 });

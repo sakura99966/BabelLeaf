@@ -6,12 +6,15 @@ import {
   TranslationArtifactStore,
   type TranslationSegment,
   upsertTranslationSegments,
+  reviewTranslationSegment,
+  revertTranslationSegment,
 } from './artifacts';
 import {
   TranslationJobQueue,
   type TranslationJobInput,
   type TranslationJobKind,
   type TranslationJobItem,
+  type TranslationJobItemStatus,
   type TranslationJobListener,
   type TranslationJobSnapshot,
   type TranslateJobItem,
@@ -33,6 +36,65 @@ export const getTranslationJobId = (
   artifact: Pick<TranslationArtifact, 'bookHash' | 'provider' | 'targetLang'>,
   kind: TranslationJobKind,
 ): string => `translation-${artifact.bookHash}-${artifact.provider}-${artifact.targetLang}-${kind}`;
+
+const createArtifactRecoverySnapshot = (input: {
+  artifact: TranslationArtifact;
+  kind: TranslationJobKind;
+  bookTitle?: string;
+  items: Array<
+    Pick<TranslationJobItem, 'id' | 'text'> &
+      Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator'>>
+  >;
+  maxAttempts?: number;
+}): TranslationJobSnapshot | undefined => {
+  const segments = new Map(input.artifact.segments.map((segment) => [segment.id, segment]));
+  if (!input.items.some((item) => segments.has(item.id))) return undefined;
+
+  const items = input.items.map((item) => {
+    const segment = segments.get(item.id);
+    const translated = segment?.translatedText?.trim();
+    const status: TranslationJobItemStatus = translated
+      ? 'completed'
+      : segment?.status === 'failed'
+        ? 'failed'
+        : 'pending';
+    return {
+      ...item,
+      status,
+      attempts: 0,
+      ...(translated ? { translatedText: segment!.translatedText } : {}),
+      ...(status === 'failed' && segment?.error ? { error: segment.error } : {}),
+    };
+  });
+  const hasPending = items.some((item) => item.status === 'pending');
+  const hasFailed = items.some((item) => item.status === 'failed');
+  const status: TranslationJobSnapshot['status'] = hasPending
+    ? 'queued'
+    : hasFailed
+      ? 'failed'
+      : 'completed';
+  const updatedAt = Math.max(
+    Date.now(),
+    ...input.artifact.segments.map((segment) => segment.updatedAt || 0),
+  );
+  return {
+    id: getTranslationJobId(input.artifact, input.kind),
+    kind: input.kind,
+    bookHash: input.artifact.bookHash,
+    ...(input.bookTitle ? { bookTitle: input.bookTitle } : {}),
+    provider: input.artifact.provider,
+    sourceLang: input.artifact.sourceLang,
+    targetLang: input.artifact.targetLang,
+    status,
+    total: items.length,
+    completed: items.filter((item) => item.status === 'completed').length,
+    failed: items.filter((item) => item.status === 'failed').length,
+    cancelled: 0,
+    maxAttempts: input.maxAttempts ?? 1,
+    updatedAt,
+    items,
+  };
+};
 
 export interface ExtractTranslationItemsOptions {
   maxChars?: number;
@@ -172,6 +234,7 @@ export const extractTranslationItems = async (
 export interface TranslationBatchControllerInput {
   artifact: TranslationArtifact;
   kind?: TranslationJobKind;
+  bookTitle?: string;
   items: Array<
     Pick<TranslationJobItem, 'id' | 'text'> &
       Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator'>>
@@ -180,6 +243,8 @@ export interface TranslationBatchControllerInput {
   artifactStore?: TranslationArtifactStore;
   jobStore?: TranslationJobStore;
   initialJobSnapshot?: TranslationJobSnapshot;
+  /** Explicitly requeue completed items for a user-requested invalidation. */
+  invalidateCompleted?: boolean;
   glossary?: TranslationGlossary | null;
   translationMemory?: TranslationMemory;
   maxAttempts?: number;
@@ -209,31 +274,43 @@ export class TranslationBatchController {
       input.model && input.artifact.model !== input.model
         ? { ...input.artifact, model: input.model }
         : input.artifact;
+    const glossaryVersion = input.glossary?.updatedAt;
+    if (this.artifact.glossaryVersion !== glossaryVersion) {
+      this.artifact = {
+        ...this.artifact,
+        ...(glossaryVersion === undefined ? { glossaryVersion: undefined } : { glossaryVersion }),
+      };
+    }
     this.artifactStore = input.artifactStore;
     this.jobStore = input.jobStore;
     const existing = new Map(this.artifact.segments.map((segment) => [segment.id, segment]));
-    const pendingItems = input.items.filter((item) => {
+    for (const item of input.items) {
       const previous = existing.get(item.id);
       if (previous && previous.sourceText !== item.text) {
         throw new Error(`Translation segment source changed: ${item.id}`);
       }
-      return !(
-        previous &&
-        (previous.status === 'translated' || previous.status === 'reviewed') &&
-        Boolean(previous.translatedText?.trim())
-      );
-    });
+    }
+    const initialSnapshot =
+      input.initialJobSnapshot ??
+      createArtifactRecoverySnapshot({
+        artifact: this.artifact,
+        kind: input.kind ?? 'book',
+        bookTitle: input.bookTitle,
+        items: input.items,
+        maxAttempts: input.maxAttempts,
+      });
     const queueInput: TranslationJobInput = {
       id: getTranslationJobId(this.artifact, input.kind ?? 'book'),
       kind: input.kind ?? 'book',
       bookHash: this.artifact.bookHash,
+      ...(input.bookTitle ? { bookTitle: input.bookTitle } : {}),
       provider: this.artifact.provider,
       sourceLang: this.artifact.sourceLang,
       targetLang: this.artifact.targetLang,
       concurrency: input.concurrency,
       maxAttempts: input.maxAttempts,
-      initialSnapshot: input.initialJobSnapshot,
-      items: pendingItems,
+      initialSnapshot,
+      items: input.items,
     };
     const glossaryEntries = getApplicableGlossaryEntries(
       input.glossary,
@@ -259,6 +336,7 @@ export class TranslationBatchController {
       return restored;
     };
     this.queue = new TranslationJobQueue(queueInput, translate);
+    if (input.invalidateCompleted) this.queue.invalidateCompleted();
     this.queue.subscribe((snapshot) => {
       this.scheduleCheckpoint(snapshot);
       this.scheduleJobCheckpoint(snapshot);
@@ -312,6 +390,13 @@ export class TranslationBatchController {
     return result;
   }
 
+  async invalidateCompleted(): Promise<TranslationJobSnapshot> {
+    this.queue.invalidateCompleted();
+    const result = await this.queue.start();
+    await this.flush();
+    return result;
+  }
+
   cancel(): void {
     this.queue.cancel();
   }
@@ -321,22 +406,13 @@ export class TranslationBatchController {
   }
 
   async reviewSegment(id: string, translatedText: string): Promise<TranslationArtifact> {
-    const segment = this.artifact.segments.find((candidate) => candidate.id === id);
-    if (!segment) throw new Error(`Translation segment not found: ${id}`);
-    if (!translatedText.trim()) throw new Error('Reviewed translation cannot be empty');
-    this.artifact = upsertTranslationSegments(
-      this.artifact,
-      [
-        {
-          ...segment,
-          translatedText: translatedText.trim(),
-          status: 'reviewed',
-          error: undefined,
-          updatedAt: Date.now(),
-        },
-      ],
-      Date.now(),
-    );
+    this.artifact = reviewTranslationSegment(this.artifact, id, translatedText);
+    await this.artifactStore?.save(this.artifact);
+    return this.getArtifact();
+  }
+
+  async revertSegment(id: string): Promise<TranslationArtifact> {
+    this.artifact = revertTranslationSegment(this.artifact, id);
     await this.artifactStore?.save(this.artifact);
     return this.getArtifact();
   }
@@ -361,6 +437,9 @@ export class TranslationBatchController {
         targetLang: this.artifact.targetLang,
         status: item.status === 'completed' ? 'translated' : 'failed',
         ...(item.translatedText ? { translatedText: item.translatedText } : {}),
+        ...(item.status === 'completed' && item.translatedText
+          ? { machineTranslatedText: item.translatedText }
+          : {}),
         ...(item.error ? { error: item.error } : {}),
         ...(item.chapterId ? { chapterId: item.chapterId } : {}),
         ...(item.sourceLocator ? { sourceLocator: item.sourceLocator } : {}),

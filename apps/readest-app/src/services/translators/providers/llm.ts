@@ -3,6 +3,7 @@ import { generateText } from 'ai';
 import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
 import { getAIProvider } from '@/services/ai/providers';
 import { isLoopbackOllamaUrl } from '@/services/ai/providers/OllamaProvider';
+import { AI_TIMEOUTS } from '@/services/ai/utils/retry';
 import {
   getTranslationApiKey,
   type TranslationApiKeyProvider,
@@ -55,6 +56,68 @@ const buildSystemPrompt = (sourceLang: string, targetLang: string): string => {
   ].join(' ');
 };
 
+const getErrorStatus = (error: unknown): number | undefined => {
+  if (!error || typeof error !== 'object') return undefined;
+  const value = error as {
+    status?: unknown;
+    statusCode?: unknown;
+    response?: { status?: unknown };
+  };
+  for (const candidate of [value.status, value.statusCode, value.response?.status]) {
+    if (typeof candidate === 'number' && Number.isInteger(candidate)) return candidate;
+  }
+  return undefined;
+};
+
+const getSafeErrorMessage = (error: unknown): string => {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return message
+    .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, 'Bearer [redacted]')
+    .replace(/\b(?:sk|key|token)[-_][A-Za-z0-9._~-]+/gi, '[redacted]')
+    .slice(0, 240);
+};
+
+/** Convert provider/transport failures into stable, non-sensitive UI errors. */
+export const normalizeTranslationProviderError = (
+  error: unknown,
+  options: { timedOut?: boolean; cancelled?: boolean } = {},
+): Error => {
+  const errorName =
+    error && typeof error === 'object' && 'name' in error
+      ? String((error as { name?: unknown }).name)
+      : '';
+  if (options.cancelled || errorName === 'AbortError') {
+    return new Error('Translation request cancelled');
+  }
+  if (options.timedOut) return new Error('Translation request timed out');
+  const status = getErrorStatus(error);
+  const message = getSafeErrorMessage(error);
+  if (
+    status === 401 ||
+    status === 403 ||
+    /unauthori[sz]ed|invalid api key|forbidden/i.test(message)
+  ) {
+    return new Error('Translation provider rejected the API key');
+  }
+  if (status === 429 || /rate.?limit|too many requests/i.test(message)) {
+    return new Error('Translation provider rate limit reached; retry later');
+  }
+  if ((status && status >= 300 && status < 400) || /redirect/i.test(message)) {
+    return new Error('Translation request was redirected and blocked');
+  }
+  if (status === 408 || status === 504 || /timeout|timed out/i.test(message)) {
+    return new Error('Translation request timed out');
+  }
+  if (message === ErrorCodes.PROVIDER_NOT_CONFIGURED || message === ErrorCodes.EMPTY_RESPONSE) {
+    return new Error(message);
+  }
+  return new Error(
+    message
+      ? `Translation provider request failed: ${message}`
+      : 'Translation provider request failed',
+  );
+};
+
 const createLLMTranslator = (
   name: LLMTranslatorName,
   label: string,
@@ -78,18 +141,38 @@ const createLLMTranslator = (
         translated.push(text);
         continue;
       }
-      const output = provider.generateText
-        ? await provider.generateText({ system, prompt: text, signal })
-        : provider.getModel
-          ? (
-              await generateText({
-                model: provider.getModel(),
-                system,
-                prompt: text,
-                abortSignal: signal,
-              })
-            ).text
-          : '';
+      const requestController = new AbortController();
+      let timedOut = false;
+      const abortFromCaller = () => requestController.abort();
+      if (signal?.aborted) abortFromCaller();
+      else signal?.addEventListener('abort', abortFromCaller, { once: true });
+      const timeoutId = setTimeout(() => {
+        timedOut = true;
+        requestController.abort();
+      }, AI_TIMEOUTS.CHAT_STREAM);
+      let output: string;
+      try {
+        output = provider.generateText
+          ? await provider.generateText({ system, prompt: text, signal: requestController.signal })
+          : provider.getModel
+            ? (
+                await generateText({
+                  model: provider.getModel(),
+                  system,
+                  prompt: text,
+                  abortSignal: requestController.signal,
+                })
+              ).text
+            : '';
+      } catch (error) {
+        throw normalizeTranslationProviderError(error, {
+          timedOut,
+          cancelled: signal?.aborted,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+        signal?.removeEventListener('abort', abortFromCaller);
+      }
       const normalizedOutput = output.trim();
       if (!normalizedOutput) {
         throw new Error(ErrorCodes.EMPTY_RESPONSE);

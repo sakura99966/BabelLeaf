@@ -62,6 +62,46 @@ const makeBook = (): BookDoc =>
   }) as BookDoc;
 
 describe('translation batch services', () => {
+  test('keeps existing artifact segments in progress counts', async () => {
+    const artifact = createTranslationArtifact({
+      bookHash: 'progress-book',
+      provider: 'deepseek',
+      promptVersion: 'translation-v1',
+      sourceLang: 'en',
+      targetLang: 'zh-CN',
+      segments: [
+        {
+          id: 'segment-0',
+          sourceText: 'Already done',
+          translatedText: 'done',
+          sourceLang: 'en',
+          targetLang: 'zh-CN',
+          status: 'translated',
+          updatedAt: 1,
+        },
+      ],
+    });
+    const translate = vi.fn(async () => 'new translation');
+    const controller = new TranslationBatchController({
+      artifact,
+      items: [
+        { id: 'segment-0', text: 'Already done' },
+        { id: 'segment-1', text: 'Needs translation' },
+      ],
+      translate,
+    });
+
+    const result = await controller.start();
+    expect(result).toMatchObject({ total: 2, completed: 2, status: 'completed' });
+    expect(result.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'segment-0', status: 'completed' }),
+        expect.objectContaining({ id: 'segment-1', status: 'completed' }),
+      ]),
+    );
+    expect(translate).toHaveBeenCalledTimes(1);
+  });
+
   test('extracts stable segments from the real EPUB and TXT fixtures', async () => {
     const fixture = async (name: string, type: string) => {
       const bytes = readFileSync(resolve(__dirname, '../../fixtures/data', name));
@@ -175,7 +215,8 @@ describe('translation batch services', () => {
     });
 
     const result = await controller.start();
-    expect(result.completed).toBe(1);
+    expect(result.completed).toBe(2);
+    expect(result.total).toBe(2);
     expect(translate).toHaveBeenCalledTimes(1);
 
     expect(
@@ -280,6 +321,7 @@ describe('translation batch services', () => {
       translate,
     });
     expect(restored.getSnapshot().status).toBe('completed');
+    expect(restored.getSnapshot()).toMatchObject({ total: 1, completed: 1, failed: 0 });
     expect(restored.getArtifact().segments[0]?.translatedText).toBe('成功');
   });
 });

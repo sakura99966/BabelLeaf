@@ -114,4 +114,43 @@ describe('BilingualTranslationView', () => {
     );
     expect(screen.getByText('source-0')).toBeTruthy();
   });
+
+  it('supports keyboard paging and displays review provenance and machine output', () => {
+    const reviewedPair = makePairs(1, 'reviewed')[0]!;
+    const pairs = [
+      ...makePairs(101),
+      {
+        ...reviewedPair,
+        id: 'reviewed-1',
+        status: 'reviewed' as const,
+        translatedText: 'edited',
+        machineTranslatedText: 'machine',
+        provider: 'deepseek',
+        model: 'deepseek-v4-flash',
+        glossaryVersion: 4,
+      },
+    ];
+    const { container } = render(
+      <BilingualTranslationView
+        pairs={pairs}
+        sourceLabel='Original'
+        translatedLabel='Translated'
+        emptyLabel='Empty'
+        previousLabel='Previous'
+        nextLabel='Next'
+        machineTranslationLabel='Machine'
+        statusLabel={(status) => status}
+        pageKey='provenance'
+      />,
+    );
+
+    const workspace = container.firstElementChild as HTMLElement;
+    workspace.focus();
+    fireEvent.keyDown(workspace, { key: 'PageDown' });
+    expect(screen.getByText('source-100')).toBeTruthy();
+    expect(screen.getByText('reviewed')).toBeTruthy();
+    expect(screen.getByText(/Machine: machine/)).toBeTruthy();
+    expect(screen.getByText('deepseek/deepseek-v4-flash')).toBeTruthy();
+    expect(screen.getByText('G4')).toBeTruthy();
+  });
 });

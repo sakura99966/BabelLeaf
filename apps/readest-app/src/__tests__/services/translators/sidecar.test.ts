@@ -9,7 +9,10 @@ import {
   serializeTranslationSidecar,
   translationSidecarToArtifact,
 } from '@/services/translators/sidecar';
-import { toBilingualTranslationResult } from '@/services/translators/bilingual';
+import {
+  toBilingualTranslationResult,
+  toTranslationReviewPairs,
+} from '@/services/translators/bilingual';
 
 const makeArtifact = () =>
   createTranslationArtifact({
@@ -20,6 +23,7 @@ const makeArtifact = () =>
     promptVersion: 'translation-v1',
     sourceLang: 'en',
     targetLang: 'zh-CN',
+    glossaryVersion: 12,
     segments: [
       {
         id: 'chapter-1:0',
@@ -58,6 +62,7 @@ describe('translation sidecar and bilingual models', () => {
     expect(translationSidecarToArtifact(parsed)).toMatchObject({
       provider: 'deepseek',
       sourceFingerprint: 'source-v1',
+      glossaryVersion: 12,
     });
   });
 
@@ -94,5 +99,12 @@ describe('translation sidecar and bilingual models', () => {
     expect(result.pairs.map((pair) => pair.id)).toEqual(['chapter-1:0', 'chapter-1:2']);
     expect(result.pairs[0]).toMatchObject({ sourceText: 'Hello', translatedText: '你好' });
     expect(result.pairs[1]).toMatchObject({ status: 'reviewed' });
+  });
+
+  test('exposes pending, failed, and reviewed segments to the review workspace', () => {
+    const pairs = toTranslationReviewPairs(makeArtifact());
+    expect(pairs).toHaveLength(2);
+    expect(pairs[1]).toMatchObject({ status: 'pending', translatedText: '', glossaryVersion: 12 });
+    expect(pairs[0]).toMatchObject({ provider: 'deepseek', model: 'deepseek-v4-flash' });
   });
 });

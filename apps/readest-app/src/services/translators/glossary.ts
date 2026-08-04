@@ -24,6 +24,13 @@ export interface TranslationGlossary {
   entries: GlossaryEntry[];
 }
 
+export interface GlossaryConflict {
+  source: string;
+  sourceLang?: string;
+  targetLang?: string;
+  entryIds: string[];
+}
+
 export interface GlossaryStorage extends Pick<FileSystem, 'createDir' | 'readFile' | 'writeFile'> {}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -90,6 +97,78 @@ export const createTranslationGlossary = (
     ...(entry.notes ? { notes: entry.notes } : {}),
     updatedAt: entry.updatedAt ?? updatedAt,
   })),
+});
+
+const glossaryDirectionKey = (entry: Pick<GlossaryEntry, 'source' | 'sourceLang' | 'targetLang'>) =>
+  [
+    entry.source.trim().toLocaleLowerCase(),
+    entry.sourceLang?.trim().toLocaleLowerCase() || '',
+    entry.targetLang?.trim().toLocaleLowerCase() || '',
+  ].join('\u0000');
+
+/** Find duplicate source terms for the same language direction. */
+export const findGlossaryConflicts = (glossary: TranslationGlossary): GlossaryConflict[] => {
+  const groups = new Map<string, GlossaryEntry[]>();
+  for (const entry of glossary.entries) {
+    const key = glossaryDirectionKey(entry);
+    const group = groups.get(key) ?? [];
+    group.push(entry);
+    groups.set(key, group);
+  }
+  return Array.from(groups.values())
+    .filter((group) => group.length > 1)
+    .flatMap((group) => {
+      const first = group[0];
+      return first
+        ? [
+            {
+              source: first.source,
+              ...(first.sourceLang ? { sourceLang: first.sourceLang } : {}),
+              ...(first.targetLang ? { targetLang: first.targetLang } : {}),
+              entryIds: group.map((entry) => entry.id),
+            },
+          ]
+        : [];
+    });
+};
+
+export const upsertGlossaryEntry = (
+  glossary: TranslationGlossary,
+  input: Omit<GlossaryEntry, 'updatedAt'> & Partial<Pick<GlossaryEntry, 'updatedAt'>>,
+  now = Date.now(),
+): TranslationGlossary => {
+  const timestamp = Math.max(now, glossary.updatedAt + 1);
+  const source = requiredString(input.source, 'source').trim();
+  const target = requiredString(input.target, 'target').trim();
+  const entry: GlossaryEntry = {
+    id: input.id.trim() || `glossary-${timestamp}`,
+    source,
+    target,
+    ...(input.sourceLang?.trim() ? { sourceLang: input.sourceLang.trim() } : {}),
+    ...(input.targetLang?.trim() ? { targetLang: input.targetLang.trim() } : {}),
+    ...(input.caseSensitive === undefined ? {} : { caseSensitive: input.caseSensitive }),
+    ...(input.enabled === undefined ? {} : { enabled: input.enabled }),
+    ...(input.notes?.trim() ? { notes: input.notes.trim() } : {}),
+    updatedAt: timestamp,
+  };
+  const entries = glossary.entries.some((candidate) => candidate.id === entry.id)
+    ? glossary.entries.map((candidate) => (candidate.id === entry.id ? entry : candidate))
+    : [...glossary.entries, entry];
+  return {
+    schemaVersion: TRANSLATION_GLOSSARY_SCHEMA_VERSION,
+    updatedAt: timestamp,
+    entries,
+  };
+};
+
+export const removeGlossaryEntry = (
+  glossary: TranslationGlossary,
+  entryId: string,
+  now = Date.now(),
+): TranslationGlossary => ({
+  schemaVersion: TRANSLATION_GLOSSARY_SCHEMA_VERSION,
+  updatedAt: Math.max(now, glossary.updatedAt + 1),
+  entries: glossary.entries.filter((entry) => entry.id !== entryId),
 });
 
 export const parseTranslationGlossary = (value: unknown): TranslationGlossary => {
@@ -180,12 +259,19 @@ export class TranslationGlossaryStore {
   }
 
   async save(glossary: TranslationGlossary): Promise<void> {
+    const normalized = parseTranslationGlossary(glossary);
+    const conflicts = findGlossaryConflicts(normalized);
+    if (conflicts.length > 0) {
+      throw new Error(
+        `Glossary contains conflicting source terms: ${conflicts.map((item) => item.source).join(', ')}`,
+      );
+    }
     await this.fs.createDir(TRANSLATION_GLOSSARY_DIR, TRANSLATION_GLOSSARY_BASE, true);
     await safeSaveJSON(
       this.fs,
       TRANSLATION_GLOSSARY_FILENAME,
       TRANSLATION_GLOSSARY_BASE,
-      parseTranslationGlossary(glossary),
+      normalized,
     );
   }
 }

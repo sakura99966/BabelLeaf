@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'vitest';
 import {
   createTranslationGlossary,
+  findGlossaryConflicts,
   getApplicableGlossaryEntries,
   parseTranslationGlossary,
   protectGlossaryTerms,
+  removeGlossaryEntry,
   restoreGlossaryTerms,
+  upsertGlossaryEntry,
 } from '@/services/translators/glossary';
 
 describe('translation glossary', () => {
@@ -37,5 +40,20 @@ describe('translation glossary', () => {
         entries: [glossary.entries[0], { ...glossary.entries[0] }],
       }),
     ).toThrow('Duplicate');
+  });
+
+  test('reports same-direction conflicts and supports durable CRUD helpers', () => {
+    const glossary = createTranslationGlossary([
+      { id: 'one', source: 'term', target: '一', sourceLang: 'en', targetLang: 'zh-CN' },
+    ]);
+    const updated = upsertGlossaryEntry(
+      glossary,
+      { id: 'two', source: 'TERM', target: '二', sourceLang: 'EN', targetLang: 'zh-CN' },
+      2,
+    );
+    expect(findGlossaryConflicts(updated)).toMatchObject([
+      { source: 'term', entryIds: ['one', 'two'] },
+    ]);
+    expect(removeGlossaryEntry(updated, 'two', 3).entries).toHaveLength(1);
   });
 });

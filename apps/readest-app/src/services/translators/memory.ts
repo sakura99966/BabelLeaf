@@ -106,6 +106,11 @@ export const parseTranslationMemory = (value: unknown): TranslationMemoryData =>
   }
   if (!Array.isArray(value['entries'])) throw new Error('Invalid translation memory entries');
   const entries = value['entries'].map(parseEntry);
+  const keys = new Set<string>();
+  for (const entry of entries) {
+    if (keys.has(entry.key)) throw new Error(`Duplicate translation memory entry: ${entry.key}`);
+    keys.add(entry.key);
+  }
   return { schemaVersion: TRANSLATION_MEMORY_SCHEMA_VERSION, updatedAt, entries };
 };
 
@@ -206,8 +211,35 @@ export class TranslationMemory {
     await this.persist();
   }
 
+  async remove(key: string): Promise<boolean> {
+    const removed = this.entries.delete(key);
+    if (removed) await this.persist();
+    return removed;
+  }
+
+  /** Replace entries from a validated portable export and apply the limit. */
+  async replace(data: TranslationMemoryData): Promise<void> {
+    const parsed = parseTranslationMemory(data);
+    this.entries.clear();
+    for (const entry of parsed.entries) this.entries.set(entry.key, { ...entry });
+    this.evictIfNeeded();
+    await this.persist();
+  }
+
   size(): number {
     return this.entries.size;
+  }
+
+  getLimit(): number {
+    return this.maxEntries;
+  }
+
+  getStats(): { entries: number; limit: number; oldestUpdatedAt: number | null } {
+    const oldestUpdatedAt = Array.from(this.entries.values()).reduce<number | null>(
+      (oldest, entry) => (oldest === null ? entry.updatedAt : Math.min(oldest, entry.updatedAt)),
+      null,
+    );
+    return { entries: this.entries.size, limit: this.maxEntries, oldestUpdatedAt };
   }
 
   snapshot(): TranslationMemoryData {

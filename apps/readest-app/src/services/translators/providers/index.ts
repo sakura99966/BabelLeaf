@@ -7,6 +7,8 @@ import {
   type LLMTranslatorName,
 } from './llm';
 
+export { normalizeTranslationProviderError } from './llm';
+
 const availableTranslators = [
   deepSeekTranslator,
   openAITranslator,
