@@ -49,22 +49,29 @@ BabelLeaf is pre-release software. The repository currently provides:
 Format recognition is not a compatibility guarantee for every file variant.
 Testing must use legally obtained, DRM-free documents.
 
-Version 0.2 now provides the following translation workflow in addition to
-selection and viewport translation:
+Versions 0.2 and 0.3 now provide the following translation workflow in
+addition to selection and viewport translation:
 
 - a reader-side chapter/full-book workbench with bounded, pauseable,
   cancellable translation jobs and local checkpoints;
 - aligned source/translation pairs and portable, credential-free JSON sidecar
-  import/export.
+  import/export;
+- a persistent retryable batch queue, glossary enforcement, bounded translation
+  memory, format diagnostics, and reviewed segment state.
 
 The following major features remain planned:
 
-- translation memory, glossary enforcement, and an interactive review editor;
+- glossary and translation-memory management screens, a complete review
+  workspace, and a batch dashboard;
 - separate handling for text-layer and scanned PDFs;
 - local comic OCR, text-region detection, inpainting, translated typesetting,
   and editable overlays;
 - signed production packages and target-platform release validation for
   macOS, Android, and iOS.
+
+The authoritative sequence from 0.3.1 through the stable 1.0.0 release is
+defined in the [development roadmap](docs/DEVELOPMENT_ROADMAP.md). Version
+planning, implementation, review, and release acceptance must use that document.
 
 See [Architecture](apps/readest-app/docs/architecture.md) for runtime
 boundaries and [Upstream Inventory](docs/UPSTREAM_INVENTORY.md) for source and

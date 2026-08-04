@@ -71,9 +71,10 @@ paths.
 9. Provider failure must be reported directly. There is no inherited proxy or
    automatic fallback provider.
 
-Future background chapter or full-book jobs require an explicit user-created
-job and remain subject to the same visibility, cancellation, and data-handling
-rules.
+Chapter and full-book jobs require an explicit user-created job and remain
+subject to the same visibility, cancellation, and data-handling rules. A
+persisted job may recover local progress after restart, but it must not resume
+remote requests until the user explicitly resumes it.
 
 ## Imported content
 
@@ -135,6 +136,9 @@ A release candidate must satisfy all of the following:
 
 Until these gates pass, a development build must not be described as
 privacy-hardened or release-ready.
+
+The version sequence and platform acceptance milestones that apply these gates
+are defined in [`DEVELOPMENT_ROADMAP.md`](DEVELOPMENT_ROADMAP.md).
 
 ## Reporting
 

@@ -98,3 +98,10 @@ The following end-user features remain out of scope for the 0.3 release:
 
 Those features require separate data models, bounded queues, progress and
 cancellation UX, local result storage, and platform validation before release.
+
+## Roadmap authority
+
+The implementation and acceptance sequence for the remaining translation,
+comic, platform, and stable-release work is defined in
+[`DEVELOPMENT_ROADMAP.md`](DEVELOPMENT_ROADMAP.md). Provider or translation
+scope changes must update both documents in the same change.

@@ -9,8 +9,9 @@ remain usable by future macOS, Android, and iOS packages.
 The application has no hosted backend. Content is imported from local files
 and application state is stored locally. The only supported external request
 is a translation explicitly initiated by the user and sent to an application-
-controlled provider endpoint. The current cloud preset is DeepSeek's official
-endpoint; users supply an API key but cannot enter an arbitrary URL or model.
+controlled provider endpoint. Current cloud presets cover DeepSeek V4, OpenAI,
+and Anthropic Claude; users supply an API key but cannot enter an arbitrary URL
+or model. Ollama remains the loopback-only local provider.
 
 ## Runtime structure
 
@@ -104,9 +105,10 @@ Translation is a reader feature, not a general chat assistant.
 
 Supported provider classes are:
 
-- Ollama, normally on a loopback address; and
-- the built-in DeepSeek V4 adapter with an application-controlled official
-  endpoint and model. The user supplies only the API key.
+- Ollama on an explicitly configured loopback address; and
+- built-in DeepSeek V4, OpenAI, and Anthropic Claude adapters with application-
+  controlled official endpoints and default models. The user supplies only the
+  provider API key.
 
 Additional providers must be added as named adapters with fixed official
 endpoints, provider-specific secure storage, capability entries, and tests.
@@ -121,7 +123,10 @@ Chapter and book translation uses versioned artifact data and portable sidecars
 instead of overwriting source documents. The 0.2 workbench extracts bounded
 text segments, runs an explicitly started pauseable/cancellable job, persists
 checkpoints locally, and renders aligned source/translation pairs. Comic OCR,
-image cleanup, and translated typesetting remain future work.
+image cleanup, and translated typesetting remain future work. Version 0.3 adds
+persistent retryable jobs, glossary enforcement, bounded translation memory,
+reviewed segments, and format diagnostics. The authoritative remaining sequence
+is defined in [`docs/DEVELOPMENT_ROADMAP.md`](../../../docs/DEVELOPMENT_ROADMAP.md).
 
 ## Dictionaries and speech
 

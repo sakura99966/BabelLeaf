@@ -60,6 +60,27 @@ will not combine both complete applications. If comic translation work starts,
 the candidates should be benchmarked against the same legally obtained sample
 set, then one primary worker selected behind a BabelLeaf-owned local protocol.
 
+## Researched candidates not yet mirrored or integrated
+
+These candidates were rechecked against their public upstream repositories on
+2026-08-04. They are roadmap inputs only. A concrete revision and all software,
+model, data, and asset licenses must be pinned and reviewed before use.
+
+| Repository | License shown by upstream at review time | Evaluation purpose | Integration state |
+| --- | --- | --- | --- |
+| [OmegaT](https://github.com/omegat-org/omegat) | GPL-3.0 family; exact revision notices require recheck | Translation memory, glossary, review workflow, TMX fixtures | Workflow and compatibility reference only |
+| [Translate Toolkit](https://github.com/translate/translate) | GPL-3.0 family; exact revision notices require recheck | TMX/TBX/XLIFF conversion and translation QA | External validation/reference only |
+| [Comic Translate](https://github.com/ogkalu2/comic-translate) | Apache-2.0 for repository code | End-to-end detection, OCR, inpainting, translation, rendering, and manual correction | Strong benchmark candidate; Python application not integrated |
+| [manga-ocr-rs](https://github.com/CodeMonkeyNinja/manga-ocr-rs) | MIT for repository code | Experimental pure-Rust Japanese OCR over ONNX Runtime | Benchmark only; immature project and separately downloaded model require review |
+| [ONNX Runtime](https://github.com/microsoft/onnxruntime) | MIT | Portable inference abstraction for desktop and mobile | Candidate runtime; not integrated |
+| [OpenCV](https://github.com/opencv/opencv) | Apache-2.0 at current upstream | Image preprocessing, geometry, masks, and deterministic cleanup | Candidate native component; not integrated |
+| [LaMa](https://github.com/advimman/lama) | Apache-2.0 for repository code | Optional local image inpainting | Candidate algorithm; code and model weights must be reviewed separately |
+| [rustybuzz](https://github.com/harfbuzz/rustybuzz) | MIT | Portable text shaping for deterministic exported overlays | Candidate export component; not integrated |
+
+The complete roadmap and the required selection gates are recorded in
+[`DEVELOPMENT_ROADMAP.md`](DEVELOPMENT_ROADMAP.md). No candidate should be
+forked or vendored solely to preserve it for possible future use.
+
 ## Integration rules
 
 1. BabelLeaf maintains one library, settings model, task model, and reader UI.
