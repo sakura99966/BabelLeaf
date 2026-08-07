@@ -1,4 +1,4 @@
-# BabelLeaf 0.4.0 format and OCR fixture matrix
+# BabelLeaf 0.4.1 format, OCR, and comic-workspace fixture matrix
 
 This matrix is the release gate for local text extraction and translation. It
 uses only repository-owned or legally obtained DRM-free samples. The test
@@ -37,3 +37,13 @@ CBZ/FBZ pages, image-only and mixed PDFs, and platform-provided image-folder
 manifests. Each route has a valid, malformed, image-only, and oversized case.
 The matrix is a manifest of legal local inputs; it does not cause directory
 scanning or network downloads.
+
+## Comic workspace matrix
+
+`COMIC_WORKSPACE_FIXTURE_MATRIX` covers the correction and translation-overlay
+sidecar boundary. Each source fixture has a valid workspace, malformed
+workspace, and interrupted-workspace recovery case. Tests verify that machine
+OCR remains available after manual edits, rerunning OCR does not overwrite an
+approved edit, stale translations are reviewable, and the source file remains
+unchanged. Workspace files contain no page bytes, credentials, or arbitrary
+remote endpoints.

@@ -1,4 +1,4 @@
-# BabelLeaf local comic-worker protocol v1
+# BabelLeaf local comic-worker protocol v1 (0.4.0-0.4.1)
 
 0.4.0 uses the frozen boundary for local OCR and future image translation;
 the base package still does not ship a heavy OCR runtime or model weight. The
@@ -17,8 +17,11 @@ per page, one-to-four workers, and a bounded language list. A mock OCR engine
 is covered by tests and can be swapped without changing the reader, queue, or
 translation sidecar. OCR sidecars and task snapshots add page status,
 checkpoint, model/runtime provenance, and selectable text-layer data without
-modifying the source page. Production model-pack selection remains a separate
-license and benchmark gate; a model must be explicitly installed locally.
+modifying the source page. Production model-pack selection is enforced by
+`ocrEngineGate.ts`: a model must be explicitly installed locally and pass
+engine identity, language, capability, license/checksum, platform benchmark,
+and resource-budget checks. The 0.4.1 comic workspace builds on this contract
+without embedding a runtime or weights.
 
 Candidate projects are tracked in `UPSTREAM_INVENTORY.md`. No complete
 external application is embedded, and every future engine, model, weight, and

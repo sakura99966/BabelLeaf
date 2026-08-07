@@ -9,6 +9,7 @@ import {
   checkPerformanceMeasurement,
   TRANSLATION_FORMAT_FIXTURE_MATRIX,
   OCR_FORMAT_FIXTURE_MATRIX,
+  COMIC_WORKSPACE_FIXTURE_MATRIX,
   TRANSLATION_FORMAT_LIMITS,
 } from '@/services/translators';
 
@@ -94,5 +95,7 @@ describe('translation format matrix', () => {
       'FBZ',
       'IMAGE_FOLDER',
     ]);
+    expect(COMIC_WORKSPACE_FIXTURE_MATRIX).toHaveLength(2);
+    expect(COMIC_WORKSPACE_FIXTURE_MATRIX.every((fixture) => fixture.recoveryFixture)).toBe(true);
   });
 });

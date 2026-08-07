@@ -112,6 +112,8 @@ export const TRANSLATION_PERFORMANCE_BUDGETS = {
   maxFileBytes: TRANSLATION_FORMAT_LIMITS.maxFileBytes,
   ocrPageMs: 15_000,
   ocrPeakMemoryMb: 1_024,
+  comicWorkspaceSaveMs: 500,
+  comicOverlayRenderMs: 16,
 } as const;
 
 export interface PerformanceMeasurement {
@@ -165,5 +167,31 @@ export const OCR_FORMAT_FIXTURE_MATRIX: OcrFormatFixtureSpec[] = [
     imageOnlyFixture: 'sample-image-folder.manifest.json',
     oversizedFixture: 'oversized-page.manifest.json',
     notes: 'platform-provided folder access; no automatic directory scanning',
+  },
+];
+
+export interface ComicWorkspaceFixtureSpec {
+  sourceFixture: string;
+  workspaceFixture: string;
+  malformedWorkspaceFixture: string;
+  recoveryFixture: string;
+  notes: string;
+}
+
+/** Legal local fixtures for correction, translation-overlay, and recovery tests. */
+export const COMIC_WORKSPACE_FIXTURE_MATRIX: ComicWorkspaceFixtureSpec[] = [
+  {
+    sourceFixture: 'sample-metadata.cbz',
+    workspaceFixture: 'sample-comic-workspace.json',
+    malformedWorkspaceFixture: 'malformed-comic-workspace.json',
+    recoveryFixture: 'interrupted-comic-workspace.json',
+    notes: 'manual region revisions, stale OCR reruns, translation review, and restart recovery',
+  },
+  {
+    sourceFixture: 'sample-scanned.pdf',
+    workspaceFixture: 'sample-scanned-workspace.json',
+    malformedWorkspaceFixture: 'malformed-scanned-workspace.json',
+    recoveryFixture: 'interrupted-scanned-workspace.json',
+    notes: 'image-only PDF pages retain source identity and editable OCR state',
   },
 ];

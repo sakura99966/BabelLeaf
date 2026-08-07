@@ -3,10 +3,10 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `v0.4.0` OCR foundation at main merge commit `f82a7de0d`
-- Roadmap revision: 3
+- Current implementation baseline: `v0.4.1` comic workspace checkpoint at release commit `8ba9b0fe7`
+- Roadmap revision: 4
 - Approved scope date: 2026-08-04
-- Last closure update: 2026-08-07
+- Last closure update: 2026-08-08
 - Target stable release: `1.0.0`
 
 This document is the source of truth for BabelLeaf version planning, implementation sequencing, code review, and release acceptance. Release notes record what a version actually delivered; this roadmap records what must be delivered before work advances to the next version.
@@ -72,22 +72,22 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 
 ## Current baseline and requirement coverage
 
-| Requirement | Current state at 0.4.0 | Remaining milestone |
+| Requirement | Current state at 0.4.1 | Remaining milestone |
 | --- | --- | --- |
 | Local library and reader | Implemented from the Readest baseline | Format and platform matrix hardened through 0.8 |
-| EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths exist; 0.3.2 fixture, resource-limit, PDF diagnostics, and 0.4.0 OCR source routing are tracked; not every variant is guaranteed | Image pipeline in 0.4.1-0.4.3, cross-platform proof in 0.8 |
+| EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths exist; 0.3.2 fixture, resource-limit, PDF diagnostics, 0.4.0 OCR source routing, and 0.4.1 workspace routing are tracked; not every variant is guaranteed | Image pipeline in 0.4.2-0.4.3, cross-platform proof in 0.8 |
 | Selection and viewport translation | Implemented | Provider UX hardening and platform validation through 0.8 |
 | Chapter and full-book translation | Persistent bounded queue, recovery dashboard, retry, review, stable anchors, and interchange delivered | Stress and platform portability through 0.8 |
 | DeepSeek V4, OpenAI, Claude, Ollama | Named adapter framework delivered | Release-time endpoint/model verification and platform validation through 0.8 |
 | Bilingual reading and sidecar | Aligned layouts, layout-independent anchors, portable sidecar, machine-result retention, and review recovery delivered | Migration and cross-platform portability through 0.8 |
 | Glossary and translation memory | Runtime enforcement plus validated management, limits, invalidation visibility, and JSON/TSV/TBX/TMX interchange delivered | Cross-platform migration and validation through 0.8 |
 | Human review | Full review workspace with edit, approve, revert, status filters, provenance, keyboard paging, autosaved drafts, recovery, and JSON/TSV/XLIFF interchange delivered | Cross-format alignment and platform validation through 0.8 |
-| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, mock adapter, OCR sidecar, bounded queue, model manifest, and selectable text-layer primitive delivered | Production OCR engine/model selection and image pipeline in 0.4.x |
-| Performance and resource controls | 0.3.2 budgets plus 0.4.0 OCR page-time and peak-memory budgets are tracked | Measured gates and optimization through 0.9 |
+| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, mock adapter, OCR sidecar, bounded queue, model manifest, selectable text-layer primitive, engine gate, and 0.4.1 workspace/overlay primitives delivered | Production OCR engine/model selection and image pipeline in 0.4.2-0.4.3 |
+| Performance and resource controls | 0.3.2 budgets plus 0.4.0 OCR page-time and peak-memory budgets and 0.4.1 workspace save/overlay budgets are tracked | Measured gates and optimization through 0.9 |
 | Local dictionaries and word lookup | Baseline capability exists | Simplified-Chinese UX and native platform validation in 0.5-0.8 |
 | Local or native speech | Baseline capability exists | Queue, language/voice selection, accessibility, and native validation in 0.5-0.8 |
-| Scanned PDF and comic OCR | Local sidecar, task recovery, model-manifest, diagnostics, and selectable text-layer foundation delivered; a production OCR engine/model pack is not bundled | Production engine selection and quality gate, then 0.4.1-0.4.3 |
-| Comic translation and editable overlays | Not implemented | 0.4.1 |
+| Scanned PDF and comic OCR | Local sidecar, task recovery, model-manifest, diagnostics, selectable text-layer foundation, and an evidence-enforcing engine gate delivered; a production OCR engine/model pack is not bundled | Production engine selection and quality gate, then 0.4.2-0.4.3 |
+| Comic translation and editable overlays | 0.4.1 workspace data model, explicit region translation bridge, correction/review primitives, stale-revision rules, and non-flattening overlay primitive delivered; full reader integration remains gated | Production OCR gate and reader integration before 0.4.2 |
 | Erasing, inpainting, typesetting, translated export | Not implemented | 0.4.2-0.4.3 |
 | Windows production reliability | Unsigned package and isolated NSIS smoke verification exist | Signing and 1.0 release qualification in 0.9-1.0 |
 | macOS | Shared source structure only | 0.5.0 |
@@ -103,7 +103,7 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | 0.3.1 | Text translation productization | Glossary, memory, review, and job management become complete end-user workflows |
 | 0.3.2 | Text interoperability and comic readiness | Format matrix, interchange, anchors, worker protocol, benchmark, and license decisions are frozen |
 | 0.4.0 | OCR foundation | Sidecar, worker, model-manifest, bounded task, diagnostics, and selectable text-layer contracts are delivered; production OCR engine selection remains a gate before the comic workspace |
-| 0.4.1 | Comic translation workspace | Regions can be corrected, translated, reviewed, and displayed as editable bilingual overlays |
+| 0.4.1 | Comic translation workspace checkpoint | Sidecar-backed regions can be corrected, translated, reviewed, and displayed as editable bilingual overlays; production OCR and full reader integration remain release gates |
 | 0.4.2 | Image cleanup and typesetting | Text can be erased, repaired, typeset, and exported to a separate translated copy |
 | 0.4.3 | Image pipeline stabilization | The complete comic workflow becomes recoverable, bounded, documented, and release-tested |
 | 0.5.0 | macOS and portable-core qualification | macOS ships natively and desktop assumptions are removed from the shared core |
@@ -217,6 +217,15 @@ close that gate before it is accepted as a complete comic OCR workflow.
 - Rerunning OCR or translation produces a reviewable revision and never silently overwrites approved user edits.
 - Translation requests remain explicit and sidecars remain credential-free.
 - The full text translation regression suite passes unchanged, proving that comic support reuses rather than duplicates the translation core.
+
+### Current implementation status
+
+The 0.4.1 release checkpoint delivers the workspace data model, bounded region-editing
+operations, explicit single-region provider bridge, stale-translation rules,
+overlay/editor primitives, atomic store, and regression fixtures. The actual
+production OCR runtime/model remains outside the repository and must pass the
+0.4.0 engine gate before this milestone can be accepted as the complete comic
+OCR workflow. No 0.4.2 image cleanup work may begin until that gate is closed.
 
 ## 0.4.2 - Image cleanup, typesetting, and export
 
@@ -428,8 +437,9 @@ No work may be declared complete because a build command alone succeeded. Packag
 
 ## Roadmap governance
 
-- The next implementation target after the 0.4.0 foundation checkpoint is 0.4.1,
-  subject to the production OCR engine/model gate and release acceptance.
+- The next implementation target after the 0.4.1 workspace checkpoint is
+  production OCR engine/model gate closure and reader integration. No 0.4.2
+  image cleanup work may begin until those gates are closed and accepted.
 - Development must stop at each version boundary for review and acceptance before entering the next version unless the user explicitly authorizes continuous work through named versions.
 - P0 and P1 defects found in review belong to the current version and must be resolved before the next version begins.
 - Research spikes may occur ahead of schedule only in disposable branches or ignored evaluation directories and may not become production dependencies without the milestone's selection gate.

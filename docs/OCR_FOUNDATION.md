@@ -1,11 +1,12 @@
-# BabelLeaf 0.4.0 OCR foundation
+# BabelLeaf 0.4.0-0.4.1 OCR foundation and comic workspace
 
 ## Scope
 
 0.4.0 establishes the local OCR data, worker, model, task, and selectable
-text-layer boundaries. It does not add translation overlays, erasing,
-inpainting, typesetting, or translated image export; those remain 0.4.1 and
-0.4.2 work.
+text-layer boundaries. 0.4.1 adds the editable comic workspace, explicit
+single-region translation, review state, and translated overlay primitives.
+Erasing, inpainting, typesetting, and translated image export remain 0.4.2
+work.
 
 ## Local data contract
 
@@ -44,7 +45,10 @@ repository name.
 Production model selection remains subject to the measured candidate and
 license gate in `DEVELOPMENT_ROADMAP.md`. PaddleOCR, manga-ocr, manga-ocr-rs,
 and ONNX Runtime remain replaceable candidates; no complete external OCR
-application or model weight is embedded in BabelLeaf 0.4.0.
+application or model weight is embedded in BabelLeaf 0.4.0-0.4.1. The
+`ocrEngineGate.ts` service rejects a runtime unless local installation,
+engine/model identity, language and capability coverage, license/checksum
+evidence, platform benchmark, and resource budgets all pass.
 
 ## Selectable text layer
 
@@ -60,3 +64,14 @@ is sent to a cloud OCR service. The worker enforces 10,000 pages, 80 million
 pixels per page, 2,000 regions per page, one-to-four workers, bounded language
 lists, and sidecar text limits. Malformed, oversized, missing-model, and
 unsupported-device conditions stop before partial source mutation.
+
+## Comic workspace boundary
+
+`comicWorkspace.ts` keeps machine OCR and manual revisions separate. Region
+creation, deletion, restoration, polygon/text correction, reading order,
+rotation, split, merge, approval, and rollback are pure bounded operations.
+`comicTranslation.ts` calls a named provider only after an explicit caller
+action and stores the machine result, source revision, review state, and
+provenance in a credential-free workspace sidecar. `comicOverlay.ts` and
+`ComicTranslationOverlay.tsx` hide stale translations until they are rerun or
+reviewed, so OCR reruns cannot silently replace approved edits.

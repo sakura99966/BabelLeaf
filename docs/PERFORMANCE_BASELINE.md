@@ -1,4 +1,4 @@
-# BabelLeaf 0.4.0 performance baseline
+# BabelLeaf 0.4.1 performance baseline
 
 The 0.3.2 baseline is a gate for later OCR and mobile work. Values are
 measured on the release machine and are targets rather than a claim that every
@@ -18,6 +18,8 @@ future device has the same performance.
 | Base package | 250 MiB | unsigned Windows package before optional model packs |
 | OCR page | 15000 ms | one bounded local page at the selected model resolution |
 | OCR peak memory | 1024 MiB | maximum while decoding a page and producing regions |
+| Comic workspace save | 500 ms | atomic save of one bounded workspace sidecar |
+| Comic overlay render | 16 ms | one page overlay update on a warmed browser frame |
 
 The machine-readable budgets are exported as
 `TRANSLATION_PERFORMANCE_BUDGETS` from
@@ -28,3 +30,6 @@ checksum, runtime (`cpu`, `gpu`, or `unknown`), language set, page dimensions,
 worker count, and whether the CPU fallback was used. A benchmark must record
 OS, CPU, RAM, package revision, fixture hash, provider mode, worker count,
 peak memory, and cache size.
+Comic workspace benchmarks must additionally record page count, region count,
+manual revision count, translation count, sidecar byte size, and whether stale
+overlays were filtered without loading page bytes.

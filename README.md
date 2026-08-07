@@ -86,10 +86,25 @@ Version 0.4.0 adds the local OCR foundation around that worker boundary:
 - explicit OCR diagnostics for text-layer, mixed, image-only, missing-model,
   incompatible-device, malformed, and oversized inputs.
 
+Version 0.4.1 adds the editable comic workspace boundary:
+
+- machine OCR and manual region revisions are stored separately, with polygon,
+  text, language, orientation, reading-order, split, merge, delete, restore,
+  approval, and rollback operations;
+- OCR reruns preserve manual edits and mark affected translations stale instead
+  of overwriting reviewed data;
+- explicit single-region translation reuses the named provider adapters and
+  records machine output, source revision, review state, and provenance in a
+  credential-free sidecar;
+- translated overlays and an accessible region-editor primitive render without
+  flattening or modifying the imported page.
+
 The following major features remain planned:
 
-- OCR text correction, comic-region editing, translation overlays, inpainting,
-  translated typesetting, and separate translated export;
+- production OCR runtime/model selection after the local license, checksum,
+  platform benchmark, and resource gates pass;
+- image erasing, inpainting, translated typesetting, and separate translated
+  export;
 - signed production packages and target-platform release validation for
   macOS, Android, and iOS.
 
