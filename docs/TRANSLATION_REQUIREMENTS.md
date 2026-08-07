@@ -100,12 +100,26 @@ old terminal history. Provider transport errors are normalized into
 direct cancellation, timeout, redirect, rate-limit, credential, and failure
 messages without exposing credentials.
 
+## 0.3.2 delivered interoperability and readiness
+
+Version 0.3.2 adds versioned JSON/TSV interchange for glossary, translation
+memory, and review data, with deterministic TBX, TMX, and XLIFF round trips.
+It adds layout-independent source anchors, explicit text-layer/mixed/
+image-only/malformed/oversized diagnostics, a legal local fixture matrix, and
+tracked resource/performance budgets. A versioned local comic-worker protocol
+with capability discovery, limits, progress, cancellation, retryable errors,
+and a mock OCR engine is available for integration testing; production OCR is
+not bundled. Interchange payloads never contain credentials or arbitrary
+endpoints.
+
 The following end-user features remain out of scope for the 0.3.x releases:
 
 - manual prompt editing and arbitrary endpoint/model fields;
 - automatic background translation;
 - scanned-PDF OCR translation and comic text detection, cleanup, and
-  typesetting.
+  typesetting;
+- production OCR model installation, inpainting, editable regions, and
+  translated image export.
 
 Those features require separate data models, bounded queues, progress and
 cancellation UX, local result storage, and platform validation before release.

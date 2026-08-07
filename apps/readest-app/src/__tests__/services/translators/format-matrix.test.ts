@@ -3,7 +3,13 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { DocumentLoader } from '@/libs/document';
 import type { BookFormat } from '@/types/book';
-import { diagnoseTranslationFormat, extractTranslationItems } from '@/services/translators';
+import {
+  diagnoseTranslationFormat,
+  extractTranslationItems,
+  checkPerformanceMeasurement,
+  TRANSLATION_FORMAT_FIXTURE_MATRIX,
+  TRANSLATION_FORMAT_LIMITS,
+} from '@/services/translators';
 
 const fixture = (name: string, type: string) => {
   const bytes = readFileSync(resolve(__dirname, '../../fixtures/data', name));
@@ -67,4 +73,19 @@ describe('translation format matrix', () => {
     );
     expect(diagnoseTranslationFormat('XYZ').code).toBe('unsupported');
   }, 30000);
+
+  test('classifies PDF content and hostile resource limits', () => {
+    expect(diagnoseTranslationFormat('PDF', { pdfContent: 'text-layer' }).code).toBe('text-layer');
+    expect(diagnoseTranslationFormat('PDF', { pdfContent: 'mixed' }).code).toBe('mixed');
+    expect(diagnoseTranslationFormat('PDF', { pdfContent: 'image-only' }).code).toBe('image-only');
+    expect(diagnoseTranslationFormat('EPUB', { malformed: true }).code).toBe('malformed');
+    expect(
+      diagnoseTranslationFormat('EPUB', {
+        fileSizeBytes: TRANSLATION_FORMAT_LIMITS.maxFileBytes + 1,
+      }).code,
+    ).toBe('oversized');
+    expect(checkPerformanceMeasurement({ name: 'pageTurnMs', value: 250, unit: 'ms' })).toBe(true);
+    expect(checkPerformanceMeasurement({ name: 'pageTurnMs', value: 251, unit: 'ms' })).toBe(false);
+    expect(TRANSLATION_FORMAT_FIXTURE_MATRIX).toHaveLength(9);
+  });
 });

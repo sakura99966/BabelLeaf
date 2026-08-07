@@ -3,9 +3,11 @@ import { useFileSelector } from '@/hooks/useFileSelector';
 import { useTranslation } from '@/hooks/useTranslation';
 import type { AppService } from '@/types/system';
 import {
-  parseTranslationMemory,
+  getInterchangeMimeType,
+  getTranslationInterchangeFormat,
+  parseMemoryInterchange,
+  serializeMemoryInterchange,
   type TranslationMemory,
-  type TranslationMemoryData,
 } from '@/services/translators';
 
 interface TranslationMemoryPanelProps {
@@ -26,6 +28,7 @@ const TranslationMemoryPanel: React.FC<TranslationMemoryPanelProps> = ({
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const [exportFormat, setExportFormat] = useState<'json' | 'tsv' | 'tmx'>('json');
   const entries = useMemo(() => memory?.snapshot().entries ?? [], [memory, revision]);
   const stats = memory?.getStats();
   const invalidatedCount = glossaryVersion
@@ -62,8 +65,8 @@ const TranslationMemoryPanel: React.FC<TranslationMemoryPanelProps> = ({
     const selection = await selectFiles({
       type: 'generic',
       multiple: false,
-      accept: 'application/json,.json',
-      extensions: ['json'],
+      accept: 'application/json,.json,text/tab-separated-values,.tsv,application/x-tmx,.tmx',
+      extensions: ['json', 'tsv', 'tmx'],
       dialogTitle: _('Import translation memory'),
     });
     const selected = selection.files[0];
@@ -72,7 +75,11 @@ const TranslationMemoryPanel: React.FC<TranslationMemoryPanelProps> = ({
       const file =
         selected.file || (selected.path ? await appService.openFile(selected.path, 'None') : null);
       if (!file) throw new Error(_('Unable to open selected file.'));
-      const imported = parseTranslationMemory(JSON.parse(await file.text()));
+      const payload = await file.text();
+      const format = getTranslationInterchangeFormat(
+        selected.path || selected.file?.name || 'memory.json',
+      );
+      const imported = parseMemoryInterchange(payload, format as 'json' | 'tsv' | 'tmx');
       await memory.replace(imported);
       refresh();
     } catch (reason: unknown) {
@@ -82,11 +89,12 @@ const TranslationMemoryPanel: React.FC<TranslationMemoryPanelProps> = ({
 
   const exportMemory = async () => {
     if (!appService || !memory || entries.length === 0) return;
-    const data: TranslationMemoryData = memory.snapshot();
+    const data = memory.snapshot();
+    const extension = exportFormat === 'tmx' ? 'tmx' : exportFormat;
     const saved = await appService.saveFile(
-      'BabelLeaf-translation-memory.json',
-      JSON.stringify(data, null, 2),
-      { mimeType: 'application/json' },
+      `BabelLeaf-translation-memory.${extension}`,
+      serializeMemoryInterchange(data, exportFormat),
+      { mimeType: getInterchangeMimeType(exportFormat) },
     );
     if (!saved) setError(_('Unable to save file'));
   };
@@ -141,6 +149,16 @@ const TranslationMemoryPanel: React.FC<TranslationMemoryPanelProps> = ({
           >
             {_('Export')}
           </button>
+          <select
+            className='select select-bordered select-xs'
+            value={exportFormat}
+            onChange={(event) => setExportFormat(event.target.value as typeof exportFormat)}
+            aria-label='Translation memory export format'
+          >
+            <option value='json'>JSON</option>
+            <option value='tsv'>TSV</option>
+            <option value='tmx'>TMX</option>
+          </select>
           <button
             type='button'
             className='btn btn-ghost btn-xs text-error'

@@ -100,7 +100,7 @@ forked or vendored solely to preserve it for possible future use.
    review; a repository's software license does not automatically cover them.
 7. No DRM-removal component or unlicensed content source is in scope.
 
-## Planned comic-worker result model
+## 0.3.2 comic-worker protocol and planned result model
 
 The future worker should return a BabelLeaf-owned, versioned sidecar rather
 than overwrite source pages. At minimum it will need:
@@ -113,8 +113,12 @@ than overwrite source pages. At minimum it will need:
 - typesetting geometry, orientation, font/style, and overflow state;
 - cancellation/error information.
 
-This is a design target only. No production comic worker has been selected or
-integrated yet.
+The versioned transport and capability contract is frozen in
+`apps/readest-app/src/services/translators/comicWorkerProtocol.ts` and
+documented in `COMIC_WORKER_PROTOCOL.md`. A mock engine is test-covered so the
+reader can validate cancellation, progress, limits, and worker replacement
+before selecting a production OCR engine. No production comic worker has been
+selected or integrated yet.
 
 ## Attribution and release checks
 

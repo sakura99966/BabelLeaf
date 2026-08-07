@@ -11,4 +11,8 @@ export * from './memory';
 export * from './diagnostics';
 export * from './polish';
 export * from './preprocess';
+export * from './anchors';
+export * from './interchange';
+export * from './comicWorkerProtocol';
+export * from './formatMatrix';
 export * from './providers';

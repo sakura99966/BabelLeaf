@@ -28,6 +28,7 @@ import {
 } from './glossary';
 import { TranslationMemory, type TranslationMemoryQuery } from './memory';
 import { isTranslationDRMError } from './diagnostics';
+import { createTranslationSourceAnchor } from './anchors';
 
 export const MAX_TRANSLATION_SEGMENT_CHARS = 2400;
 export const MAX_TRANSLATION_BATCH_SEGMENTS = 5000;
@@ -43,7 +44,7 @@ const createArtifactRecoverySnapshot = (input: {
   bookTitle?: string;
   items: Array<
     Pick<TranslationJobItem, 'id' | 'text'> &
-      Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator'>>
+      Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator' | 'sourceAnchor'>>
   >;
   maxAttempts?: number;
 }): TranslationJobSnapshot | undefined => {
@@ -208,14 +209,22 @@ export const extractTranslationItems = async (
       throw error;
     }
     let segmentIndex = 0;
-    for (const block of blocks) {
-      for (const text of splitLongText(block, maxChars)) {
+    for (const [blockIndex, block] of blocks.entries()) {
+      for (const [chunkIndex, text] of splitLongText(block, maxChars).entries()) {
         if (items.length >= maxSegments) return items;
         items.push({
           id: `${chapterId}:${segmentIndex++}`,
           text,
           chapterId,
           ...(section.cfi ? { sourceLocator: section.cfi } : {}),
+          sourceAnchor: createTranslationSourceAnchor({
+            sectionIndex,
+            blockIndex,
+            chunkIndex,
+            sourceText: text,
+            contextText: block,
+            ...(section.cfi ? { sourceLocator: section.cfi } : {}),
+          }),
           status: 'pending',
           attempts: 0,
         });
@@ -237,7 +246,7 @@ export interface TranslationBatchControllerInput {
   bookTitle?: string;
   items: Array<
     Pick<TranslationJobItem, 'id' | 'text'> &
-      Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator'>>
+      Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator' | 'sourceAnchor'>>
   >;
   translate: TranslateJobItem;
   artifactStore?: TranslationArtifactStore;
@@ -443,6 +452,7 @@ export class TranslationBatchController {
         ...(item.error ? { error: item.error } : {}),
         ...(item.chapterId ? { chapterId: item.chapterId } : {}),
         ...(item.sourceLocator ? { sourceLocator: item.sourceLocator } : {}),
+        ...(item.sourceAnchor ? { sourceAnchor: item.sourceAnchor } : {}),
         updatedAt: snapshot.updatedAt,
       });
     }

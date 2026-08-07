@@ -5,8 +5,11 @@ import type { AppService } from '@/types/system';
 import {
   createTranslationGlossary,
   findGlossaryConflicts,
-  parseTranslationGlossary,
+  getInterchangeMimeType,
+  getTranslationInterchangeFormat,
+  parseGlossaryInterchange,
   removeGlossaryEntry,
+  serializeGlossaryInterchange,
   TranslationGlossaryStore,
   type GlossaryEntry,
   type TranslationGlossary,
@@ -46,6 +49,7 @@ const TranslationGlossaryPanel: React.FC<TranslationGlossaryPanelProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'json' | 'tsv' | 'tbx'>('json');
 
   const entries = glossary?.entries ?? [];
   const visibleEntries = useMemo(() => {
@@ -133,8 +137,8 @@ const TranslationGlossaryPanel: React.FC<TranslationGlossaryPanelProps> = ({
     const selection = await selectFiles({
       type: 'generic',
       multiple: false,
-      accept: 'application/json,.json',
-      extensions: ['json'],
+      accept: 'application/json,.json,text/tab-separated-values,.tsv,application/x-tbx,.tbx',
+      extensions: ['json', 'tsv', 'tbx'],
       dialogTitle: _('Import glossary'),
     });
     const selected = selection.files[0];
@@ -143,7 +147,11 @@ const TranslationGlossaryPanel: React.FC<TranslationGlossaryPanelProps> = ({
       const file =
         selected.file || (selected.path ? await appService.openFile(selected.path, 'None') : null);
       if (!file) throw new Error(_('Unable to open selected file.'));
-      const imported = parseTranslationGlossary(JSON.parse(await file.text()));
+      const payload = await file.text();
+      const format = getTranslationInterchangeFormat(
+        selected.path || selected.file?.name || 'glossary.json',
+      );
+      const imported = parseGlossaryInterchange(payload, format as 'json' | 'tsv' | 'tbx');
       const conflicts = findGlossaryConflicts(imported);
       if (conflicts.length > 0) {
         throw new Error(
@@ -161,10 +169,11 @@ const TranslationGlossaryPanel: React.FC<TranslationGlossaryPanelProps> = ({
 
   const exportGlossary = async () => {
     if (!appService || !glossary) return;
+    const extension = exportFormat === 'tbx' ? 'tbx' : exportFormat;
     const saved = await appService.saveFile(
-      'BabelLeaf-glossary.json',
-      JSON.stringify(glossary, null, 2),
-      { mimeType: 'application/json' },
+      `BabelLeaf-glossary.${extension}`,
+      serializeGlossaryInterchange(glossary, exportFormat),
+      { mimeType: getInterchangeMimeType(exportFormat) },
     );
     if (!saved) setError(_('Unable to save file'));
   };
@@ -195,6 +204,16 @@ const TranslationGlossaryPanel: React.FC<TranslationGlossaryPanelProps> = ({
           >
             {_('Export')}
           </button>
+          <select
+            className='select select-bordered select-xs'
+            value={exportFormat}
+            onChange={(event) => setExportFormat(event.target.value as typeof exportFormat)}
+            aria-label='Glossary export format'
+          >
+            <option value='json'>JSON</option>
+            <option value='tsv'>TSV</option>
+            <option value='tbx'>TBX</option>
+          </select>
         </div>
       </div>
 

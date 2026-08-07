@@ -136,6 +136,12 @@ describe('translation batch services', () => {
       text: 'Chapter',
       chapterId: 'chapter-1',
       sourceLocator: 'epubcfi(/6/2)',
+      sourceAnchor: expect.objectContaining({
+        schemaVersion: 1,
+        sectionIndex: 0,
+        blockIndex: 0,
+        chunkIndex: 0,
+      }),
     });
   });
 

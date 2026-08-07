@@ -147,6 +147,7 @@ const BilingualTranslationView: React.FC<BilingualTranslationViewProps> = ({
           key={pair.id}
           data-translation-segment-id={pair.id}
           data-source-locator={pair.sourceLocator}
+          data-source-anchor={pair.sourceAnchor ? JSON.stringify(pair.sourceAnchor) : undefined}
           className={`${
             layout === 'columns'
               ? 'grid gap-3 rounded-lg border border-base-300 p-3 sm:grid-cols-2'
@@ -193,7 +194,7 @@ const BilingualTranslationView: React.FC<BilingualTranslationViewProps> = ({
                   type='button'
                   className='btn btn-ghost btn-xs'
                   onClick={() => onLocatePair(pair)}
-                  disabled={!pair.sourceLocator}
+                  disabled={!pair.sourceLocator && !pair.sourceAnchor}
                 >
                   {locateLabel}
                 </button>

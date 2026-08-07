@@ -1,4 +1,5 @@
 import type { TranslationArtifact, TranslationSegment } from './artifacts';
+import type { TranslationSourceAnchor } from './anchors';
 
 export interface BilingualTranslationPair {
   id: string;
@@ -10,6 +11,7 @@ export interface BilingualTranslationPair {
   status: TranslationSegment['status'];
   chapterId?: string;
   sourceLocator?: string;
+  sourceAnchor?: TranslationSourceAnchor;
   error?: string;
   provider?: string;
   model?: string;
@@ -58,6 +60,7 @@ export const toBilingualTranslationResult = (
     status: segment.status,
     ...(segment.chapterId ? { chapterId: segment.chapterId } : {}),
     ...(segment.sourceLocator ? { sourceLocator: segment.sourceLocator } : {}),
+    ...(segment.sourceAnchor ? { sourceAnchor: segment.sourceAnchor } : {}),
     ...(segment.error ? { error: segment.error } : {}),
     ...(artifact.provider ? { provider: artifact.provider } : {}),
     ...(artifact.model ? { model: artifact.model } : {}),
@@ -83,6 +86,7 @@ export const toTranslationReviewPairs = (
     status: segment.status,
     ...(segment.chapterId ? { chapterId: segment.chapterId } : {}),
     ...(segment.sourceLocator ? { sourceLocator: segment.sourceLocator } : {}),
+    ...(segment.sourceAnchor ? { sourceAnchor: segment.sourceAnchor } : {}),
     ...(segment.error ? { error: segment.error } : {}),
     ...(artifact.provider ? { provider: artifact.provider } : {}),
     ...(artifact.model ? { model: artifact.model } : {}),
