@@ -218,6 +218,15 @@ close that gate before it is accepted as a complete comic OCR workflow.
 - Translation requests remain explicit and sidecars remain credential-free.
 - The full text translation regression suite passes unchanged, proving that comic support reuses rather than duplicates the translation core.
 
+### Current implementation status
+
+The 0.4.1 branch delivers the workspace data model, bounded region-editing
+operations, explicit single-region provider bridge, stale-translation rules,
+overlay/editor primitives, atomic store, and regression fixtures. The actual
+production OCR runtime/model remains outside the repository and must pass the
+0.4.0 engine gate before this milestone can be accepted as the complete comic
+OCR workflow. No 0.4.2 image cleanup work may begin until that gate is closed.
+
 ## 0.4.2 - Image cleanup, typesetting, and export
 
 ### Scope

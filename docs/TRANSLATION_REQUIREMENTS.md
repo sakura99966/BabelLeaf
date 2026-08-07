@@ -130,14 +130,31 @@ the checksum, license, supported languages, runtime, compatible engine, and
 CPU-fallback capability. BabelLeaf does not download OCR models automatically,
 send page images or OCR text to a cloud OCR service, or place model bytes on
 the startup path. Missing models, incompatible runtimes, malformed pages, and
-resource limits produce direct diagnostics.
+resource limits produce direct diagnostics. The release gate also requires
+matching engine/model identity, verified license and checksum evidence, target
+platform benchmark evidence, and approved page-time and peak-memory budgets.
 
-The following end-user features remain out of scope for the 0.3.x releases:
+## 0.4.1 delivered comic translation workspace
+
+Version 0.4.1 adds a separate `babelleaf.comic-workspace` sidecar. Machine OCR
+regions and manual corrections are independent revisions. Region creation,
+polygon/text/language/orientation correction, ordering, split, merge, delete,
+restore, approval, and rollback preserve the imported page. OCR reruns update
+machine data while keeping manual and approved edits; changed source text marks
+existing translations stale for review.
+
+Translation is still explicitly user-triggered. A single effective region is
+sent through an existing named provider adapter and the workspace stores only
+the source revision, target language, provider/model provenance, machine text,
+review state, and optional overlay style. API keys, arbitrary endpoints, page
+bytes, and automatic background requests are prohibited in the workspace.
+
+The following end-user features remain outside the delivered 0.4.1 scope:
 
 - manual prompt editing and arbitrary endpoint/model fields;
 - automatic background translation;
-- OCR text correction, comic-region editing, translation overlays, cleanup,
-  typesetting, and translated image export.
+- production OCR runtime/model distribution until the engine gate passes;
+- image cleanup, inpainting, typesetting, and translated image export.
 
 Those features require separate data models, bounded queues, progress and
 cancellation UX, local result storage, and platform validation before release.
