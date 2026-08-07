@@ -138,10 +138,11 @@ export const evaluateOcrEngineGate = (input: OcrEngineGateInput): OcrEngineGateR
   const missingCapabilities = requiredCapabilities.filter(
     (capability) => !descriptor.capabilities.includes(capability),
   );
-  const requestedLanguages = new Set(input.sourceLanguages.map(normalized));
+  const requestedLanguages = new Set(input.sourceLanguages.map(normalized).filter(Boolean));
   const modelLanguages = new Set(model.languages.map(normalized));
+  const descriptorLanguages = new Set(descriptor.languages.map(normalized));
   const missingLanguages = [...requestedLanguages].filter(
-    (language) => !modelLanguages.has(language),
+    (language) => !modelLanguages.has(language) || !descriptorLanguages.has(language),
   );
   const evidence = input.evidence ? parseOcrBenchmarkEvidence(input.evidence) : undefined;
   const result = (code: OcrEngineGateCode, message: string): OcrEngineGateResult => ({
@@ -153,6 +154,10 @@ export const evaluateOcrEngineGate = (input: OcrEngineGateInput): OcrEngineGateR
     ...(evidence ? { evidence } : {}),
   });
 
+  if (requestedLanguages.size === 0) {
+    return result('language-unsupported', 'At least one OCR source language is required.');
+  }
+
   if (!input.installedModelIds.has(model.id)) {
     return result('missing-model', 'Install the selected OCR model locally before processing.');
   }
@@ -162,7 +167,7 @@ export const evaluateOcrEngineGate = (input: OcrEngineGateInput): OcrEngineGateR
   if (missingLanguages.length > 0) {
     return result(
       'language-unsupported',
-      'The selected OCR model does not cover every source language.',
+      'The selected OCR engine and model do not cover every source language.',
     );
   }
   if (missingCapabilities.length > 0) {
@@ -183,6 +188,13 @@ export const evaluateOcrEngineGate = (input: OcrEngineGateInput): OcrEngineGateR
     return result(
       'benchmark-missing',
       'OCR benchmark evidence does not match the selected engine or model.',
+    );
+  }
+  const evidenceLanguages = new Set(evidence.languages.map(normalized));
+  if ([...requestedLanguages].some((language) => !evidenceLanguages.has(language))) {
+    return result(
+      'language-unsupported',
+      'OCR benchmark evidence does not cover every requested source language.',
     );
   }
   if (!evidence.licenseVerified) {

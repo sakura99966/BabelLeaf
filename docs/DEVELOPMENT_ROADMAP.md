@@ -82,7 +82,7 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | Bilingual reading and sidecar | Aligned layouts, layout-independent anchors, portable sidecar, machine-result retention, and review recovery delivered | Migration and cross-platform portability through 0.8 |
 | Glossary and translation memory | Runtime enforcement plus validated management, limits, invalidation visibility, and JSON/TSV/TBX/TMX interchange delivered | Cross-platform migration and validation through 0.8 |
 | Human review | Full review workspace with edit, approve, revert, status filters, provenance, keyboard paging, autosaved drafts, recovery, and JSON/TSV/XLIFF interchange delivered | Cross-format alignment and platform validation through 0.8 |
-| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, mock adapter, OCR sidecar, bounded queue, model manifest, selectable text-layer primitive, engine gate, and 0.4.1 workspace/overlay primitives delivered | Production OCR engine/model selection and image pipeline in 0.4.2-0.4.3 |
+| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, mock adapter, OCR sidecar, bounded queue, model manifest, local model-pack lifecycle, benchmark evidence harness, selectable text-layer primitive, engine gate, and 0.4.1 workspace/overlay primitives delivered | Production OCR engine/model selection and image pipeline in 0.4.2-0.4.3 |
 | Performance and resource controls | 0.3.2 budgets plus 0.4.0 OCR page-time and peak-memory budgets and 0.4.1 workspace save/overlay budgets are tracked | Measured gates and optimization through 0.9 |
 | Local dictionaries and word lookup | Baseline capability exists | Simplified-Chinese UX and native platform validation in 0.5-0.8 |
 | Local or native speech | Baseline capability exists | Queue, language/voice selection, accessibility, and native validation in 0.5-0.8 |
@@ -226,6 +226,11 @@ overlay/editor primitives, atomic store, and regression fixtures. The actual
 production OCR runtime/model remains outside the repository and must pass the
 0.4.0 engine gate before this milestone can be accepted as the complete comic
 OCR workflow. No 0.4.2 image cleanup work may begin until that gate is closed.
+
+The follow-up gate-hardening checkpoint adds local model-pack installation,
+checksum-verified reads, a replaceable runtime factory, and bounded benchmark
+evidence generation. It still does not select or bundle a production OCR
+runtime or model; the gate remains open until a measured candidate is reviewed.
 
 ## 0.4.2 - Image cleanup, typesetting, and export
 

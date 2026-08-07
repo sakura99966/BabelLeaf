@@ -100,7 +100,7 @@ forked or vendored solely to preserve it for possible future use.
    review; a repository's software license does not automatically cover them.
 7. No DRM-removal component or unlicensed content source is in scope.
 
-## 0.4.0-0.4.1 OCR worker and comic workspace boundary
+## 0.4.0-0.4.1 OCR worker, comic workspace, and gate hardening boundary
 
 The future worker should return a BabelLeaf-owned, versioned sidecar rather
 than overwrite source pages. At minimum it will need:
@@ -123,11 +123,12 @@ the BabelLeaf-owned services under
 are BabelLeaf-owned boundaries. A mock engine is test-covered so the reader
 can validate cancellation, progress, limits, model selection, worker
 replacement, manual revisions, stale translations, and recovery without
-adding a heavy runtime to startup. No external OCR application or model weight
-is embedded. PaddleOCR, manga-ocr, manga-ocr-rs, and ONNX Runtime remain
-candidates for a separately reviewed production model-pack integration; the
-`ocrEngineGate.ts` evidence contract must pass before one becomes a product
-dependency.
+adding a heavy runtime to startup. Model-pack storage, byte verification,
+runtime factory construction, and bounded benchmark evidence are now present,
+but no external OCR application or model weight is embedded. PaddleOCR,
+manga-ocr, manga-ocr-rs, and ONNX Runtime remain candidates for a separately
+reviewed production model-pack integration; the `ocrEngineGate.ts` evidence
+contract must pass before one becomes a product dependency.
 
 ## Attribution and release checks
 

@@ -1,12 +1,12 @@
-# BabelLeaf 0.4.0-0.4.1 OCR foundation and comic workspace
+# BabelLeaf 0.4.0-0.4.1 OCR foundation, comic workspace, and gate hardening
 
 ## Scope
 
 0.4.0 establishes the local OCR data, worker, model, task, and selectable
 text-layer boundaries. 0.4.1 adds the editable comic workspace, explicit
 single-region translation, review state, and translated overlay primitives.
-Erasing, inpainting, typesetting, and translated image export remain 0.4.2
-work.
+Erasing, inpainting, typesetting, and translated image export remain blocked
+until the production OCR engine/model gate and reader integration are closed.
 
 ## Local data contract
 
@@ -49,6 +49,13 @@ application or model weight is embedded in BabelLeaf 0.4.0-0.4.1. The
 `ocrEngineGate.ts` service rejects a runtime unless local installation,
 engine/model identity, language and capability coverage, license/checksum
 evidence, platform benchmark, and resource budgets all pass.
+
+`ocrModelPacks.ts` now provides the local lifecycle around that contract:
+explicit model import, SHA-256 verification, idempotent versioned storage,
+verified reads, and removal. `ocrRuntime.ts` verifies the stored bytes before
+constructing a replaceable runtime adapter. `ocrBenchmark.ts` emits bounded
+local evidence for the gate. These services do not select an engine or embed
+weights.
 
 ## Selectable text layer
 
