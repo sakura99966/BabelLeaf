@@ -3,8 +3,8 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `v0.3.2` at main merge commit `760c9158a39d55810a70ee8eb31214958ede0af6`
-- Roadmap revision: 2
+- Current implementation baseline: `v0.4.0` OCR foundation at main merge commit `f82a7de0d`
+- Roadmap revision: 3
 - Approved scope date: 2026-08-04
 - Last closure update: 2026-08-07
 - Target stable release: `1.0.0`
@@ -72,21 +72,21 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 
 ## Current baseline and requirement coverage
 
-| Requirement | Current state at 0.3.2 | Remaining milestone |
+| Requirement | Current state at 0.4.0 | Remaining milestone |
 | --- | --- | --- |
 | Local library and reader | Implemented from the Readest baseline | Format and platform matrix hardened through 0.8 |
-| EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths exist; 0.3.2 fixture, resource-limit, and PDF diagnostics are tracked; not every variant is guaranteed | Image pipeline in 0.4, cross-platform proof in 0.8 |
+| EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths exist; 0.3.2 fixture, resource-limit, PDF diagnostics, and 0.4.0 OCR source routing are tracked; not every variant is guaranteed | Image pipeline in 0.4.1-0.4.3, cross-platform proof in 0.8 |
 | Selection and viewport translation | Implemented | Provider UX hardening and platform validation through 0.8 |
 | Chapter and full-book translation | Persistent bounded queue, recovery dashboard, retry, review, stable anchors, and interchange delivered | Stress and platform portability through 0.8 |
 | DeepSeek V4, OpenAI, Claude, Ollama | Named adapter framework delivered | Release-time endpoint/model verification and platform validation through 0.8 |
 | Bilingual reading and sidecar | Aligned layouts, layout-independent anchors, portable sidecar, machine-result retention, and review recovery delivered | Migration and cross-platform portability through 0.8 |
 | Glossary and translation memory | Runtime enforcement plus validated management, limits, invalidation visibility, and JSON/TSV/TBX/TMX interchange delivered | Cross-platform migration and validation through 0.8 |
 | Human review | Full review workspace with edit, approve, revert, status filters, provenance, keyboard paging, autosaved drafts, recovery, and JSON/TSV/XLIFF interchange delivered | Cross-format alignment and platform validation through 0.8 |
-| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, and mock adapter delivered | Production OCR and image pipeline in 0.4.x |
-| Performance and resource controls | 0.3.2 budgets and bounded interchange/document diagnostics are tracked | Measured gates and optimization through 0.9 |
+| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, mock adapter, OCR sidecar, bounded queue, model manifest, and selectable text-layer primitive delivered | Production OCR engine/model selection and image pipeline in 0.4.x |
+| Performance and resource controls | 0.3.2 budgets plus 0.4.0 OCR page-time and peak-memory budgets are tracked | Measured gates and optimization through 0.9 |
 | Local dictionaries and word lookup | Baseline capability exists | Simplified-Chinese UX and native platform validation in 0.5-0.8 |
 | Local or native speech | Baseline capability exists | Queue, language/voice selection, accessibility, and native validation in 0.5-0.8 |
-| Scanned PDF and comic OCR | Not implemented | 0.4.0 |
+| Scanned PDF and comic OCR | Local sidecar, task recovery, model-manifest, diagnostics, and selectable text-layer foundation delivered; a production OCR engine/model pack is not bundled | Production engine selection and quality gate, then 0.4.1-0.4.3 |
 | Comic translation and editable overlays | Not implemented | 0.4.1 |
 | Erasing, inpainting, typesetting, translated export | Not implemented | 0.4.2-0.4.3 |
 | Windows production reliability | Unsigned package and isolated NSIS smoke verification exist | Signing and 1.0 release qualification in 0.9-1.0 |
@@ -102,7 +102,7 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | --- | --- | --- |
 | 0.3.1 | Text translation productization | Glossary, memory, review, and job management become complete end-user workflows |
 | 0.3.2 | Text interoperability and comic readiness | Format matrix, interchange, anchors, worker protocol, benchmark, and license decisions are frozen |
-| 0.4.0 | OCR foundation | Comics and scanned pages gain local, selectable, restorable OCR text layers |
+| 0.4.0 | OCR foundation | Sidecar, worker, model-manifest, bounded task, diagnostics, and selectable text-layer contracts are delivered; production OCR engine selection remains a gate before the comic workspace |
 | 0.4.1 | Comic translation workspace | Regions can be corrected, translated, reviewed, and displayed as editable bilingual overlays |
 | 0.4.2 | Image cleanup and typesetting | Text can be erased, repaired, typeset, and exported to a separate translated copy |
 | 0.4.3 | Image pipeline stabilization | The complete comic workflow becomes recoverable, bounded, documented, and release-tested |
@@ -191,6 +191,14 @@ Work must follow this sequence unless the roadmap is explicitly revised. A later
 - Cancelled and failed jobs leave valid recoverable sidecars and no orphaned temporary files.
 - Peak memory, worker count, page dimensions, archive expansion, and cache size remain within the approved 0.3.2 budgets.
 - Source archives, PDFs, and images remain byte-for-byte unchanged.
+
+### Foundation checkpoint status
+
+The 0.4.0 implementation closes the sidecar, worker, model-manifest,
+diagnostic, bounded-task, recovery, and selectable-text-layer foundation. It
+does not bundle a production OCR runtime or model weights. The measured engine
+and model selection gate therefore remains open; 0.4.1 implementation must
+close that gate before it is accepted as a complete comic OCR workflow.
 
 ## 0.4.1 - Comic translation workspace
 
@@ -420,7 +428,8 @@ No work may be declared complete because a build command alone succeeded. Packag
 
 ## Roadmap governance
 
-- The next implementation target after 0.3.2 is 0.4.0, subject to release acceptance.
+- The next implementation target after the 0.4.0 foundation checkpoint is 0.4.1,
+  subject to the production OCR engine/model gate and release acceptance.
 - Development must stop at each version boundary for review and acceptance before entering the next version unless the user explicitly authorizes continuous work through named versions.
 - P0 and P1 defects found in review belong to the current version and must be resolved before the next version begins.
 - Research spikes may occur ahead of schedule only in disposable branches or ignored evaluation directories and may not become production dependencies without the milestone's selection gate.
