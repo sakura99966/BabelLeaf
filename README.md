@@ -98,6 +98,9 @@ Version 0.4.1 adds the editable comic workspace boundary:
   credential-free sidecar;
 - translated overlays and an accessible region-editor primitive render without
   flattening or modifying the imported page.
+- local OCR model-pack installation, SHA-256 verification, lazy runtime
+  construction, and bounded benchmark evidence are available as a gate
+  hardening layer; no engine or model weights are bundled.
 
 The following major features remain planned:
 
