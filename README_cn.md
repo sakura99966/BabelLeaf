@@ -45,16 +45,23 @@ BabelLeaf 目前仍处于预发布阶段。仓库现有基础包括：
 - 文本层、混合型、纯图像、损坏、加密和超限文件的明确诊断、合法样本矩阵与性能预算；
 - 可替换的本地漫画 worker 协议，包含能力发现、限额、进度、取消、错误和 mock OCR 适配器。
 
+0.4.0 版本在上述 worker 边界上增加本地 OCR 基础能力：
+
+- 版本化 OCR sidecar，保存页面身份、区域多边形、阅读顺序、语言、置信度、ruby 元数据、引擎来源和失败信息；
+- 支持暂停、恢复、取消、重试、检查点和重启恢复的有界 OCR 页面任务；
+- 本地 OCR 模型清单，记录校验和、许可证、语言、运行时及 CPU 回退能力，不自动下载模型；
+- 可选择的 OCR 文本层，在不修改 PDF、CBZ、FBZ 或图片源文件的情况下覆盖页面内容；
+- 对已有文本层、混合页面、纯图片、缺少模型、设备不兼容、损坏和超限输入提供明确诊断。
+
 下列主要功能尚待开发：
 
-- 文本型 PDF 与扫描型 PDF 的分别处理；
-- 本地漫画 OCR、文字区域检测、擦字修复、译文嵌字和可编辑覆盖层；
+- OCR 文本校正、漫画区域编辑、翻译覆盖层、擦字修复、译文嵌字和独立译文导出；
 - macOS、Android、iOS 的签名发布包及目标平台验证。
 
-从 0.3.2 到稳定版 1.0.0 的权威开发顺序见[开发路线图](docs/DEVELOPMENT_ROADMAP.md)。
+从 0.4.0 到稳定版 1.0.0 的权威开发顺序见[开发路线图](docs/DEVELOPMENT_ROADMAP.md)。
 后续版本规划、实现、代码审查和发布验收均以该文档为准。
 
-运行边界见[架构说明](apps/readest-app/docs/architecture.md)，当前和远期翻译契约见[翻译需求](docs/TRANSLATION_REQUIREMENTS.md)，代码来源和许可证记录见[上游清单](docs/UPSTREAM_INVENTORY.md)。
+运行边界见[架构说明](apps/readest-app/docs/architecture.md)，OCR 边界见[OCR 基础说明](docs/OCR_FOUNDATION.md)，当前和远期翻译契约见[翻译需求](docs/TRANSLATION_REQUIREMENTS.md)，代码来源和许可证记录见[上游清单](docs/UPSTREAM_INVENTORY.md)。
 
 ## 架构
 

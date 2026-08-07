@@ -19,7 +19,10 @@ export type ComicWorkerCapability =
   | 'inpaint'
   | 'typeset'
   | 'vertical-text'
-  | 'rtl';
+  | 'rtl'
+  | 'ruby'
+  | 'cpu-fallback'
+  | 'text-layer';
 
 export interface ComicWorkerDescriptor {
   protocol: typeof COMIC_WORKER_PROTOCOL;
@@ -69,19 +72,26 @@ export interface ComicTextRegion {
   readingOrder: number;
   engine: string;
   model?: string;
+  ruby?: Array<{
+    text: string;
+    baseText?: string;
+    position?: 'before' | 'after' | 'above' | 'below';
+  }>;
+}
+
+export interface ComicWorkerPageResult {
+  pageId: string;
+  width: number;
+  height: number;
+  regions: ComicTextRegion[];
+  status: 'completed' | 'failed' | 'cancelled';
+  error?: string;
 }
 
 export interface ComicWorkerResult {
   requestId: string;
   bookHash: string;
-  pages: Array<{
-    pageId: string;
-    width: number;
-    height: number;
-    regions: ComicTextRegion[];
-    status: 'completed' | 'failed' | 'cancelled';
-    error?: string;
-  }>;
+  pages: ComicWorkerPageResult[];
 }
 
 export type ComicWorkerEvent =
@@ -140,6 +150,9 @@ const CAPABILITIES = new Set<ComicWorkerCapability>([
   'typeset',
   'vertical-text',
   'rtl',
+  'ruby',
+  'cpu-fallback',
+  'text-layer',
 ]);
 
 export const parseComicWorkerDescriptor = (value: unknown): ComicWorkerDescriptor => {
@@ -222,7 +235,7 @@ export const parseComicWorkerRequest = (value: unknown): ComicWorkerJobRequest =
 };
 
 const validateRegions = (
-  regions: ComicTextRegion[],
+  regions: unknown[],
   page: ComicWorkerPageInput,
   descriptor: ComicWorkerDescriptor,
 ): ComicTextRegion[] => {
@@ -241,6 +254,9 @@ const validateRegions = (
         y: finiteNumber(point['y'], 'point.y'),
       };
     });
+    if (parsedPolygon.some((point) => point.x > page.width || point.y > page.height)) {
+      throw new Error(`Worker polygon exceeds page bounds: ${page.pageId}/${index}`);
+    }
     const orientation = region['orientation'];
     if (!['horizontal', 'vertical', 'mixed'].includes(String(orientation)))
       throw new Error(`Invalid worker orientation: ${page.pageId}/${index}`);
@@ -268,6 +284,36 @@ const validateRegions = (
       ...(region['model'] === undefined
         ? {}
         : { model: requiredString(region['model'], 'region.model') }),
+      ...(region['ruby'] === undefined
+        ? {}
+        : {
+            ruby: (() => {
+              if (!Array.isArray(region['ruby']) || region['ruby'].length > 32) {
+                throw new Error(`Invalid worker ruby: ${page.pageId}/${index}`);
+              }
+              return region['ruby'].map((rubyValue, rubyIndex) => {
+                if (!isRecord(rubyValue)) {
+                  throw new Error(`Invalid worker ruby: ${page.pageId}/${index}/${rubyIndex}`);
+                }
+                const position = rubyValue['position'];
+                if (
+                  position !== undefined &&
+                  !['before', 'after', 'above', 'below'].includes(String(position))
+                ) {
+                  throw new Error(`Invalid worker ruby position: ${page.pageId}/${index}`);
+                }
+                return {
+                  text: requiredString(rubyValue['text'], 'ruby.text'),
+                  ...(rubyValue['baseText'] === undefined
+                    ? {}
+                    : { baseText: requiredString(rubyValue['baseText'], 'ruby.baseText') }),
+                  ...(position === undefined
+                    ? {}
+                    : { position: position as 'before' | 'after' | 'above' | 'below' }),
+                };
+              });
+            })(),
+          }),
     };
   });
 };
@@ -280,6 +326,41 @@ export interface ComicWorkerAdapter {
   ): Promise<ComicWorkerResult>;
   cancel(requestId: string): void;
 }
+
+/** Validate a persisted page result before it enters an OCR sidecar or queue. */
+export const parseComicWorkerPageResult = (
+  value: unknown,
+  descriptor: ComicWorkerDescriptor,
+): ComicWorkerPageResult => {
+  if (!isRecord(value)) throw new Error('Invalid comic worker page result');
+  const pageId = requiredString(value['pageId'], 'pageId');
+  const width = finiteInteger(value['width'], 'width', 1);
+  const height = finiteInteger(value['height'], 'height', 1);
+  if (width * height > MAX_COMIC_WORKER_IMAGE_PIXELS) {
+    throw new Error('Comic worker result exceeds pixel limit');
+  }
+  const status = value['status'];
+  if (!['completed', 'failed', 'cancelled'].includes(String(status))) {
+    throw new Error('Invalid comic worker page result status');
+  }
+  const regions = value['regions'];
+  if (!Array.isArray(regions)) throw new Error('Invalid comic worker page result regions');
+  const parsedPage: ComicWorkerPageInput = {
+    pageId,
+    width,
+    height,
+    format: 'png',
+    localRef: `result:${pageId}`,
+  };
+  return {
+    pageId,
+    width,
+    height,
+    regions: validateRegions(regions, parsedPage, descriptor),
+    status: status as ComicWorkerPageResult['status'],
+    ...(value['error'] === undefined ? {} : { error: requiredString(value['error'], 'error') }),
+  };
+};
 
 /** Create an in-process adapter for tests and early platform bring-up. */
 export const createComicWorkerAdapter = (engine: ComicWorkerEngine): ComicWorkerAdapter => {
@@ -369,8 +450,8 @@ export const createMockComicOcrEngine = (
     protocol: COMIC_WORKER_PROTOCOL,
     protocolVersion: COMIC_WORKER_PROTOCOL_VERSION,
     engine: 'babelleaf-mock-ocr',
-    engineVersion: '0.3.2-test',
-    capabilities: ['detect', 'ocr', 'vertical-text'],
+    engineVersion: '0.4.0-test',
+    capabilities: ['detect', 'ocr', 'vertical-text', 'ruby', 'cpu-fallback', 'text-layer'],
     languages: ['zh', 'en', 'ja'],
     maxWorkers: 1,
   },

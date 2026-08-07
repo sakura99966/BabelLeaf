@@ -1,4 +1,4 @@
-# BabelLeaf 0.3.2 format fixture matrix
+# BabelLeaf 0.4.0 format and OCR fixture matrix
 
 This matrix is the release gate for local text extraction and translation. It
 uses only repository-owned or legally obtained DRM-free samples. The test
@@ -12,7 +12,7 @@ rewrites an imported source.
 | MOBI | `sample-war-peace.mobi` | truncated PalmDB | empty record | DRM marker | MOBI parser |
 | AZW/AZW3 | extension-preserving MOBI samples | truncated record | empty record | DRM marker | MOBI-family parser |
 | FB2 | `sample-metadata.fb2` | malformed XML/entity | empty body | rights marker | XML parser |
-| CBZ | `sample-metadata.cbz` | malformed ZIP/traversal entry | image-only archive | encrypted ZIP | image-only until 0.4 OCR |
+| CBZ | `sample-metadata.cbz` | malformed ZIP/traversal entry | image-only archive | encrypted ZIP | local OCR text layer |
 | TXT | `sample-alice.txt` | invalid/oversized input | zero-byte file | rights marker | bounded text conversion |
 | Markdown | repository Markdown sample | malformed front matter | empty document | rights marker | sanitized Markdown rendering |
 
@@ -28,3 +28,12 @@ and 2 GiB uncompressed archive content. A limit violation is reported as
 content is reported as `drm`; and image-only content is reported as
 `image-only`. No partial translation artifact is written after a failed
 validation.
+
+## OCR workflow matrix
+
+The OCR-specific fixtures are represented by `OCR_FORMAT_FIXTURE_MATRIX` in
+`apps/readest-app/src/services/translators/formatMatrix.ts`. They cover local
+CBZ/FBZ pages, image-only and mixed PDFs, and platform-provided image-folder
+manifests. Each route has a valid, malformed, image-only, and oversized case.
+The matrix is a manifest of legal local inputs; it does not cause directory
+scanning or network downloads.

@@ -69,7 +69,7 @@ export const TRANSLATION_FORMAT_FIXTURE_MATRIX: TranslationFormatFixtureSpec[] =
     malformedFixture: 'malformed.cbz',
     emptyOrImageOnlyFixture: 'sample-metadata.cbz',
     encryptedFixture: 'encrypted.cbz',
-    notes: 'image-only until the 0.4 OCR worker',
+    notes: 'image-only until the 0.4 OCR text-layer workflow',
   },
   {
     format: 'TXT',
@@ -110,6 +110,8 @@ export const TRANSLATION_PERFORMANCE_BUDGETS = {
   diskCacheMb: 1_024,
   packageSizeMb: 250,
   maxFileBytes: TRANSLATION_FORMAT_LIMITS.maxFileBytes,
+  ocrPageMs: 15_000,
+  ocrPeakMemoryMb: 1_024,
 } as const;
 
 export interface PerformanceMeasurement {
@@ -120,3 +122,48 @@ export interface PerformanceMeasurement {
 
 export const checkPerformanceMeasurement = (measurement: PerformanceMeasurement): boolean =>
   measurement.value <= TRANSLATION_PERFORMANCE_BUDGETS[measurement.name];
+
+export interface OcrFormatFixtureSpec {
+  sourceFormat: 'PDF' | 'CBZ' | 'FBZ' | 'IMAGE_FOLDER';
+  validFixture: string;
+  malformedFixture: string;
+  imageOnlyFixture: string;
+  oversizedFixture: string;
+  notes: string;
+}
+
+/** Legal local fixtures for the 0.4 OCR and selectable text-layer workflow. */
+export const OCR_FORMAT_FIXTURE_MATRIX: OcrFormatFixtureSpec[] = [
+  {
+    sourceFormat: 'PDF',
+    validFixture: 'sample-paper.pdf',
+    malformedFixture: 'malformed.pdf',
+    imageOnlyFixture: 'sample-scanned.pdf',
+    oversizedFixture: 'oversized-page.pdf',
+    notes: 'text-layer, mixed, and image-only page routing',
+  },
+  {
+    sourceFormat: 'CBZ',
+    validFixture: 'sample-metadata.cbz',
+    malformedFixture: 'malformed.cbz',
+    imageOnlyFixture: 'sample-metadata.cbz',
+    oversizedFixture: 'oversized-page.cbz',
+    notes: 'bounded archive pages and local OCR regions',
+  },
+  {
+    sourceFormat: 'FBZ',
+    validFixture: 'sample-metadata.fb.zip',
+    malformedFixture: 'malformed.fb.zip',
+    imageOnlyFixture: 'sample-metadata.fb.zip',
+    oversizedFixture: 'oversized-page.fb.zip',
+    notes: 'image-page boundary remains explicit for FBZ archives',
+  },
+  {
+    sourceFormat: 'IMAGE_FOLDER',
+    validFixture: 'sample-image-folder.manifest.json',
+    malformedFixture: 'malformed-image-folder.manifest.json',
+    imageOnlyFixture: 'sample-image-folder.manifest.json',
+    oversizedFixture: 'oversized-page.manifest.json',
+    notes: 'platform-provided folder access; no automatic directory scanning',
+  },
+];

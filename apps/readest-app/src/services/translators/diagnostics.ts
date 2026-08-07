@@ -104,7 +104,7 @@ export const diagnoseTranslationFormat = (
       code: 'image-only',
       supported: false,
       message:
-        'Comic archives are image-only in 0.3.2. OCR and text replacement are planned for 0.4.',
+        'Comic archives require the local OCR text-layer workflow before text translation; translation overlays are planned for 0.4.1.',
     };
   }
 
