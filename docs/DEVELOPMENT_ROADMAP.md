@@ -3,7 +3,7 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `v0.4.1` comic workspace checkpoint at release commit `8ba9b0fe7`
+- Current implementation baseline: `v0.4.1` comic workspace checkpoint at main merge commit `b9d8e546e`
 - Roadmap revision: 4
 - Approved scope date: 2026-08-04
 - Last closure update: 2026-08-08
