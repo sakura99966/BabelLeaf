@@ -5,6 +5,7 @@ import type {
   TranslationJobSnapshot,
   TranslationJobStatus,
 } from './jobQueue';
+import { parseTranslationSourceAnchor } from './anchors';
 
 export const TRANSLATION_JOB_STORE_BASE: BaseDir = 'Data';
 export const TRANSLATION_JOB_STORE_DIR = 'translation-jobs';
@@ -101,6 +102,9 @@ export const parseTranslationJob = (value: unknown): PersistedTranslationJob => 
               `items[${index}].sourceLocator`,
             ),
           }),
+      ...(itemValue['sourceAnchor'] === undefined
+        ? {}
+        : { sourceAnchor: parseTranslationSourceAnchor(itemValue['sourceAnchor']) }),
       ...(itemValue['translatedText'] === undefined
         ? {}
         : {

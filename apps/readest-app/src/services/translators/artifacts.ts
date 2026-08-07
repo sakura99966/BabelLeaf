@@ -1,5 +1,6 @@
 import type { AppService, BaseDir, FileSystem } from '@/types/system';
 import { safeLoadJSON, safeSaveJSON } from '@/services/persistence';
+import { parseTranslationSourceAnchor, type TranslationSourceAnchor } from './anchors';
 
 export const TRANSLATION_ARTIFACT_SCHEMA_VERSION = 1 as const;
 export const TRANSLATION_ARTIFACT_DIR = 'translation-artifacts';
@@ -20,6 +21,7 @@ export interface TranslationSegment {
   status: TranslationSegmentStatus;
   chapterId?: string;
   sourceLocator?: string;
+  sourceAnchor?: TranslationSourceAnchor;
   error?: string;
   updatedAt: number;
 }
@@ -107,6 +109,10 @@ const parseSegment = (value: unknown): TranslationSegment => {
         throw new Error(`Invalid translation artifact field: ${field}`);
       segment[field] = fieldValue;
     }
+  }
+
+  if (value['sourceAnchor'] !== undefined) {
+    segment.sourceAnchor = parseTranslationSourceAnchor(value['sourceAnchor']);
   }
 
   return segment;

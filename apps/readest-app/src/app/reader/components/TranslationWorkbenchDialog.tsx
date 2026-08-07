@@ -20,6 +20,10 @@ import {
 import {
   parseTranslationSidecar,
   serializeTranslationSidecar,
+  getInterchangeMimeType,
+  getTranslationInterchangeFormat,
+  parseReviewInterchange,
+  serializeReviewInterchange,
   toTranslationReviewPairs,
   reviewTranslationSegment,
   revertTranslationSegment,
@@ -101,6 +105,7 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   const [reviewQuery, setReviewQuery] = useState('');
   const [jobs, setJobs] = useState<TranslationJobSnapshot[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+  const [reviewExportFormat, setReviewExportFormat] = useState<'json' | 'tsv' | 'xliff'>('json');
 
   const refreshJobs = useCallback(async () => {
     if (!jobStore || !bookHash) return;
@@ -380,8 +385,9 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     const selection = await selectFiles({
       type: 'generic',
       multiple: false,
-      accept: 'application/json,.json',
-      extensions: ['json'],
+      accept:
+        'application/json,.json,text/tab-separated-values,.tsv,application/xliff+xml,.xlf,.xliff',
+      extensions: ['json', 'tsv', 'xlf', 'xliff'],
       dialogTitle: _('Import Annotations'),
     });
     const selected = selection.files[0];
@@ -390,7 +396,14 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       const file =
         selected.file || (selected.path ? await appService.openFile(selected.path, 'None') : null);
       if (!file) throw new Error(_('Unable to open book'));
-      const imported = parseTranslationSidecar(JSON.parse(await file.text()));
+      const payload = await file.text();
+      const format = getTranslationInterchangeFormat(
+        selected.path || selected.file?.name || 'translation.json',
+      );
+      const imported =
+        format === 'json'
+          ? parseTranslationSidecar(JSON.parse(payload))
+          : parseReviewInterchange(payload, format as 'tsv' | 'xliff');
       if (imported.bookHash !== bookHash)
         throw new Error('Translation sidecar belongs to another book');
       if (imported.targetLang !== targetLang || imported.provider !== provider) {
@@ -410,9 +423,17 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     setError(null);
     const current = controllerRef.current?.getArtifact() || artifact;
     const safeTarget = targetLang.replace(/[^a-zA-Z0-9-]+/g, '_') || 'target';
-    const filename = `BabelLeaf-translation-${bookHash}-${safeTarget}.babelleaf-translation.json`;
-    const saved = await appService.saveFile(filename, serializeTranslationSidecar(current), {
-      mimeType: 'application/json',
+    const extension = reviewExportFormat === 'xliff' ? 'xlf' : reviewExportFormat;
+    const filename =
+      reviewExportFormat === 'json'
+        ? `BabelLeaf-translation-${bookHash}-${safeTarget}.babelleaf-translation.json`
+        : `BabelLeaf-review-${bookHash}-${safeTarget}.${extension}`;
+    const content =
+      reviewExportFormat === 'json'
+        ? serializeTranslationSidecar(current)
+        : serializeReviewInterchange(current, reviewExportFormat);
+    const saved = await appService.saveFile(filename, content, {
+      mimeType: getInterchangeMimeType(reviewExportFormat),
     });
     if (!saved) setError(_('Unable to save file'));
   };
@@ -481,8 +502,18 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
 
   const handleLocatePair = useCallback(
     (pair: BilingualTranslationPair) => {
-      if (!pair.sourceLocator) return;
-      getView(bookKey)?.goTo(pair.sourceLocator);
+      const view = getView(bookKey);
+      if (!view) return;
+      if (pair.sourceLocator) {
+        view.goTo(pair.sourceLocator);
+      } else if (pair.sourceAnchor) {
+        // A locator can be absent after an interchange round trip. The
+        // structural section anchor still provides a layout-independent
+        // landing point; the exact text range is resolved by the reader view.
+        view.renderer.goTo({ index: pair.sourceAnchor.sectionIndex });
+      } else {
+        return;
+      }
       setSelectedPairId(pair.id);
       void saveViewSettings(
         envConfig,
@@ -604,6 +635,18 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
               >
                 {_('Export')}
               </button>
+              <select
+                className='select select-bordered select-sm'
+                value={reviewExportFormat}
+                onChange={(event) =>
+                  setReviewExportFormat(event.target.value as typeof reviewExportFormat)
+                }
+                aria-label='Review export format'
+              >
+                <option value='json'>JSON</option>
+                <option value='tsv'>TSV</option>
+                <option value='xliff'>XLIFF</option>
+              </select>
               {(!controllerRef.current || snapshot?.status === 'completed') && (
                 <button
                   className='btn btn-primary btn-sm'

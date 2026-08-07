@@ -1,3 +1,5 @@
+import type { TranslationSourceAnchor } from './anchors';
+
 export type TranslationJobKind = 'chapter' | 'book';
 export type TranslationJobStatus =
   | 'queued'
@@ -7,12 +9,12 @@ export type TranslationJobStatus =
   | 'failed'
   | 'cancelled';
 export type TranslationJobItemStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-
 export interface TranslationJobItem {
   id: string;
   text: string;
   chapterId?: string;
   sourceLocator?: string;
+  sourceAnchor?: TranslationSourceAnchor;
   translatedText?: string;
   status: TranslationJobItemStatus;
   attempts: number;
@@ -50,7 +52,7 @@ export interface TranslationJobInput {
   targetLang: string;
   items: Array<
     Pick<TranslationJobItem, 'id' | 'text'> &
-      Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator'>>
+      Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator' | 'sourceAnchor'>>
   >;
   concurrency?: number;
   /** Maximum provider attempts for one item. Defaults to one. */
