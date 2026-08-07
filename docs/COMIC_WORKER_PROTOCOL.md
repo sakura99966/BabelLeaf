@@ -1,7 +1,8 @@
 # BabelLeaf local comic-worker protocol v1
 
-0.3.2 freezes the boundary for the future OCR and image-translation worker;
-it does not ship an OCR engine. The protocol is defined in
+0.4.0 uses the frozen boundary for local OCR and future image translation;
+the base package still does not ship a heavy OCR runtime or model weight. The
+protocol is defined in
 `apps/readest-app/src/services/translators/comicWorkerProtocol.ts`.
 
 The reader sends a versioned request containing a book hash, bounded page
@@ -14,9 +15,10 @@ engine, and model provenance.
 The adapter enforces 10,000 pages, 80 million pixels per page, 2,000 regions
 per page, one-to-four workers, and a bounded language list. A mock OCR engine
 is covered by tests and can be swapped without changing the reader, queue, or
-translation sidecar. Production selection remains deferred until the same
-legally obtained Chinese, English, and Japanese sample set has been used to
-benchmark detection, OCR, inpainting, and typesetting candidates.
+translation sidecar. OCR sidecars and task snapshots add page status,
+checkpoint, model/runtime provenance, and selectable text-layer data without
+modifying the source page. Production model-pack selection remains a separate
+license and benchmark gate; a model must be explicitly installed locally.
 
 Candidate projects are tracked in `UPSTREAM_INVENTORY.md`. No complete
 external application is embedded, and every future engine, model, weight, and

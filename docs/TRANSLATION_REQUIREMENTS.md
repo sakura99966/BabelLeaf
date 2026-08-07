@@ -108,18 +108,36 @@ It adds layout-independent source anchors, explicit text-layer/mixed/
 image-only/malformed/oversized diagnostics, a legal local fixture matrix, and
 tracked resource/performance budgets. A versioned local comic-worker protocol
 with capability discovery, limits, progress, cancellation, retryable errors,
-and a mock OCR engine is available for integration testing; production OCR is
-not bundled. Interchange payloads never contain credentials or arbitrary
-endpoints.
+and a mock OCR engine is available for integration testing. Interchange
+payloads never contain credentials or arbitrary endpoints.
+
+## 0.4.0 delivered OCR foundation
+
+Version 0.4.0 adds a local OCR foundation behind the versioned worker protocol.
+OCR sidecars preserve page identity, source dimensions, polygons, orientation,
+language, text, confidence, reading order, optional ruby metadata, engine and
+model provenance, runtime, and failure state. The imported PDF, CBZ, FBZ, or
+image source remains byte-for-byte unchanged.
+
+OCR tasks use a bounded one-to-four worker queue with page selection, pause,
+resume, cancellation, retry, checkpoints, and restart recovery. Sidecar and
+task stores use the application data boundary and safe atomic JSON writes. A
+selectable text-layer component renders OCR text as a transparent overlay and
+does not flatten or rewrite the page image.
+
+Model packs are explicitly installed from local files. Their manifests record
+the checksum, license, supported languages, runtime, compatible engine, and
+CPU-fallback capability. BabelLeaf does not download OCR models automatically,
+send page images or OCR text to a cloud OCR service, or place model bytes on
+the startup path. Missing models, incompatible runtimes, malformed pages, and
+resource limits produce direct diagnostics.
 
 The following end-user features remain out of scope for the 0.3.x releases:
 
 - manual prompt editing and arbitrary endpoint/model fields;
 - automatic background translation;
-- scanned-PDF OCR translation and comic text detection, cleanup, and
-  typesetting;
-- production OCR model installation, inpainting, editable regions, and
-  translated image export.
+- OCR text correction, comic-region editing, translation overlays, cleanup,
+  typesetting, and translated image export.
 
 Those features require separate data models, bounded queues, progress and
 cancellation UX, local result storage, and platform validation before release.

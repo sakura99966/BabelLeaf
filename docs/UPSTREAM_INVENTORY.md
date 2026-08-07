@@ -100,7 +100,7 @@ forked or vendored solely to preserve it for possible future use.
    review; a repository's software license does not automatically cover them.
 7. No DRM-removal component or unlicensed content source is in scope.
 
-## 0.3.2 comic-worker protocol and planned result model
+## 0.4.0 OCR worker and sidecar boundary
 
 The future worker should return a BabelLeaf-owned, versioned sidecar rather
 than overwrite source pages. At minimum it will need:
@@ -115,10 +115,15 @@ than overwrite source pages. At minimum it will need:
 
 The versioned transport and capability contract is frozen in
 `apps/readest-app/src/services/translators/comicWorkerProtocol.ts` and
-documented in `COMIC_WORKER_PROTOCOL.md`. A mock engine is test-covered so the
-reader can validate cancellation, progress, limits, and worker replacement
-before selecting a production OCR engine. No production comic worker has been
-selected or integrated yet.
+documented in `COMIC_WORKER_PROTOCOL.md`. OCR sidecars, model manifests,
+bounded page tasks, and selectable text-layer primitives are implemented in
+the BabelLeaf-owned services under
+`apps/readest-app/src/services/translators/ocr*.ts`. A mock engine is
+test-covered so the reader can validate cancellation, progress, limits, model
+selection, and worker replacement without adding a heavy runtime to startup.
+No external OCR application or model weight is embedded. PaddleOCR, manga-ocr,
+manga-ocr-rs, and ONNX Runtime remain candidates for a separately reviewed
+production model-pack integration.
 
 ## Attribution and release checks
 

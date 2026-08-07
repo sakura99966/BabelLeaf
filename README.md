@@ -73,22 +73,35 @@ addition to selection and viewport translation:
 - a replaceable local comic-worker protocol with capability discovery,
   bounded progress/cancellation/error contracts, and a mock OCR adapter.
 
+Version 0.4.0 adds the local OCR foundation around that worker boundary:
+
+- versioned OCR sidecars preserving page identity, polygons, reading order,
+  language, confidence, ruby metadata, engine provenance, and failures;
+- bounded page OCR tasks with pause, resume, cancel, retry, checkpoint, and
+  restart recovery;
+- local-only OCR model manifests with checksum, license, language, runtime,
+  and CPU-fallback declarations; model packs are never downloaded automatically;
+- a selectable OCR text-layer component that overlays page content without
+  modifying the imported PDF, CBZ, FBZ, or image source;
+- explicit OCR diagnostics for text-layer, mixed, image-only, missing-model,
+  incompatible-device, malformed, and oversized inputs.
+
 The following major features remain planned:
 
-- separate handling for text-layer and scanned PDFs;
-- local comic OCR, text-region detection, inpainting, translated typesetting,
-  and editable overlays;
+- OCR text correction, comic-region editing, translation overlays, inpainting,
+  translated typesetting, and separate translated export;
 - signed production packages and target-platform release validation for
   macOS, Android, and iOS.
 
-The authoritative sequence from 0.3.2 through the stable 1.0.0 release is
+The authoritative sequence from 0.4.0 through the stable 1.0.0 release is
 defined in the [development roadmap](docs/DEVELOPMENT_ROADMAP.md). Version
 planning, implementation, review, and release acceptance must use that document.
 
 See [Architecture](apps/readest-app/docs/architecture.md) for runtime
 boundaries and [Upstream Inventory](docs/UPSTREAM_INVENTORY.md) for source and
-license provenance. The current and future translation contract is documented
-in [Translation Requirements](docs/TRANSLATION_REQUIREMENTS.md).
+license provenance. The OCR boundary is documented in
+[OCR Foundation](docs/OCR_FOUNDATION.md); the current and future translation
+contract is documented in [Translation Requirements](docs/TRANSLATION_REQUIREMENTS.md).
 
 ## Architecture
 

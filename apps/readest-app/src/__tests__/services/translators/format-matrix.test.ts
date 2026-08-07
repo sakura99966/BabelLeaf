@@ -8,6 +8,7 @@ import {
   extractTranslationItems,
   checkPerformanceMeasurement,
   TRANSLATION_FORMAT_FIXTURE_MATRIX,
+  OCR_FORMAT_FIXTURE_MATRIX,
   TRANSLATION_FORMAT_LIMITS,
 } from '@/services/translators';
 
@@ -87,5 +88,11 @@ describe('translation format matrix', () => {
     expect(checkPerformanceMeasurement({ name: 'pageTurnMs', value: 250, unit: 'ms' })).toBe(true);
     expect(checkPerformanceMeasurement({ name: 'pageTurnMs', value: 251, unit: 'ms' })).toBe(false);
     expect(TRANSLATION_FORMAT_FIXTURE_MATRIX).toHaveLength(9);
+    expect(OCR_FORMAT_FIXTURE_MATRIX.map((fixture) => fixture.sourceFormat)).toEqual([
+      'PDF',
+      'CBZ',
+      'FBZ',
+      'IMAGE_FOLDER',
+    ]);
   });
 });
