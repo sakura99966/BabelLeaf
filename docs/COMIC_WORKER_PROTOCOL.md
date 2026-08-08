@@ -28,6 +28,12 @@ benchmark evidence are implemented in `ocrModelPacks.ts`, `ocrRuntime.ts`, and
 `ocrBenchmark.ts`. They remain local-only and lazy; the queue receives an
 adapter only after `ocrEngineGate.ts` accepts the complete evidence set.
 
+The 0.4.1.2 adapter checkpoint adds `onnxOcrRuntime.ts`. It exposes a narrow
+session, local-page-source, and output-decoder boundary that can be implemented
+by ONNX Runtime Web, Node.js, React Native, or a native Tauri worker. The
+adapter validates decoded regions and closes sessions deterministically, but
+does not select an engine, bundle model weights, or add a runtime dependency.
+
 Candidate projects are tracked in `UPSTREAM_INVENTORY.md`. No complete
 external application is embedded, and every future engine, model, weight, and
 font must have a pinned revision, checksum, license, and removal path.

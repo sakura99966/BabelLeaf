@@ -26,6 +26,8 @@ export * from './ocrTextLayer';
 export * from './ocrDiagnostics';
 export * from './ocrSources';
 export * from './ocrEngineGate';
+export * from './ocrCandidates';
+export * from './onnxOcrRuntime';
 export * from './comicWorkspace';
 export * from './comicWorkspaceStore';
 export * from './comicTranslation';

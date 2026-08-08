@@ -23,6 +23,11 @@ has been selected. The release gate remains the authority for that decision.
 - `ocrBenchmark.ts` runs bounded local samples and emits deterministic gate
   evidence for page latency, memory, language coverage, and platform. It never
   downloads a model or sends a page to a remote service.
+- `onnxOcrRuntime.ts` now provides a model-agnostic ONNX session boundary with
+  local page-byte routing, cancellation checks, decoded-region validation, and
+  deterministic session cleanup.
+- `ocrCandidates.ts` records the current candidate metadata without installing
+  code, weights, or a network download path.
 
 ## Explicit limitation
 
@@ -30,7 +35,8 @@ No OCR engine implementation or model weights are bundled by this checkpoint.
 PaddleOCR, manga-ocr, manga-ocr-rs, and ONNX Runtime remain candidates. A
 candidate can become a product dependency only after its runtime adapter,
 model provenance, license, benchmark evidence, and minimum-platform resource
-measurements pass `ocrEngineGate.ts`.
+measurements pass `ocrEngineGate.ts`. The 0.4.1.2 adapter is intentionally
+candidate-neutral and does not close that gate.
 
 ## Data and privacy contract
 
