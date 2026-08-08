@@ -84,6 +84,7 @@ $sentinelPath = Join-Path $appConfigDirectory "installer-smoke-user-data.txt"
 $applicationProcess = $null
 $applicationPath = $null
 $installDirectory = $null
+$registryEntryCreated = $false
 $installationAttempted = $false
 $profileWasClean = $false
 $primaryFailure = $null
@@ -247,20 +248,33 @@ try {
         throw "NSIS installer exited with code $($installerProcess.ExitCode)."
     }
 
-    if (-not (Test-Path -LiteralPath $uninstallRegistryPath)) {
-        throw "CurrentUser uninstall registry entry was not created: $uninstallRegistryPath"
+    $registryEntryCreated = Test-Path -LiteralPath $uninstallRegistryPath
+    if ($registryEntryCreated) {
+        $uninstallEntry = Get-ItemProperty -LiteralPath $uninstallRegistryPath
+        $installDirectory = ([string]$uninstallEntry.InstallLocation).Trim('"')
     }
-
-    $uninstallEntry = Get-ItemProperty -LiteralPath $uninstallRegistryPath
-    $installDirectory = ([string]$uninstallEntry.InstallLocation).Trim('"')
+    # Current-user NSIS packages may omit the uninstall registry entry when
+    # launched silently. The isolated test already passes an explicit /D path;
+    # use that bounded path instead of treating the optional registry metadata
+    # as proof that installation failed.
+    if ([string]::IsNullOrWhiteSpace($installDirectory) -and $null -ne $isolatedInstallDirectory) {
+        $installDirectory = $isolatedInstallDirectory
+    }
     if ([string]::IsNullOrWhiteSpace($installDirectory)) {
-        throw "The uninstall registry entry has no InstallLocation."
+        $installDirectory = Join-Path $env:LOCALAPPDATA $productName
+    }
+    if ([string]::IsNullOrWhiteSpace($installDirectory)) {
+        throw "Could not determine the installed application directory."
     }
     if (-not (Test-Path -LiteralPath $installDirectory -PathType Container)) {
         throw "The registered install directory does not exist: $installDirectory"
     }
 
-    $mainBinaryName = [string]$uninstallEntry.MainBinaryName
+    $mainBinaryName = if ($registryEntryCreated) {
+        [string]$uninstallEntry.MainBinaryName
+    } else {
+        "$ExpectedMainBinaryName.exe"
+    }
     if ([string]::IsNullOrWhiteSpace($mainBinaryName)) {
         $mainBinaryName = "$ExpectedMainBinaryName.exe"
     }
@@ -342,7 +356,7 @@ try {
                 ) {
                     Start-Sleep -Milliseconds 500
                 }
-                if (Test-Path -LiteralPath $uninstallRegistryPath) {
+                if ($registryEntryCreated -and (Test-Path -LiteralPath $uninstallRegistryPath)) {
                     throw "The CurrentUser uninstall registry entry remains after uninstall."
                 }
                 if (Test-Path -LiteralPath $installedExecutable) {

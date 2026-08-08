@@ -1,4 +1,4 @@
-# BabelLeaf 0.4.1 comic workspace
+# BabelLeaf 0.4.1-0.4.3 comic workspace and edit pipeline
 
 ## Scope
 
@@ -54,6 +54,37 @@ candidates. Their applications, weights, and runtimes are not bundled by
 0.4.1. The 0.4.1 workspace is therefore a safe integration boundary; the
 production OCR engine selection remains a prerequisite for closing the full
 0.4.x comic acceptance matrix.
+
+## 0.4.2 edit sidecar and export
+
+`comicEditSidecar.ts` stores mask operations and typeset layouts separately from
+the OCR workspace. `comicImagePipeline.ts` applies bounded local mask
+operations and deterministic cleanup; an inpainting implementation may be
+provided through the same local worker boundary but is never downloaded by the
+application. `comicTypesetting.ts` calculates horizontal, RTL, and vertical
+CJK layout without flattening the source. `comicExport.ts` writes a separate
+image set, CBZ, ZIP, or image-only PDF and rejects source-overwrite paths.
+`comicEditing.ts` provides the application-facing session facade and
+checkpoint hook. The desktop reader exposes these operations through
+`ComicWorkspaceDialog`: local image/CBZ/FBZ import, OCR-sidecar import,
+selectable OCR text, region editing, explicit named-provider translation,
+deterministic erasing, typesetting, and separate CBZ/PDF export. It can also
+rasterize a user-selected local PDF one page at a time through the existing
+foliate-js/PDF.js renderer, without changing the source PDF.
+
+The sidecar contains masks, text, geometry, style, revision, and timestamps,
+not page bytes, API keys, arbitrary URLs, or model weights. PDF export is an
+image-only writer and converts browser-rendered pages to JPEG before writing;
+source PDFs remain unchanged.
+
+## 0.4.3 batch recovery
+
+`comicPipeline.ts` composes OCR, translation, cleanup, typesetting, and export
+stages behind a bounded queue. It supports pause, resume, cancellation, retry,
+restart recovery, revision history, selective rerun, checkpoint persistence,
+redacted diagnostics, cache pruning, and export identity validation. A queue
+restarts interrupted pages as pending and never treats a running page as
+completed without a validated page identity.
 
 ## Recovery and privacy
 

@@ -3,9 +3,9 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `v0.4.1` package plus the `0.4.1.2` ONNX adapter and `0.4.1.3` multi-artifact model-pack checkpoints; package metadata remains `0.4.1` until the production OCR gate closes
-- Roadmap revision: 6
-- Approved scope date: 2026-08-04
+- Current implementation baseline: `v0.4.3` package; the 0.4.1.2/0.4.1.3 OCR adapter checkpoints, 0.4.2/0.4.3 image-pipeline services, desktop comic workspace, local model-pack management, and image-only PDF export are included; no model weights are bundled
+- Roadmap revision: 7
+- Approved scope date: 2026-08-08
 - Last closure update: 2026-08-08
 - Target stable release: `1.0.0`
 
@@ -72,23 +72,23 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 
 ## Current baseline and requirement coverage
 
-| Requirement | Current state at 0.4.1.3 | Remaining milestone |
+| Requirement | Current state at 0.4.3 | Remaining milestone |
 | --- | --- | --- |
 | Local library and reader | Implemented from the Readest baseline | Format and platform matrix hardened through 0.8 |
-| EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths exist; 0.3.2 fixture, resource-limit, PDF diagnostics, 0.4.0 OCR source routing, and 0.4.1 workspace routing are tracked; not every variant is guaranteed | Image pipeline in 0.4.2-0.4.3, cross-platform proof in 0.8 |
+| EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths exist; 0.3.2 fixture, resource-limit, PDF diagnostics, 0.4.0 OCR source routing, 0.4.1 workspace routing, and 0.4.3 local-PDF page rasterization are tracked; format-matrix qualification remains required | Cross-platform proof in 0.8 |
 | Selection and viewport translation | Implemented | Provider UX hardening and platform validation through 0.8 |
 | Chapter and full-book translation | Persistent bounded queue, recovery dashboard, retry, review, stable anchors, and interchange delivered | Stress and platform portability through 0.8 |
 | DeepSeek V4, OpenAI, Claude, Ollama | Named adapter framework delivered | Release-time endpoint/model verification and platform validation through 0.8 |
 | Bilingual reading and sidecar | Aligned layouts, layout-independent anchors, portable sidecar, machine-result retention, and review recovery delivered | Migration and cross-platform portability through 0.8 |
 | Glossary and translation memory | Runtime enforcement plus validated management, limits, invalidation visibility, and JSON/TSV/TBX/TMX interchange delivered | Cross-platform migration and validation through 0.8 |
 | Human review | Full review workspace with edit, approve, revert, status filters, provenance, keyboard paging, autosaved drafts, recovery, and JSON/TSV/XLIFF interchange delivered | Cross-format alignment and platform validation through 0.8 |
-| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, mock adapter, OCR sidecar, bounded queue, versioned single- and multi-artifact local model packs, per-file and inventory checksums, benchmark evidence harness, selectable text-layer primitive, engine gate, 0.4.1 workspace/overlay primitives, and model-agnostic ONNX adapter delivered | Production OCR engine/model selection and image pipeline in 0.4.2-0.4.3 |
+| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, OCR sidecar, bounded queue, versioned model packs, checksums, benchmark evidence, selectable text layer, engine gate, desktop workspace/overlay/editor, ONNX adapter, image cleanup/typesetting/export, image-only PDF writer, and recoverable multi-stage pipeline services delivered | A production OCR engine/model remains an explicit imported-pack quality and license gate |
 | Performance and resource controls | 0.3.2 budgets plus 0.4.0 OCR page-time and peak-memory budgets and 0.4.1 workspace save/overlay budgets are tracked | Measured gates and optimization through 0.9 |
 | Local dictionaries and word lookup | Baseline capability exists | Simplified-Chinese UX and native platform validation in 0.5-0.8 |
 | Local or native speech | Baseline capability exists | Queue, language/voice selection, accessibility, and native validation in 0.5-0.8 |
-| Scanned PDF and comic OCR | Local sidecar, task recovery, diagnostics, selectable text-layer foundation, evidence-enforcing engine gate, multi-artifact model-pack lifecycle, and model-agnostic ONNX adapter delivered; a production OCR engine/model pack is not bundled | Production engine selection and quality gate, then 0.4.2-0.4.3 |
-| Comic translation and editable overlays | 0.4.1 workspace data model, explicit region translation bridge, correction/review primitives, stale-revision rules, and non-flattening overlay primitive delivered; full reader integration remains gated | Production OCR gate and reader integration before 0.4.2 |
-| Erasing, inpainting, typesetting, translated export | Not implemented | 0.4.2-0.4.3 |
+| Scanned PDF and comic OCR | Local sidecar, task recovery, diagnostics, selectable text layer, desktop model-pack lifecycle, evidence-enforcing engine gate, ONNX adapter, and batch pipeline services delivered; no production weights are bundled | Candidate quality/resource evidence for an imported local pack |
+| Comic translation and editable overlays | Workspace, desktop reader entry, explicit region translation bridge, correction/review, selectable OCR layer, stale-revision rules, non-flattening overlay, editable mask/layout sidecar, and application-facing editing facade delivered | Native page-canvas parity on future platforms |
+| Erasing, inpainting, typesetting, translated export | Deterministic bounded cleanup, optional local worker boundary, desktop mask/typeset controls, image-set/CBZ/ZIP/image-only PDF export, source protection, and validation delivered | Model-backed inpainting quality remains an imported-worker gate |
 | Windows production reliability | Unsigned package and isolated NSIS smoke verification exist | Signing and 1.0 release qualification in 0.9-1.0 |
 | macOS | Shared source structure only | 0.5.0 |
 | Android | Generated platform structure only | 0.6.0 |
@@ -106,8 +106,8 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | 0.4.1 | Comic translation workspace checkpoint | Sidecar-backed regions can be corrected, translated, reviewed, and displayed as editable bilingual overlays; production OCR and full reader integration remain release gates |
 | 0.4.1.2 | OCR runtime adapter checkpoint | A model-agnostic local ONNX adapter and candidate registry are test-covered; no production engine or model is selected |
 | 0.4.1.3 | Multi-artifact OCR model-pack checkpoint | Version-2 manifests, per-artifact verification, aggregate inventory checksums, backward-compatible loading, and ONNX artifact routing are test-covered; no production engine or model is selected |
-| 0.4.2 | Image cleanup and typesetting | Text can be erased, repaired, typeset, and exported to a separate translated copy |
-| 0.4.3 | Image pipeline stabilization | The complete comic workflow becomes recoverable, bounded, documented, and release-tested |
+| 0.4.2 | Image cleanup and typesetting | Text can be erased, repaired, typeset, and exported to a separate translated copy; editable state is sidecar-backed |
+| 0.4.3 | PC feature closure | The desktop reader exposes the comic workspace, local OCR sidecar/model workflow, selectable text, translation, cleanup, typesetting, and separate CBZ/PDF export; all PC release checks pass |
 | 0.5.0 | macOS and portable-core qualification | macOS ships natively and desktop assumptions are removed from the shared core |
 | 0.6.0 | Android | Android imports, reads, translates, looks up, speaks, and persists supported local content |
 | 0.7.0 | iOS/iPadOS | iOS and iPadOS meet equivalent native import, reading, translation, speech, and persistence requirements |
@@ -199,8 +199,9 @@ Work must follow this sequence unless the roadmap is explicitly revised. A later
 The 0.4.0 implementation closes the sidecar, worker, model-manifest,
 diagnostic, bounded-task, recovery, and selectable-text-layer foundation. It
 does not bundle a production OCR runtime or model weights. The measured engine
-and model selection gate therefore remains open; 0.4.1 implementation must
-close that gate before it is accepted as a complete comic OCR workflow.
+and model selection gate therefore remains open as an explicit model-dependent
+release condition; the data, cleanup, typesetting, export, and recovery
+services are valid without a bundled model.
 
 ## 0.4.1 - Comic translation workspace
 
@@ -226,8 +227,9 @@ The 0.4.1 release checkpoint delivers the workspace data model, bounded region-e
 operations, explicit single-region provider bridge, stale-translation rules,
 overlay/editor primitives, atomic store, and regression fixtures. The actual
 production OCR runtime/model remains outside the repository and must pass the
-0.4.0 engine gate before this milestone can be accepted as the complete comic
-OCR workflow. No 0.4.2 image cleanup work may begin until that gate is closed.
+0.4.0 engine gate before model-dependent OCR quality is declared complete. The
+0.4.2 and 0.4.3 services can operate with imported OCR results or an explicitly
+installed local worker and do not add a hidden model or network path.
 
 The follow-up gate-hardening checkpoint adds local model-pack installation,
 checksum-verified reads, a replaceable runtime factory, and bounded benchmark
@@ -244,7 +246,7 @@ it does not add an ONNX dependency or model bytes to the base package.
 
 The checkpoint is complete when the adapter tests and full release checks pass.
 It does not close the production OCR gate. A real candidate and all of its
-artifacts must be selected and measured before 0.4.2 implementation begins.
+artifacts must be selected and measured before model-dependent OCR is shipped.
 
 ### 0.4.1.3 - Multi-artifact OCR model-pack checkpoint
 
@@ -260,7 +262,8 @@ missing, extra, duplicate, or traversal-shaped entries, clean interrupted
 imports, and pass a read-only copy of all verified local artifacts to the ONNX
 adapter. The base application still contains no model weights, ONNX package,
 Python runtime, or download path. This checkpoint remains an engineering
-boundary; it does not select a production OCR candidate or authorize 0.4.2.
+boundary; it does not select a production OCR candidate, but it enables the
+later local-worker installation and verification path without a download.
 
 ### 0.4.1.3 acceptance
 
@@ -274,7 +277,8 @@ boundary; it does not select a production OCR candidate or authorize 0.4.2.
 - ONNX adapters receive only verified local artifact bytes and expose no remote
   page or model access path.
 - The production OCR candidate, quality evidence, and platform/resource gate
-  remain explicitly open before 0.4.2.
+  remain explicitly open for model-dependent release claims; deterministic
+  cleanup, sidecar editing, and export do not depend on that gate.
 
 ## 0.4.2 - Image cleanup, typesetting, and export
 
@@ -302,6 +306,19 @@ boundary; it does not select a production OCR candidate or authorize 0.4.2.
 - Missing fonts, unsupported glyphs, excessive text, failed inpainting, and low-confidence OCR produce visible diagnostics.
 - Optional models are absent from the base startup path and can be installed, verified, updated, unloaded, and removed independently.
 
+### Current implementation status
+
+The 0.4.2 service layer is implemented in `comicImagePipeline.ts`,
+`comicTypesetting.ts`, `comicEditSidecar.ts`, `comicExport.ts`, and
+`comicEditing.ts`. It provides bounded RGBA mask painting, erase/restore,
+expansion, feathering, deterministic local fill, an optional local inpainting
+worker boundary, horizontal/RTL/vertical layout calculation, editable layout
+styles, credential-free sidecar persistence, and separate image-set/CBZ/ZIP
+export. The source path is rejected when it would be overwritten. The desktop
+workspace now provides page import, selectable OCR text, region editing,
+deterministic cleanup, typesetting, and image-only PDF export. Model weights
+remain explicit local imports rather than implicit dependencies.
+
 ## 0.4.3 - Image pipeline stabilization
 
 ### Scope
@@ -318,6 +335,19 @@ boundary; it does not select a production OCR candidate or authorize 0.4.2.
 - Exact Windows packages pass install, model install, launch, processing, export, model removal, uninstall, and application-data retention tests.
 - The selected worker and models meet recorded resource budgets on the minimum supported Windows hardware class.
 - All unused experimental runtime dependencies are removed before release closure.
+
+### Current implementation status
+
+The 0.4.3 queue supports ordered OCR/translation/cleanup/typesetting/export
+stages, pause, resume, cancellation, retry, restart recovery, revision history,
+selective rerun, checkpoint persistence, redacted diagnostics, cache pruning,
+and export identity validation. The desktop reader exposes the comic workspace,
+local model-pack lifecycle, and sequential local-PDF page rasterization; unit
+tests cover failure, recovery, resource, source-preservation, and image-only
+PDF paths. A separately installed and
+measured OCR candidate is still required before claiming a bundled production
+OCR quality result; the repository does not bundle weights or download them
+automatically.
 
 ## 0.5.0 - macOS and portable-core qualification
 
@@ -486,9 +516,10 @@ No work may be declared complete because a build command alone succeeded. Packag
 
 ## Roadmap governance
 
-- The next implementation target after the 0.4.1.3 model-pack checkpoint is
-  production OCR engine/model gate closure and reader integration. No 0.4.2
-  image cleanup work may begin until those gates are closed and accepted.
+- The next implementation target after the 0.4.3 closure is 0.5.0 macOS and
+  portable-core qualification. Production OCR engine/model evidence remains a
+  release-time gate for model-dependent claims; it must not be bypassed by
+  bundling an unverified runtime or weights.
 - Development must stop at each version boundary for review and acceptance before entering the next version unless the user explicitly authorizes continuous work through named versions.
 - P0 and P1 defects found in review belong to the current version and must be resolved before the next version begins.
 - Research spikes may occur ahead of schedule only in disposable branches or ignored evaluation directories and may not become production dependencies without the milestone's selection gate.

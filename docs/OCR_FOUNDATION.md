@@ -1,12 +1,14 @@
-# BabelLeaf 0.4.0-0.4.1 OCR foundation, comic workspace, and gate hardening
+# BabelLeaf 0.4.0-0.4.3 OCR foundation, comic workspace, and pipeline
 
 ## Scope
 
 0.4.0 establishes the local OCR data, worker, model, task, and selectable
 text-layer boundaries. 0.4.1 adds the editable comic workspace, explicit
 single-region translation, review state, and translated overlay primitives.
-Erasing, inpainting, typesetting, and translated image export remain blocked
-until the production OCR engine/model gate and reader integration are closed.
+0.4.2 adds sidecar-backed erasing, optional local inpainting, typesetting, and
+separate image/CBZ/ZIP export. 0.4.3 adds a recoverable multi-stage queue. These
+services do not require a bundled OCR model; model-dependent quality remains an
+explicit evidence gate.
 
 ## Local data contract
 
@@ -45,14 +47,15 @@ repository name.
 Production model selection remains subject to the measured candidate and
 license gate in `DEVELOPMENT_ROADMAP.md`. PaddleOCR, manga-ocr, manga-ocr-rs,
 and ONNX Runtime remain replaceable candidates; no complete external OCR
-application or model weight is embedded in BabelLeaf 0.4.0-0.4.1. The
+application or model weight is embedded in BabelLeaf 0.4.0-0.4.3. The
 `ocrEngineGate.ts` service rejects a runtime unless local installation,
 engine/model identity, language and capability coverage, license/checksum
 evidence, platform benchmark, and resource budgets all pass.
 
 `ocrModelPacks.ts` now provides the local lifecycle around that contract:
 explicit model import, SHA-256 verification, idempotent versioned storage,
-verified reads, and removal. `ocrRuntime.ts` verifies the stored bytes before
+verified reads, and removal. The AI settings panel exposes this lifecycle to
+desktop users without adding an implicit download. `ocrRuntime.ts` verifies the stored bytes before
 constructing a replaceable runtime adapter. `ocrBenchmark.ts` emits bounded
 local evidence for the gate. These services do not select an engine or embed
 weights.
@@ -61,8 +64,10 @@ weights.
 
 `ocrTextLayer.ts` converts validated polygons into reading-order blocks and
 plain text. `OcrTextLayer.tsx` renders those blocks as a transparent selectable
-overlay over a caller-provided page-sized image or PDF canvas. The source page
-remains intact, and the layer can be hidden without deleting OCR data.
+overlay over a caller-provided page-sized image or PDF canvas. The desktop
+comic workspace mounts this layer beside the translated overlay and provides
+an explicit visibility toggle. The source page remains intact, and the layer
+can be hidden without deleting OCR data.
 
 ## Privacy and resource limits
 
@@ -82,3 +87,9 @@ action and stores the machine result, source revision, review state, and
 provenance in a credential-free workspace sidecar. `comicOverlay.ts` and
 `ComicTranslationOverlay.tsx` hide stale translations until they are rerun or
 reviewed, so OCR reruns cannot silently replace approved edits.
+
+`comicImagePipeline.ts`, `comicTypesetting.ts`, `comicEditSidecar.ts`, and
+`comicExport.ts` extend this boundary without writing source page bytes.
+`comicPipeline.ts` composes the page stages with bounded recovery, selective
+rerun, cache pruning, and export validation. The production OCR gate remains
+separate from these deterministic and explicitly local services.

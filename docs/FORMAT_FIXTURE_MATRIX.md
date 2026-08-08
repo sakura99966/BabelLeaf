@@ -1,4 +1,4 @@
-# BabelLeaf 0.4.1 format, OCR, and comic-workspace fixture matrix
+# BabelLeaf 0.4.3 format, OCR, and comic-pipeline fixture matrix
 
 This matrix is the release gate for local text extraction and translation. It
 uses only repository-owned or legally obtained DRM-free samples. The test
@@ -47,3 +47,12 @@ OCR remains available after manual edits, rerunning OCR does not overwrite an
 approved edit, stale translations are reviewable, and the source file remains
 unchanged. Workspace files contain no page bytes, credentials, or arbitrary
 remote endpoints.
+
+## 0.4.2-0.4.3 service matrix
+
+The image pipeline tests cover deterministic mask rasterization, expansion,
+feathering, local fill, optional worker cancellation, vertical/RTL typesetting,
+hostile edit sidecars, source-preserving image-set/CBZ/ZIP export, and ordered
+pipeline recovery. Binary page fixtures are intentionally not bundled in the
+base package; release candidates use legally obtained local samples and record
+their checksum, license, dimensions, and expected diagnostics separately.

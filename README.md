@@ -109,18 +109,42 @@ Version 0.4.1 adds the editable comic workspace boundary:
   only verified local artifacts, and does not add a runtime or model weight to
   the base installer.
 
-The following major features remain planned:
+Version 0.4.2 adds the source-preserving image edit services:
 
-- production OCR runtime/model selection after the local license, checksum,
-  platform benchmark, and resource gates pass;
-- image erasing, inpainting, translated typesetting, and separate translated
-  export;
-- signed production packages and target-platform release validation for
-  macOS, Android, and iOS.
+- bounded paint, erase, restore, expansion, feathering, and deterministic local
+  cleanup with an optional local inpainting worker boundary;
+- editable horizontal, RTL, and vertical CJK typesetting with fit, overflow,
+  spacing, outline, rotation, and style controls;
+- a credential-free edit sidecar and separate image-set, CBZ, and ZIP export
+  that rejects source overwrite.
+
+Version 0.4.3 adds the recoverable comic pipeline:
+
+- ordered OCR, translation, cleanup, typesetting, and export stages;
+- pause, resume, cancel, retry, restart recovery, revision history, selective
+  rerun, checkpoint persistence, redacted diagnostics, cache pruning, and
+  export validation;
+- an application-facing editing facade that keeps page bytes out of sidecars
+  and never downloads models automatically;
+- a desktop reader comic workspace reachable from PDF/CBZ/FBZ books, with
+  local image/CBZ/FBZ/PDF-page import, OCR-sidecar import, selectable OCR text, manual
+  region correction, explicit region translation, deterministic erasing,
+  typesetting, and separate CBZ or image-only PDF export;
+- AI settings controls for explicit checksum-verified local OCR model-pack
+  import, listing, and removal.
+
+The remaining work after the PC 0.4 closure is platform migration and release
+qualification. A production OCR model is still an explicit local-pack quality
+and license gate; no model is bundled or downloaded automatically.
+
+Later milestones cover signed production packages and target-platform release
+validation for macOS, Android, and iOS.
 
 The authoritative sequence from 0.4.0 through the stable 1.0.0 release is
 defined in the [development roadmap](docs/DEVELOPMENT_ROADMAP.md). Version
 planning, implementation, review, and release acceptance must use that document.
+The PC-specific acceptance baseline is recorded in
+[PC Acceptance 0.4](docs/PC_ACCEPTANCE_0.4.md).
 
 See [Architecture](apps/readest-app/docs/architecture.md) for runtime
 boundaries and [Upstream Inventory](docs/UPSTREAM_INVENTORY.md) for source and

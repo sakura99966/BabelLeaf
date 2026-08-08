@@ -2,6 +2,7 @@ import clsx from 'clsx';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { VscLibrary } from 'react-icons/vsc';
 import { MdOutlineMenu } from 'react-icons/md';
+import { MdPhotoLibrary } from 'react-icons/md';
 
 import { Insets } from '@/types/misc';
 import { useEnv } from '@/context/EnvContext';
@@ -32,6 +33,7 @@ import TranslationToggler from './TranslationToggler';
 import ViewMenu from './ViewMenu';
 import SyncInfoDialog from './SyncInfoDialog';
 import TranslationWorkbenchDialog from './TranslationWorkbenchDialog';
+import ComicWorkspaceDialog from './ComicWorkspaceDialog';
 
 interface HeaderBarProps {
   bookKey: string;
@@ -76,6 +78,7 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMetaHashDialogOpen, setIsMetaHashDialogOpen] = useState(false);
   const [isTranslationWorkbenchOpen, setIsTranslationWorkbenchOpen] = useState(false);
+  const [isComicWorkspaceOpen, setIsComicWorkspaceOpen] = useState(false);
   const [headerWidth, setHeaderWidth] = useState(0);
   const view = getView(bookKey);
   const iconSize18 = useResponsiveSize(18);
@@ -224,6 +227,16 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
             </button>
             <BookmarkToggler bookKey={bookKey} />
             <TranslationToggler bookKey={bookKey} />
+            {(['PDF', 'CBZ', 'FBZ'] as string[]).includes(bookData?.book?.format || '') && (
+              <button
+                title={_('Comic workspace')}
+                aria-label={_('Comic workspace')}
+                className='btn btn-ghost hidden h-8 min-h-8 w-8 p-0 sm:flex'
+                onClick={() => setIsComicWorkspaceOpen(true)}
+              >
+                <MdPhotoLibrary size={iconSize18} />
+              </button>
+            )}
           </div>
           {enableAnnotationQuickActions && (
             <Dropdown
@@ -316,6 +329,15 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
                 bookKey={bookKey}
                 isOpen={isTranslationWorkbenchOpen}
                 onClose={() => setIsTranslationWorkbenchOpen(false)}
+              />
+            </ModalPortal>
+          )}
+          {isComicWorkspaceOpen && (
+            <ModalPortal>
+              <ComicWorkspaceDialog
+                bookKey={bookKey}
+                isOpen={isComicWorkspaceOpen}
+                onClose={() => setIsComicWorkspaceOpen(false)}
               />
             </ModalPortal>
           )}
