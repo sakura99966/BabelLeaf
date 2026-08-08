@@ -23,16 +23,20 @@ engine identity, language, capability, license/checksum, platform benchmark,
 and resource-budget checks. The 0.4.1 comic workspace and gate-hardening
 services build on this contract without embedding a runtime or weights.
 
-Model-pack installation, checksum verification, runtime construction, and
-benchmark evidence are implemented in `ocrModelPacks.ts`, `ocrRuntime.ts`, and
-`ocrBenchmark.ts`. They remain local-only and lazy; the queue receives an
-adapter only after `ocrEngineGate.ts` accepts the complete evidence set.
+Model-pack installation, per-artifact and aggregate checksum verification,
+runtime construction, and benchmark evidence are implemented in
+`ocrModelPacks.ts`, `ocrRuntime.ts`, and `ocrBenchmark.ts`. Schema-version 1
+single-file packs remain readable; schema-version 2 packs pass a verified
+artifact map to the adapter. They remain local-only and lazy; the queue
+receives an adapter only after `ocrEngineGate.ts` accepts the complete evidence
+set.
 
-The 0.4.1.2 adapter checkpoint adds `onnxOcrRuntime.ts`. It exposes a narrow
-session, local-page-source, and output-decoder boundary that can be implemented
-by ONNX Runtime Web, Node.js, React Native, or a native Tauri worker. The
-adapter validates decoded regions and closes sessions deterministically, but
-does not select an engine, bundle model weights, or add a runtime dependency.
+The 0.4.1.2 and 0.4.1.3 adapter checkpoints add `onnxOcrRuntime.ts` and the
+multi-artifact model boundary. They expose a narrow session, local-page-source,
+artifact-map, and output-decoder contract that can be implemented by ONNX
+Runtime Web, Node.js, React Native, or a native Tauri worker. The adapter
+validates decoded regions and closes sessions deterministically, but does not
+select an engine, bundle model weights, or add a runtime dependency.
 
 Candidate projects are tracked in `UPSTREAM_INVENTORY.md`. No complete
 external application is embedded, and every future engine, model, weight, and

@@ -7,8 +7,12 @@ import {
   type ComicWorkerJobRequest,
   type ComicWorkerPageInput,
 } from './comicWorkerProtocol';
-import type { LocalOcrRuntimeFactory } from './ocrRuntime';
-import { parseOcrModelManifest, type OcrModelManifest } from './ocrModels';
+import type { LocalOcrRuntimeFactory, OcrModelRuntimeArtifacts } from './ocrRuntime';
+import {
+  getOcrModelArtifactManifests,
+  parseOcrModelManifest,
+  type OcrModelManifest,
+} from './ocrModels';
 
 /**
  * Local page bytes are supplied by a platform adapter. The source must never
@@ -36,7 +40,11 @@ export interface OnnxOcrSession {
 
 export interface OnnxOcrAdapterDefinition {
   descriptor: ComicWorkerDescriptor;
-  createSession: (model: OcrModelManifest, modelBytes: ArrayBuffer) => Promise<OnnxOcrSession>;
+  createSession: (
+    model: OcrModelManifest,
+    modelBytes: ArrayBuffer,
+    artifacts?: OcrModelRuntimeArtifacts,
+  ) => Promise<OnnxOcrSession>;
   decode: (
     output: unknown,
     page: ComicWorkerPageInput,
@@ -93,13 +101,38 @@ export const createOnnxOcrRuntimeFactory = (
 ): LocalOcrRuntimeFactory => {
   const descriptor = parseComicWorkerDescriptor(input.adapter.descriptor);
   return {
-    create: async (modelValue, modelBytes) => {
+    create: async (modelValue, modelBytes, artifactValues) => {
       const model = parseOcrModelManifest(modelValue);
       assertModelCompatibility(descriptor, model);
       if (modelBytes.byteLength === 0) {
         throw new OnnxOcrRuntimeError('The ONNX model pack is empty');
       }
-      const session = await input.adapter.createSession(model, modelBytes.slice(0));
+      if (model.artifacts && !artifactValues) {
+        throw new OnnxOcrRuntimeError('The multi-file ONNX model pack artifacts are missing');
+      }
+      const artifacts = new Map<string, ArrayBuffer>();
+      if (artifactValues) {
+        const declared = new Set(
+          getOcrModelArtifactManifests(model).map((artifact) => artifact.id),
+        );
+        for (const [id, bytes] of artifactValues.entries()) {
+          if (!declared.has(id)) {
+            throw new OnnxOcrRuntimeError(`The ONNX model pack has an undeclared artifact: ${id}`);
+          }
+          if (bytes.byteLength === 0) {
+            throw new OnnxOcrRuntimeError(`The ONNX model pack artifact is empty: ${id}`);
+          }
+          artifacts.set(id, bytes.slice(0));
+        }
+        for (const id of declared) {
+          if (!artifacts.has(id)) {
+            throw new OnnxOcrRuntimeError(`The ONNX model pack artifact is missing: ${id}`);
+          }
+        }
+      } else {
+        artifacts.set('model', modelBytes.slice(0));
+      }
+      const session = await input.adapter.createSession(model, modelBytes.slice(0), artifacts);
       let closed = false;
       return {
         descriptor,

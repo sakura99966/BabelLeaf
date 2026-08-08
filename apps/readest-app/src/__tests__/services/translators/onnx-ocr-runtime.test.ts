@@ -5,6 +5,7 @@ import {
   createOnnxOcrRuntimeFactory,
   findOcrCandidate,
   listOcrCandidates,
+  computeOcrModelPackChecksum,
   sha256Hex,
   type ComicWorkerDescriptor,
   type ComicWorkerJobRequest,
@@ -187,6 +188,64 @@ describe('ONNX OCR runtime adapter boundary', () => {
       }),
     ).rejects.toThrow('local application resources');
     expect(reads).toBe(0);
+  });
+
+  test('passes verified multi-file model artifacts to the provider session', async () => {
+    const encoder = new Uint8Array([1, 2, 3]);
+    const vocabulary = new Uint8Array([4, 5]);
+    const artifacts = [
+      {
+        id: 'encoder',
+        fileName: 'encoder.onnx',
+        sizeBytes: encoder.byteLength,
+        checksumSha256: await sha256Hex(encoder),
+      },
+      {
+        id: 'vocab',
+        fileName: 'vocab.txt',
+        sizeBytes: vocabulary.byteLength,
+        checksumSha256: await sha256Hex(vocabulary),
+      },
+    ] as const;
+    const model: OcrModelManifest = {
+      format: 'babelleaf.ocr-model',
+      schemaVersion: 2,
+      id: descriptor.modelId!,
+      version: descriptor.engineVersion,
+      runtime: 'onnx',
+      languages: ['ja'],
+      license: 'MIT',
+      checksumSha256: await computeOcrModelPackChecksum(artifacts),
+      sizeBytes: encoder.byteLength + vocabulary.byteLength,
+      source: 'local-import',
+      engineCompatibility: [descriptor.engine],
+      cpuFallback: true,
+      artifacts: [...artifacts],
+      primaryArtifactId: 'encoder',
+    };
+    let received: ReadonlyMap<string, ArrayBuffer> | undefined;
+    const factory = createOnnxOcrRuntimeFactory({
+      adapter: {
+        descriptor,
+        createSession: async (_model, _modelBytes, modelArtifacts) => {
+          received = modelArtifacts;
+          return { run: async () => [] };
+        },
+        decode: () => [],
+      },
+      pageSource: { read: async () => new Uint8Array([1]) },
+    });
+    await factory.create(
+      model,
+      encoder.buffer,
+      new Map([
+        ['encoder', encoder.buffer],
+        ['vocab', vocabulary.buffer],
+      ]),
+    );
+    expect([...received!.keys()]).toEqual(['encoder', 'vocab']);
+    expect([...new Uint8Array(received!.get('vocab')!)]).toEqual([...vocabulary]);
+    await expect(factory.create(model, encoder.buffer)).rejects.toThrow('artifacts are missing');
   });
 
   test('exposes candidate metadata without mutating the registry', () => {

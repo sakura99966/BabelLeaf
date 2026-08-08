@@ -101,9 +101,13 @@ Version 0.4.1 adds the editable comic workspace boundary:
 - local OCR model-pack installation, SHA-256 verification, lazy runtime
   construction, and bounded benchmark evidence are available as a gate
   hardening layer; no engine or model weights are bundled.
+- schema-version 2 local OCR packs can represent multiple verified artifacts
+  such as an encoder and vocabulary while preserving schema-version 1 packs;
+  installation remains explicit and offline.
 - a model-agnostic ONNX session adapter and candidate registry are available
-  for future local workers; the adapter is lazy, cancellation-aware, and does
-  not add a runtime or model weight to the base installer.
+  for future local workers; the adapter is lazy, cancellation-aware, accepts
+  only verified local artifacts, and does not add a runtime or model weight to
+  the base installer.
 
 The following major features remain planned:
 

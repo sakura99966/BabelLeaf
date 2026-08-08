@@ -10,12 +10,14 @@ import {
   type OcrBenchmarkEvidence,
   type OcrEngineGateInput,
 } from './ocrEngineGate';
-import type { OcrModelManifest } from './ocrModels';
+import { getOcrModelPrimaryArtifactId, type OcrModelManifest } from './ocrModels';
 import {
-  readAndVerifyOcrModelBytes,
+  readAndVerifyOcrModelArtifacts,
   type OcrModelPackRecord,
   type OcrModelPackStorage,
 } from './ocrModelPacks';
+
+export type OcrModelRuntimeArtifacts = ReadonlyMap<string, ArrayBuffer>;
 
 /** Adapter boundary for an optional local OCR implementation. */
 export interface LocalOcrRuntime {
@@ -26,7 +28,11 @@ export interface LocalOcrRuntime {
 }
 
 export interface LocalOcrRuntimeFactory {
-  create(model: OcrModelManifest, modelBytes: ArrayBuffer): Promise<LocalOcrRuntime>;
+  create(
+    model: OcrModelManifest,
+    modelBytes: ArrayBuffer,
+    artifacts?: OcrModelRuntimeArtifacts,
+  ): Promise<LocalOcrRuntime>;
 }
 
 export interface GatedOcrRuntime {
@@ -75,12 +81,18 @@ export interface CreateInstalledGatedOcrRuntimeInput
   modelPack: OcrModelPackRecord;
 }
 
-/** Verify persisted model bytes before constructing a runtime instance. */
+/** Verify persisted model artifacts before constructing a runtime instance. */
 export const createInstalledGatedOcrRuntime = async (
   input: CreateInstalledGatedOcrRuntimeInput,
 ): Promise<GatedOcrRuntime> => {
-  const modelBytes = await readAndVerifyOcrModelBytes(input.storage, input.modelPack);
-  const runtime = await input.factory.create(input.modelPack.manifest, modelBytes);
+  const artifacts = await readAndVerifyOcrModelArtifacts(input.storage, input.modelPack);
+  const primaryBytes = artifacts.get(getOcrModelPrimaryArtifactId(input.modelPack.manifest));
+  if (!primaryBytes) throw new Error('Installed OCR primary artifact is missing');
+  const runtime = await input.factory.create(
+    input.modelPack.manifest,
+    primaryBytes.slice(0),
+    new Map([...artifacts.entries()].map(([id, bytes]) => [id, bytes.slice(0)])),
+  );
   try {
     if (
       runtime.model.id !== input.modelPack.manifest.id ||

@@ -15,6 +15,10 @@ existing `LocalOcrRuntimeFactory` contract:
 - `OcrPageBytesSource` reads a page from a platform-scoped local reference;
 - `OnnxOcrSession` owns the provider-specific inference session and its close
   lifecycle;
+- `OcrModelManifest` schema version 2 can declare multiple local artifacts;
+  the factory receives a copied artifact map after every file has passed its
+  declared size and SHA-256 checks. Schema version 1 continues to expose the
+  implicit `model.bin` artifact;
 - `OnnxOcrAdapterDefinition.decode` converts provider output into validated
   `ComicTextRegion` values;
 - cancellation is checked before page access, before inference, and after
@@ -28,7 +32,8 @@ The adapter intentionally does not prescribe preprocessing, tensor names,
 execution providers, tokenizer files, or model-specific decoding. Those
 details belong to the selected candidate and its separately reviewed model
 pack. A Web, Node.js, React Native, or native Tauri implementation can satisfy
-the same interface.
+the same interface. Multi-file packs must provide every declared artifact to
+the factory; no artifact is downloaded or resolved from a remote URL.
 
 ## Candidate registry
 
@@ -44,8 +49,8 @@ network request.
 
 ## Next gate
 
-The next release-blocking task is to select one candidate and provide a local
-model-pack format that can represent all required artifacts (for example an
-encoder, decoder, vocabulary, and preprocessing metadata). Only then may a
-real candidate be benchmarked and marked ready. Image cleanup and typesetting
-remain outside the scope until that measured gate is closed.
+The next release-blocking task is to select one candidate and provide the
+provenance, model weights, license, quality, and resource evidence required by
+`ocrEngineGate.ts`. The multi-artifact storage boundary is now available, but a
+real candidate cannot be marked ready until that measured gate is closed.
+Image cleanup and typesetting remain outside the scope until then.
