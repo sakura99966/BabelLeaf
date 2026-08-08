@@ -165,8 +165,17 @@ describe('OCR model packs and runtime gate', () => {
       new AbortController().signal,
     );
     expect(result.regions[0]?.text).toBe('漫画');
+    let closed = 0;
     const installed = await createInstalledGatedOcrRuntime({
-      factory: { create: async () => ({ ...engine, model }) },
+      factory: {
+        create: async () => ({
+          ...engine,
+          model,
+          close: () => {
+            closed += 1;
+          },
+        }),
+      },
       storage,
       modelPack,
       sourceLanguages: ['ja'],
@@ -174,6 +183,24 @@ describe('OCR model packs and runtime gate', () => {
       evidence,
     });
     expect(installed.model.id).toBe(model.id);
+    await expect(
+      createInstalledGatedOcrRuntime({
+        factory: {
+          create: async () => ({
+            ...engine,
+            model,
+            close: () => {
+              closed += 1;
+            },
+          }),
+        },
+        storage,
+        modelPack,
+        sourceLanguages: ['ja'],
+        platform: 'windows-x64',
+      }),
+    ).rejects.toThrow('benchmark evidence');
+    expect(closed).toBe(1);
     expect(() =>
       createGatedOcrRuntime({
         runtime: { ...engine, model },

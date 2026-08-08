@@ -81,11 +81,24 @@ export const createInstalledGatedOcrRuntime = async (
 ): Promise<GatedOcrRuntime> => {
   const modelBytes = await readAndVerifyOcrModelBytes(input.storage, input.modelPack);
   const runtime = await input.factory.create(input.modelPack.manifest, modelBytes);
-  return createGatedOcrRuntime({
-    ...input,
-    runtime,
-    installedModelIds: new Set([input.modelPack.manifest.id]),
-  });
+  try {
+    if (
+      runtime.model.id !== input.modelPack.manifest.id ||
+      runtime.model.version !== input.modelPack.manifest.version ||
+      runtime.model.checksumSha256.toLowerCase() !==
+        input.modelPack.manifest.checksumSha256.toLowerCase()
+    ) {
+      throw new Error('OCR runtime model does not match the installed model pack');
+    }
+    return createGatedOcrRuntime({
+      ...input,
+      runtime,
+      installedModelIds: new Set([input.modelPack.manifest.id]),
+    });
+  } catch (error) {
+    await Promise.resolve(runtime.close?.()).catch(() => {});
+    throw error;
+  }
 };
 
 export type OcrRuntimePageProcessor = (
