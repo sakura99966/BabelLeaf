@@ -2,18 +2,19 @@
 
 import clsx from 'clsx';
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { MdChevronRight } from 'react-icons/md';
 import { useState, useRef, useEffect, Suspense, useCallback } from 'react';
 import { ReadonlyURLSearchParams, useSearchParams } from 'next/navigation';
 
-import { Book } from '@/types/book';
-import { AppService } from '@/types/system';
+import type { Book } from '@/types/book';
+import type { AppService } from '@/types/system';
 import {
   buildBookLookupIndex,
   collectKnownSourcePaths,
   normalizeFilePathForIndex,
   selectNewImportableFiles,
-} from '@/services/bookService';
+} from '@/services/bookLookup';
 import { navigateToLibrary, navigateToReader } from '@/utils/nav';
 import { getBookWithUpdatedMetadata, listFormater } from '@/utils/book';
 import { getImportErrorMessage } from '@/services/errors';
@@ -22,8 +23,8 @@ import { eventDispatcher } from '@/utils/event';
 import { getDirPath, getFilename, joinPaths } from '@/utils/path';
 import { parseOpenWithFiles } from '@/helpers/openWith';
 import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
-import { impactFeedback } from '@tauri-apps/plugin-haptics';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { impactFeedback } from '@/utils/haptics';
 
 import { useEnv } from '@/context/EnvContext';
 import { useThemeStore } from '@/store/themeStore';
@@ -44,7 +45,8 @@ import { useOpenAnnotationLink } from '@/hooks/useOpenAnnotationLink';
 import { useOpenBookLink } from '@/hooks/useOpenBookLink';
 import { useReadingWidget } from '@/hooks/useReadingWidget';
 import { useKeyDownActions } from '@/hooks/useKeyDownActions';
-import { SelectedFile, useFileSelector } from '@/hooks/useFileSelector';
+import { useFileSelector } from '@/hooks/useFileSelector';
+import type { SelectedFile } from '@/hooks/useFileSelector';
 import { lockScreenOrientation, selectDirectory } from '@/utils/bridge';
 import { requestStoragePermission } from '@/utils/permission';
 import { SUPPORTED_BOOK_EXTS } from '@/services/constants';
@@ -56,13 +58,7 @@ import {
 } from '@/utils/window';
 
 import { LibraryGroupByType } from '@/types/settings';
-import { BookMetadata } from '@/libs/document';
-import { AboutWindow } from '@/components/AboutWindow';
-import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp';
-import { BookDetailModal } from '@/components/metadata';
-import { MigrateDataWindow } from './components/MigrateDataWindow';
-import { BackupWindow } from './components/BackupWindow';
-import { CacheManagerWindow } from './components/CacheManagerWindow';
+import type { BookMetadata } from '@/libs/document';
 import { useDragDropImport } from './hooks/useDragDropImport';
 import { useAppRouter } from '@/hooks/useAppRouter';
 import { Toast } from '@/components/Toast';
@@ -74,20 +70,58 @@ import {
 } from './utils/libraryUtils';
 import Spinner from '@/components/Spinner';
 import LibraryHeader from './components/LibraryHeader';
-import Bookshelf from './components/Bookshelf';
 import LibraryEmptyState from './components/LibraryEmptyState';
-import ImportMenuPopup from './components/ImportMenuPopup';
 import GroupHeader from './components/GroupHeader';
-import FailedImportsDialog, { FailedImport } from './components/FailedImportsDialog';
-import ImportFromFolderDialog, {
-  ImportFromFolderResult,
-} from './components/ImportFromFolderDialog';
-import NowPlayingBar from './components/NowPlayingBar';
-import { ttsSessionManager } from '@/services/tts';
+import type { FailedImport } from './components/FailedImportsDialog';
+import type { ImportFromFolderResult } from './components/ImportFromFolderDialog';
+import { ttsSessionPresence } from '@/services/tts/sessionPresence';
 import useShortcuts from '@/hooks/useShortcuts';
 import { useCustomFonts } from '@/hooks/useCustomFonts';
 import DropIndicator from '@/components/DropIndicator';
-import SettingsDialog from '@/components/settings/SettingsDialog';
+import { useDialogVisibility } from '@/hooks/useDialogVisibility';
+
+const BookDetailModal = dynamic(() => import('@/components/metadata/BookDetailModal'), {
+  ssr: false,
+});
+const Bookshelf = dynamic(() => import('./components/Bookshelf'), {
+  ssr: false,
+  loading: () => <Spinner loading />,
+});
+const ImportMenuPopup = dynamic(() => import('./components/ImportMenuPopup'), { ssr: false });
+const FailedImportsDialog = dynamic(() => import('./components/FailedImportsDialog'), {
+  ssr: false,
+});
+const ImportFromFolderDialog = dynamic(() => import('./components/ImportFromFolderDialog'), {
+  ssr: false,
+});
+const SettingsDialog = dynamic(() => import('@/components/settings/SettingsDialog'), {
+  ssr: false,
+});
+const NowPlayingBar = dynamic(() => import('./components/NowPlayingBar'), { ssr: false });
+const MigrateDataWindow = dynamic(
+  () => import('./components/MigrateDataWindow').then(({ MigrateDataWindow }) => MigrateDataWindow),
+  { ssr: false },
+);
+const BackupWindow = dynamic(
+  () => import('./components/BackupWindow').then(({ BackupWindow }) => BackupWindow),
+  { ssr: false },
+);
+const CacheManagerWindow = dynamic(
+  () =>
+    import('./components/CacheManagerWindow').then(({ CacheManagerWindow }) => CacheManagerWindow),
+  { ssr: false },
+);
+const AboutWindow = dynamic(
+  () => import('@/components/AboutWindow').then(({ AboutWindow }) => AboutWindow),
+  { ssr: false },
+);
+const KeyboardShortcutsHelp = dynamic(
+  () =>
+    import('@/components/KeyboardShortcutsHelp').then(
+      ({ KeyboardShortcutsHelp }) => KeyboardShortcutsHelp,
+    ),
+  { ssr: false },
+);
 
 /** Skip tiny non-book artifacts during folder auto-scan (matches the manual import dialog default). */
 const AUTO_IMPORT_MIN_SIZE_BYTES = 20 * 1024;
@@ -125,12 +159,39 @@ const LAST_IMPORT_FOLDER_MIN_SIZE_KEY = 'readest:lastImportFolderMinSizeKB';
  */
 const LAST_IMPORT_FOLDER_READ_IN_PLACE_KEY = 'readest:lastImportFolderReadInPlace';
 
+const useHasActiveTtsSession = () => {
+  const [hasActiveSession, setHasActiveSession] = useState(() => ttsSessionPresence.isActive());
+
+  useEffect(() => {
+    const handleSessionPresenceChanged = () => {
+      setHasActiveSession(ttsSessionPresence.isActive());
+    };
+    ttsSessionPresence.addEventListener('change', handleSessionPresenceChanged);
+    return () => ttsSessionPresence.removeEventListener('change', handleSessionPresenceChanged);
+  }, []);
+
+  return hasActiveSession;
+};
+
 const LibraryPageWithSearchParams = () => {
   const searchParams = useSearchParams();
   return <LibraryPageContent searchParams={searchParams} />;
 };
 
 const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchParams | null }) => {
+  const hasActiveTtsSession = useHasActiveTtsSession();
+  const [isMigrateDataDialogOpen, setMigrateDataDialogOpen] =
+    useDialogVisibility('migrate_data_dir_window');
+  const [isBackupDialogOpen, setBackupDialogOpen] = useDialogVisibility('backup_window');
+  const [isCacheManagerDialogOpen, setCacheManagerDialogOpen] =
+    useDialogVisibility('cache_manager_window');
+  const [isAboutDialogOpen, setAboutDialogOpen] = useDialogVisibility('about_window');
+  const [isShortcutsDialogOpen, setShortcutsDialogOpen] = useDialogVisibility(
+    'shortcuts_help',
+    undefined,
+    undefined,
+    '?',
+  );
   const router = useAppRouter();
   const { envConfig, appService } = useEnv();
   const {
@@ -823,8 +884,11 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         book.downloadedAt = null;
         book.coverDownloadedAt = null;
         await updateBook(envConfig, book);
-        if (ttsSessionManager.getSessionByHash(book.hash)) {
-          await ttsSessionManager.stopActive('deleted');
+        if (ttsSessionPresence.isActive()) {
+          const { ttsSessionManager } = await import('@/services/tts/TTSSessionManager');
+          if (ttsSessionManager.getSessionByHash(book.hash)) {
+            await ttsSessionManager.stopActive('deleted');
+          }
         }
         clearBookData(book.hash);
 
@@ -1259,7 +1323,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
 
   const handleSetSelectMode = (selectMode: boolean) => {
     if (selectMode && appService?.hasHaptics) {
-      impactFeedback('medium');
+      void impactFeedback('medium');
     }
     setIsSelectMode(selectMode);
     setIsSelectAll(false);
@@ -1296,6 +1360,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   return (
     <div
       ref={pageRef}
+      data-testid='library-page'
       aria-label={_('Your Library')}
       className={clsx(
         'library-page text-base-content full-height flex select-none flex-col overflow-hidden',
@@ -1305,6 +1370,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     >
       <div
         className='relative top-0 z-40 w-full'
+        data-testid='library-header'
         role='banner'
         tabIndex={-1}
         aria-label={_('Library Header')}
@@ -1368,7 +1434,11 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       )}
       {showBookshelf &&
         (libraryBooks.some((book) => !book.deletedAt) ? (
-          <div aria-label={_('Your Bookshelf')} className='flex min-h-0 flex-grow flex-col'>
+          <div
+            data-testid='library-bookshelf'
+            aria-label={_('Your Bookshelf')}
+            className='flex min-h-0 flex-grow flex-col'
+          >
             <div
               ref={containerRef}
               className={clsx(
@@ -1397,88 +1467,122 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
             </div>
           </div>
         ) : (
-          <div className='hero drop-zone h-screen items-center justify-center'>
+          <div
+            data-testid='library-empty-state'
+            className='hero drop-zone h-screen items-center justify-center'
+          >
             <DropIndicator />
             <LibraryEmptyState onImport={setImportMenuAnchor} />
           </div>
         ))}
-      {importMenuAnchor && (
-        <ImportMenuPopup
-          anchor={importMenuAnchor}
-          onClose={() => setImportMenuAnchor(null)}
-          onImportBooksFromFiles={handleImportBooksFromFiles}
-          onImportBooksFromDirectory={
-            appService?.canReadExternalDir ? handleImportBooksFromDirectory : undefined
-          }
-        />
-      )}
-      <NowPlayingBar isSelectMode={isSelectMode} />
-      {showDetailsBook && (
-        <BookDetailModal
-          isOpen={!!showDetailsBook}
-          book={showDetailsBook}
-          onClose={() => setShowDetailsBook(null)}
-          handleBookDelete={handleBookDelete}
-          handleBookPurge={handleBookPurge}
-          handleBookMetadataUpdate={handleUpdateMetadata}
-        />
-      )}
-      <AboutWindow />
-      <KeyboardShortcutsHelp />
-      <MigrateDataWindow />
-      <BackupWindow onPullLibrary={reloadLocalLibrary} />
-      <CacheManagerWindow />
-      {isSettingsDialogOpen && <SettingsDialog bookKey={''} />}
-      {failedImportsModal && (
-        <FailedImportsDialog
-          failedImports={failedImportsModal}
-          onClose={() => setFailedImportsModal(null)}
-        />
-      )}
-      {importFromFolderState && (
-        <ImportFromFolderDialog
-          initialDirectory={importFromFolderState.initialDirectory}
-          initialFolderMode={importFromFolderState.initialFolderMode}
-          initialSelectedGroupIds={importFromFolderState.initialSelectedGroupIds}
-          initialMinSizeKB={importFromFolderState.initialMinSizeKB}
-          initialReadInPlace={importFromFolderState.initialReadInPlace}
-          initialAutoImport={importFromFolderState.initialAutoImport}
-          isRegisteredExternalRoot={isRegisteredExternalRoot}
-          onPickDirectory={pickImportDirectory}
-          onCancel={() => setImportFromFolderState(null)}
-          onConfirm={(result) => {
-            setImportFromFolderState(null);
-            // Remember the folder + filters for next time. Done here
-            // (rather than inside pickImportDirectory) so we only
-            // persist values the user actually committed to, not
-            // ones they cancelled out of.
-            if (typeof window !== 'undefined') {
-              if (result.directory) {
-                window.localStorage.setItem(LAST_IMPORT_FOLDER_KEY, result.directory);
-              }
-              window.localStorage.setItem(
-                LAST_IMPORT_FOLDER_MODE_KEY,
-                result.flatten ? 'flatten' : 'keep',
-              );
-              if (result.selectedGroupIds.length > 0) {
+      <Suspense fallback={null}>
+        {importMenuAnchor && (
+          <ImportMenuPopup
+            anchor={importMenuAnchor}
+            onClose={() => setImportMenuAnchor(null)}
+            onImportBooksFromFiles={handleImportBooksFromFiles}
+            onImportBooksFromDirectory={
+              appService?.canReadExternalDir ? handleImportBooksFromDirectory : undefined
+            }
+          />
+        )}
+      </Suspense>
+      <Suspense fallback={null}>
+        {hasActiveTtsSession && <NowPlayingBar isSelectMode={isSelectMode} />}
+      </Suspense>
+      <Suspense fallback={null}>
+        {showDetailsBook && (
+          <BookDetailModal
+            isOpen={!!showDetailsBook}
+            book={showDetailsBook}
+            onClose={() => setShowDetailsBook(null)}
+            handleBookDelete={handleBookDelete}
+            handleBookPurge={handleBookPurge}
+            handleBookMetadataUpdate={handleUpdateMetadata}
+          />
+        )}
+      </Suspense>
+      <Suspense fallback={null}>
+        {isAboutDialogOpen && (
+          <AboutWindow visible={isAboutDialogOpen} onVisibleChange={setAboutDialogOpen} />
+        )}
+        {isShortcutsDialogOpen && (
+          <KeyboardShortcutsHelp
+            visible={isShortcutsDialogOpen}
+            onVisibleChange={setShortcutsDialogOpen}
+          />
+        )}
+        {isMigrateDataDialogOpen && (
+          <MigrateDataWindow
+            visible={isMigrateDataDialogOpen}
+            onVisibleChange={setMigrateDataDialogOpen}
+          />
+        )}
+        {isBackupDialogOpen && (
+          <BackupWindow
+            visible={isBackupDialogOpen}
+            onVisibleChange={setBackupDialogOpen}
+            onPullLibrary={reloadLocalLibrary}
+          />
+        )}
+        {isCacheManagerDialogOpen && (
+          <CacheManagerWindow
+            visible={isCacheManagerDialogOpen}
+            onVisibleChange={setCacheManagerDialogOpen}
+          />
+        )}
+        {isSettingsDialogOpen && <SettingsDialog bookKey={''} />}
+        {failedImportsModal && (
+          <FailedImportsDialog
+            failedImports={failedImportsModal}
+            onClose={() => setFailedImportsModal(null)}
+          />
+        )}
+        {importFromFolderState && (
+          <ImportFromFolderDialog
+            initialDirectory={importFromFolderState.initialDirectory}
+            initialFolderMode={importFromFolderState.initialFolderMode}
+            initialSelectedGroupIds={importFromFolderState.initialSelectedGroupIds}
+            initialMinSizeKB={importFromFolderState.initialMinSizeKB}
+            initialReadInPlace={importFromFolderState.initialReadInPlace}
+            initialAutoImport={importFromFolderState.initialAutoImport}
+            isRegisteredExternalRoot={isRegisteredExternalRoot}
+            onPickDirectory={pickImportDirectory}
+            onCancel={() => setImportFromFolderState(null)}
+            onConfirm={(result) => {
+              setImportFromFolderState(null);
+              // Remember the folder + filters for next time. Done here
+              // (rather than inside pickImportDirectory) so we only
+              // persist values the user actually committed to, not
+              // ones they cancelled out of.
+              if (typeof window !== 'undefined') {
+                if (result.directory) {
+                  window.localStorage.setItem(LAST_IMPORT_FOLDER_KEY, result.directory);
+                }
                 window.localStorage.setItem(
-                  LAST_IMPORT_FOLDER_FORMATS_KEY,
-                  result.selectedGroupIds.join(','),
+                  LAST_IMPORT_FOLDER_MODE_KEY,
+                  result.flatten ? 'flatten' : 'keep',
+                );
+                if (result.selectedGroupIds.length > 0) {
+                  window.localStorage.setItem(
+                    LAST_IMPORT_FOLDER_FORMATS_KEY,
+                    result.selectedGroupIds.join(','),
+                  );
+                }
+                window.localStorage.setItem(
+                  LAST_IMPORT_FOLDER_MIN_SIZE_KEY,
+                  String(result.minSizeKB),
+                );
+                window.localStorage.setItem(
+                  LAST_IMPORT_FOLDER_READ_IN_PLACE_KEY,
+                  result.readInPlace ? '1' : '0',
                 );
               }
-              window.localStorage.setItem(
-                LAST_IMPORT_FOLDER_MIN_SIZE_KEY,
-                String(result.minSizeKB),
-              );
-              window.localStorage.setItem(
-                LAST_IMPORT_FOLDER_READ_IN_PLACE_KEY,
-                result.readInPlace ? '1' : '0',
-              );
-            }
-            void runFolderImport(result);
-          }}
-        />
-      )}
+              void runFolderImport(result);
+            }}
+          />
+        )}
+      </Suspense>
       <Toast />
     </div>
   );

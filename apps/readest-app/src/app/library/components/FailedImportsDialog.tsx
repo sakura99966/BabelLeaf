@@ -32,7 +32,7 @@ const FailedImportsDialog: React.FC<FailedImportsDialogProps> = ({ failedImports
       boxClassName='sm:min-w-[440px] sm:max-w-[460px] sm:!h-auto sm:max-h-[80%]'
       contentClassName='!my-0 !px-5 !pt-0 !pb-4 !flex-grow-0'
     >
-      <div className='flex flex-col gap-3'>
+      <div data-testid='failed-imports-dialog' className='flex flex-col gap-3'>
         <div
           className={clsx(
             'flex items-center gap-3 rounded-xl',

@@ -1,5 +1,3 @@
-import tinycolor from 'tinycolor2';
-
 export type BaseColor = {
   bg: string;
   fg: string;
@@ -39,6 +37,132 @@ export type CustomTheme = {
   };
 };
 
+type Rgb = { r: number; g: number; b: number };
+type Hsl = { h: number; s: number; l: number };
+type ColorTransform = { lightness?: number; saturation?: number; hue?: number };
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+
+// Match tinycolor2's HSL object conversion precisely. Its percentage parser
+// truncates to four decimal places (including ordinary floating-point edge
+// cases), so preserving that behavior avoids changing existing theme colors.
+const normalizeHslRatio = (value: number) => {
+  const percentage = Number.parseFloat(`${value * 100}%`);
+  const bounded = Math.min(100, Math.max(0, percentage));
+  const truncated = Number.parseInt(String(bounded * 100), 10) / 100;
+  if (Math.abs(truncated - 100) < 0.000001) return 1;
+  return (truncated % 100) / 100;
+};
+
+const parseHexColor = (hexColor: string): Rgb => {
+  const raw = hexColor.trim().replace(/^#/, '');
+  const normalized =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((digit) => `${digit}${digit}`)
+          .join('')
+      : raw.slice(0, 6);
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) {
+    throw new Error(`Invalid hex color: ${hexColor}`);
+  }
+  return {
+    r: Number.parseInt(normalized.slice(0, 2), 16),
+    g: Number.parseInt(normalized.slice(2, 4), 16),
+    b: Number.parseInt(normalized.slice(4, 6), 16),
+  };
+};
+
+const rgbToHsl = ({ r, g, b }: Rgb): Hsl => {
+  const red = r / 255;
+  const green = g / 255;
+  const blue = b / 255;
+  const max = Math.max(red, green, blue);
+  const min = Math.min(red, green, blue);
+  const delta = max - min;
+  const lightness = (max + min) / 2;
+  if (delta === 0) return { h: 0, s: 0, l: lightness };
+
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+  let hue: number;
+  if (max === red) {
+    hue = (green - blue) / delta + (green < blue ? 6 : 0);
+  } else if (max === green) {
+    hue = (blue - red) / delta + 2;
+  } else {
+    hue = (red - green) / delta + 4;
+  }
+  return { h: (hue / 6) * 360, s: saturation, l: lightness };
+};
+
+const hueToRgb = (p: number, q: number, hue: number) => {
+  let value = hue;
+  if (value < 0) value += 1;
+  if (value > 1) value -= 1;
+  if (value < 1 / 6) return p + (q - p) * 6 * value;
+  if (value < 1 / 2) return q;
+  if (value < 2 / 3) return p + (q - p) * (2 / 3 - value) * 6;
+  return p;
+};
+
+const hslToRgb = ({ h, s, l }: Hsl): Rgb => {
+  const saturation = normalizeHslRatio(s);
+  const lightness = normalizeHslRatio(l);
+  if (saturation === 0) {
+    const value = lightness * 255;
+    return { r: value, g: value, b: value };
+  }
+  const hue = (((h % 360) + 360) % 360) / 360;
+  const q =
+    lightness < 0.5
+      ? lightness * (1 + saturation)
+      : lightness + saturation - lightness * saturation;
+  const p = 2 * lightness - q;
+  return {
+    r: hueToRgb(p, q, hue + 1 / 3) * 255,
+    g: hueToRgb(p, q, hue) * 255,
+    b: hueToRgb(p, q, hue - 1 / 3) * 255,
+  };
+};
+
+const rgbToHex = ({ r, g, b }: Rgb) =>
+  `#${[r, g, b]
+    .map((value) =>
+      Math.round(Math.min(255, Math.max(0, value)))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+
+const transformHexColor = (
+  hexColor: string,
+  { lightness = 0, saturation = 0, hue = 0 }: ColorTransform,
+) => {
+  let rgb = parseHexColor(hexColor);
+
+  // tinycolor applies chained modifications one at a time, converting back to
+  // RGB between operations. Keep that order for byte-for-byte palette parity.
+  if (lightness !== 0) {
+    const hsl = rgbToHsl(rgb);
+    rgb = hslToRgb({ ...hsl, l: clamp01(hsl.l + lightness) });
+  }
+  if (saturation !== 0) {
+    const hsl = rgbToHsl(rgb);
+    rgb = hslToRgb({ ...hsl, s: clamp01(hsl.s + saturation) });
+  }
+  if (hue !== 0) {
+    const hsl = rgbToHsl(rgb);
+    rgb = hslToRgb({ ...hsl, h: (hsl.h + hue + 360) % 360 });
+  }
+
+  return rgbToHex(rgb);
+};
+
+const isDarkHex = (hexColor: string) => {
+  const { r, g, b } = parseHexColor(hexColor);
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+};
+
 function srgbToLinear(v: number): number {
   // Standard formula for gamma decoding of sRGB
   return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
@@ -46,7 +170,7 @@ function srgbToLinear(v: number): number {
 
 export function hexToOklch(hexColor: string): string {
   // 1) Convert from hex → sRGB (0..255) → [0..1]
-  const { r, g, b } = tinycolor(hexColor).toRgb();
+  const { r, g, b } = parseHexColor(hexColor);
   const R = srgbToLinear(r / 255);
   const G = srgbToLinear(g / 255);
   const B = srgbToLinear(b / 255);
@@ -79,38 +203,38 @@ export function hexToOklch(hexColor: string): string {
 }
 
 export const getContrastOklch = (hexColor: string): string => {
-  return tinycolor(hexColor).isDark() ? '100% 0 0deg' : '0% 0 0deg';
+  return isDarkHex(hexColor) ? '100% 0 0deg' : '0% 0 0deg';
 };
 
 export const getContrastHex = (hexColor: string): string => {
-  return tinycolor(hexColor).isDark() ? '#FFFFFF' : '#000000';
+  return isDarkHex(hexColor) ? '#FFFFFF' : '#000000';
 };
 
 export const generateLightPalette = ({ bg, fg, primary }: BaseColor) => {
   return {
     'base-100': bg, // Main background
-    'base-200': tinycolor(bg).darken(5).toHexString(), // Slightly darker
-    'base-300': tinycolor(bg).darken(12).toHexString(), // More darker
+    'base-200': transformHexColor(bg, { lightness: -0.05 }), // Slightly darker
+    'base-300': transformHexColor(bg, { lightness: -0.12 }), // More darker
     'base-content': fg, // Main text color
-    neutral: tinycolor(bg).darken(15).desaturate(20).toHexString(), // Muted neutral
-    'neutral-content': tinycolor(fg).lighten(20).desaturate(20).toHexString(), // Slightly lighter text
+    neutral: transformHexColor(bg, { lightness: -0.15, saturation: -0.2 }), // Muted neutral
+    'neutral-content': transformHexColor(fg, { lightness: 0.2, saturation: -0.2 }), // Slightly lighter text
     primary: primary,
-    secondary: tinycolor(primary).lighten(20).toHexString(), // Lighter secondary
-    accent: tinycolor(primary).analogous()[1]!.toHexString(), // Analogous accent
+    secondary: transformHexColor(primary, { lightness: 0.2 }), // Lighter secondary
+    accent: transformHexColor(primary, { hue: -24 }), // Analogous accent
   } as Palette;
 };
 
 export const generateDarkPalette = ({ bg, fg, primary }: BaseColor) => {
   return {
     'base-100': bg, // Main background
-    'base-200': tinycolor(bg).lighten(5).toHexString(), // Slightly lighter
-    'base-300': tinycolor(bg).lighten(12).toHexString(), // More lighter
+    'base-200': transformHexColor(bg, { lightness: 0.05 }), // Slightly lighter
+    'base-300': transformHexColor(bg, { lightness: 0.12 }), // More lighter
     'base-content': fg, // Main text color
-    neutral: tinycolor(bg).lighten(15).desaturate(20).toHexString(), // Muted neutral
-    'neutral-content': tinycolor(fg).darken(20).desaturate(20).toHexString(), // Darkened text
+    neutral: transformHexColor(bg, { lightness: 0.15, saturation: -0.2 }), // Muted neutral
+    'neutral-content': transformHexColor(fg, { lightness: -0.2, saturation: -0.2 }), // Darkened text
     primary: primary,
-    secondary: tinycolor(primary).darken(20).toHexString(), // Darker secondary
-    accent: tinycolor(primary).triad()[1]!.toHexString(), // Triad accent
+    secondary: transformHexColor(primary, { lightness: -0.2 }), // Darker secondary
+    accent: transformHexColor(primary, { hue: 120 }), // Triad accent
   } as Palette;
 };
 

@@ -1,14 +1,52 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   hexToOklch,
   getContrastOklch,
   getContrastHex,
   generateLightPalette,
   generateDarkPalette,
+  applyCustomTheme,
   type BaseColor,
   type Palette,
 } from '@/styles/themes';
-import tinycolor from 'tinycolor2';
+
+const parseHex = (hexColor: string) => {
+  const value = Number.parseInt(hexColor.replace(/^#/, ''), 16);
+  return {
+    r: (value >> 16) & 0xff,
+    g: (value >> 8) & 0xff,
+    b: value & 0xff,
+  };
+};
+
+const isDark = (hexColor: string) => {
+  const { r, g, b } = parseHex(hexColor);
+  return (r * 299 + g * 587 + b * 114) / 1000 < 128;
+};
+
+const relativeLuminance = (hexColor: string) => {
+  const { r, g, b } = parseHex(hexColor);
+  const linear = [r, g, b].map((channel) => {
+    const value = channel / 255;
+    return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * linear[0]! + 0.7152 * linear[1]! + 0.0722 * linear[2]!;
+};
+
+afterEach(() => {
+  document.querySelectorAll('[id^="theme-"][id$="-styles"]').forEach((element) => element.remove());
+});
+
+describe('runtime built-in themes', () => {
+  it('mounts both variants of a selected non-default theme on demand', () => {
+    applyCustomTheme(undefined, 'sepia');
+
+    const style = document.getElementById('theme-sepia-styles');
+    expect(style?.textContent).toContain('[data-theme="sepia-light"]');
+    expect(style?.textContent).toContain('[data-theme="sepia-dark"]');
+    expect(style?.textContent).toContain('--b1:');
+  });
+});
 
 describe('hexToOklch', () => {
   it('should convert red (#ff0000) to oklch string', () => {
@@ -101,7 +139,7 @@ describe('generateLightPalette', () => {
   });
 
   it('should have base-100 as a light color', () => {
-    expect(tinycolor(palette['base-100']).isLight()).toBe(true);
+    expect(isDark(palette['base-100'])).toBe(false);
   });
 
   it('should have base-content equal to the fg color', () => {
@@ -113,15 +151,29 @@ describe('generateLightPalette', () => {
   });
 
   it('should have base-200 darker than base-100', () => {
-    const lum100 = tinycolor(palette['base-100']).getLuminance();
-    const lum200 = tinycolor(palette['base-200']).getLuminance();
+    const lum100 = relativeLuminance(palette['base-100']);
+    const lum200 = relativeLuminance(palette['base-200']);
     expect(lum200).toBeLessThan(lum100);
   });
 
   it('should have base-300 darker than base-200', () => {
-    const lum200 = tinycolor(palette['base-200']).getLuminance();
-    const lum300 = tinycolor(palette['base-300']).getLuminance();
+    const lum200 = relativeLuminance(palette['base-200']);
+    const lum300 = relativeLuminance(palette['base-300']);
     expect(lum300).toBeLessThan(lum200);
+  });
+
+  it('preserves the established default light palette exactly', () => {
+    expect(palette).toEqual({
+      'base-100': '#ffffff',
+      'base-200': '#f2f2f2',
+      'base-300': '#e0e0e0',
+      'base-content': '#171717',
+      neutral: '#d9d9d9',
+      'neutral-content': '#4a4a4a',
+      primary: '#0066cc',
+      secondary: '#3399ff',
+      accent: '#00b8cc',
+    });
   });
 });
 
@@ -160,7 +212,7 @@ describe('generateDarkPalette', () => {
   });
 
   it('should have base-100 as a dark color', () => {
-    expect(tinycolor(palette['base-100']).isDark()).toBe(true);
+    expect(isDark(palette['base-100'])).toBe(true);
   });
 
   it('should have base-content equal to the fg color', () => {
@@ -172,15 +224,29 @@ describe('generateDarkPalette', () => {
   });
 
   it('should have base-200 lighter than base-100', () => {
-    const lum100 = tinycolor(palette['base-100']).getLuminance();
-    const lum200 = tinycolor(palette['base-200']).getLuminance();
+    const lum100 = relativeLuminance(palette['base-100']);
+    const lum200 = relativeLuminance(palette['base-200']);
     expect(lum200).toBeGreaterThan(lum100);
   });
 
   it('should have base-300 lighter than base-200', () => {
-    const lum200 = tinycolor(palette['base-200']).getLuminance();
-    const lum300 = tinycolor(palette['base-300']).getLuminance();
+    const lum200 = relativeLuminance(palette['base-200']);
+    const lum300 = relativeLuminance(palette['base-300']);
     expect(lum300).toBeGreaterThan(lum200);
+  });
+
+  it('preserves the established default dark palette exactly', () => {
+    expect(palette).toEqual({
+      'base-100': '#222222',
+      'base-200': '#2f2f2f',
+      'base-300': '#414141',
+      'base-content': '#e0e0e0',
+      neutral: '#484848',
+      'neutral-content': '#adadad',
+      primary: '#77bbee',
+      secondary: '#1c8ee3',
+      accent: '#ee77bb',
+    });
   });
 });
 
@@ -193,7 +259,7 @@ describe('palette contrast', () => {
     });
     // Primary is a medium-dark blue, so getContrastHex should return white
     const contrastHex = getContrastHex(palette.primary);
-    const primaryDark = tinycolor(palette.primary).isDark();
+    const primaryDark = isDark(palette.primary);
     if (primaryDark) {
       expect(contrastHex.toLowerCase()).toBe('#ffffff');
     } else {
@@ -208,11 +274,20 @@ describe('palette contrast', () => {
       primary: '#77bbee',
     });
     const contrastHex = getContrastHex(palette.primary);
-    const primaryDark = tinycolor(palette.primary).isDark();
+    const primaryDark = isDark(palette.primary);
     if (primaryDark) {
       expect(contrastHex.toLowerCase()).toBe('#ffffff');
     } else {
       expect(contrastHex.toLowerCase()).toBe('#000000');
     }
+  });
+
+  it('preserves chained HSL conversion edge cases', () => {
+    expect(
+      generateLightPalette({ fg: '#4e1609', bg: '#f0d1d5', primary: '#de3838' })['neutral-content'],
+    ).toBe('#963c26');
+    expect(
+      generateDarkPalette({ fg: '#93a1a1', bg: '#002b36', primary: '#268bd2' })['base-200'],
+    ).toBe('#003f4f');
   });
 });

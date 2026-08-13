@@ -142,6 +142,10 @@ export abstract class BaseAppService implements AppService {
     return await this.fs.openFile(path, base);
   }
 
+  async getBlobURL(path: string, base: BaseDir): Promise<string> {
+    return await this.fs.getBlobURL(path, base);
+  }
+
   async copyFile(
     srcPath: string,
     srcBase: BaseDir,

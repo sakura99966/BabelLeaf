@@ -1,8 +1,10 @@
 [package]
 name = "tauri-plugin-native-bridge"
 version = "0.1.0"
-authors = [ "You" ]
+authors = ["BabelLeaf contributors"]
 description = "a bridge between tauri app and native OS functionality"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/sakura99966/BabelLeaf"
 edition = "2021"
 # `keyring-core` v1 and the per-platform store crates require Rust
 # 1.85 (apple-native) / 1.88 (windows-native, dbus-secret-service).

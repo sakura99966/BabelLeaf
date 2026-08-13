@@ -138,6 +138,9 @@ const SortableRow: React.FC<SortableRowProps> = ({
     <div
       ref={setNodeRef}
       style={style}
+      data-testid='dictionary-row'
+      data-dictionary-id={row.id}
+      data-dictionary-kind={row.kind}
       className={clsx(
         'flex items-center gap-2 px-3 py-2 transition-colors',
         isDragging ? 'bg-base-200 z-10 shadow-md' : 'hover:bg-base-200/40',
@@ -216,6 +219,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
         <button
           type='button'
           onClick={() => onDelete(row)}
+          data-testid='delete-dictionary'
           className='btn btn-ghost btn-sm shrink-0 px-1'
           aria-label={_('Delete')}
           title={_('Delete')}
@@ -577,7 +581,7 @@ const CustomDictionaries: React.FC<CustomDictionariesProps> = ({ onBack }) => {
     (rows[0]?.id === dragOverId || rows[rows.length - 1]?.id === dragOverId);
 
   return (
-    <div className='w-full'>
+    <div className='w-full' data-testid='custom-dictionaries'>
       <SubPageHeader
         parentLabel={_('Language')}
         currentLabel={_('Dictionaries')}
@@ -603,6 +607,7 @@ const CustomDictionaries: React.FC<CustomDictionariesProps> = ({ onBack }) => {
               </button>
               <button
                 onClick={toggleDeleteMode}
+                data-testid='dictionary-delete-mode'
                 className='btn btn-ghost btn-sm text-base-content gap-2 px-3'
                 title={isDeleteMode ? _('Cancel Delete') : _('Delete Dictionary')}
               >
@@ -689,6 +694,7 @@ const CustomDictionaries: React.FC<CustomDictionariesProps> = ({ onBack }) => {
           type='button'
           onClick={handleImport}
           disabled={importing}
+          data-testid='import-dictionary'
           className={clsx(
             'eink-bordered group flex h-11 items-center justify-center gap-2.5',
             'border-base-200 bg-base-100 rounded-lg border px-4',

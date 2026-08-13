@@ -8,6 +8,7 @@ param(
     [string]$ExpectedBundleIdentifier = "io.github.sakura99966.babelleaf",
     [switch]$PreflightOnly,
     [switch]$IsolatedProfile,
+    [switch]$ForcePreflightFailure,
     [ValidateRange(5, 300)]
     [int]$StartupTimeoutSeconds = 60
 )
@@ -32,6 +33,8 @@ $packageVersion = [string]$packageJson.version
 $productName = [string]$tauriConfig.productName
 $mainBinaryName = [string]$tauriConfig.mainBinaryName
 $bundleIdentifier = [string]$tauriConfig.identifier
+$knownRoamingAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::ApplicationData)
+$knownLocalAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
 
 if ([string]::IsNullOrWhiteSpace($packageVersion)) {
     throw "package.json does not define a version."
@@ -50,6 +53,14 @@ if ([string]$tauriConfig.bundle.windows.webviewInstallMode.type -ne "offlineInst
 }
 if ([string]$tauriConfig.bundle.windows.nsis.installMode -ne "currentUser") {
     throw "Windows NSIS installMode must remain 'currentUser' so installation does not require elevation."
+}
+if ([string]::IsNullOrWhiteSpace($knownRoamingAppData) -or
+    [string]::IsNullOrWhiteSpace($knownLocalAppData)) {
+    throw "Windows known-folder APIs did not return the roaming and local application-data directories."
+}
+if ($IsolatedProfile -and -not $PreflightOnly -and
+    -not $bundleIdentifier.EndsWith(".smoke", [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Isolated installer execution requires a dedicated '.smoke' bundle identifier; refusing to touch the production profile '$bundleIdentifier'."
 }
 
 if ([string]::IsNullOrWhiteSpace($BundleDirectory)) {
@@ -73,12 +84,16 @@ if ($IsolatedProfile -and -not $PreflightOnly) {
     New-Item -ItemType Directory -Path (Join-Path $isolatedProfileRoot "localappdata") -Force | Out-Null
     $env:APPDATA = Join-Path $isolatedProfileRoot "appdata"
     $env:LOCALAPPDATA = Join-Path $isolatedProfileRoot "localappdata"
+    $env:WEBVIEW2_USER_DATA_FOLDER = Join-Path $isolatedProfileRoot "webview2"
     Write-Host "Using isolated user-data profile: $isolatedProfileRoot"
 }
 
 $uninstallRegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\$productName"
-$appConfigDirectory = Join-Path $env:APPDATA $bundleIdentifier
-$appLocalDataDirectory = Join-Path $env:LOCALAPPDATA $bundleIdentifier
+# Tauri and NSIS use Windows known-folder APIs, which intentionally ignore
+# APPDATA/LOCALAPPDATA overrides. Resolve the paths the installed application
+# actually uses so the clean-profile check and retention sentinel are real.
+$appConfigDirectory = Join-Path $knownRoamingAppData $bundleIdentifier
+$appLocalDataDirectory = Join-Path $knownLocalAppData $bundleIdentifier
 $sentinelPath = Join-Path $appConfigDirectory "installer-smoke-user-data.txt"
 
 $applicationProcess = $null
@@ -89,6 +104,7 @@ $installationAttempted = $false
 $profileWasClean = $false
 $primaryFailure = $null
 $cleanupFailure = $null
+$sentinelPreserved = $false
 
 function Write-SmokeArtifact {
     param(
@@ -135,8 +151,10 @@ function Collect-FailureArtifacts {
 }
 
 function Stop-SmokeApplication {
+    $rootProcessIds = @()
     if ($null -ne $script:applicationProcess) {
         try {
+            $rootProcessIds = @([int]$script:applicationProcess.Id)
             $script:applicationProcess.Refresh()
             if (-not $script:applicationProcess.HasExited) {
                 if ($script:applicationProcess.CloseMainWindow()) {
@@ -155,33 +173,79 @@ function Stop-SmokeApplication {
     }
 
     if (-not [string]::IsNullOrWhiteSpace($script:applicationPath)) {
-        # Tauri can leave a second process for the same executable while the
-        # main window process is closing. Stop every exact-path instance before
-        # invoking the NSIS uninstaller so the binary is not left behind.
-        for ($attempt = 0; $attempt -lt 10; $attempt++) {
-            $remaining = @(
-                Get-Process -ErrorAction SilentlyContinue | ForEach-Object {
-                    try {
-                        if ($_.Path -eq $script:applicationPath) {
-                            $_
+        $targetPath = [System.IO.Path]::GetFullPath($script:applicationPath)
+        foreach ($rootProcessId in $rootProcessIds) {
+            # Kill the captured Tauri root as a tree before inspecting CIM. This
+            # covers the short interval where the WebView child has detached
+            # from an already-exited root and avoids passing a live file lock to
+            # the NSIS uninstaller.
+            Start-Process -FilePath "taskkill.exe" `
+                -ArgumentList @("/PID", "$rootProcessId", "/T", "/F") `
+                -Wait -PassThru -WindowStyle Hidden |
+                Out-Null
+        }
+        $getRelatedProcesses = {
+            $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+            $knownProcessIds = @{}
+            foreach ($rootProcessId in $rootProcessIds) {
+                $knownProcessIds[[int]$rootProcessId] = $true
+            }
+
+            $frontier = @($rootProcessIds | ForEach-Object { [int]$_ })
+            while ($frontier.Count -gt 0) {
+                $nextFrontier = @(
+                    $allProcesses |
+                        Where-Object {
+                            $frontier -contains [int]$_.ParentProcessId -and
+                            -not $knownProcessIds.ContainsKey([int]$_.ProcessId)
+                        } |
+                        ForEach-Object {
+                            $processId = [int]$_.ProcessId
+                            $knownProcessIds[$processId] = $true
+                            $processId
                         }
-                    } catch {
-                        # Protected/system processes may not expose Path.
-                    }
-                }
-            )
+                )
+                $frontier = $nextFrontier
+            }
+
+            @($allProcesses | Where-Object {
+                $processId = [int]$_.ProcessId
+                $isRelated = $knownProcessIds.ContainsKey($processId)
+                $isExactTarget = -not [string]::IsNullOrWhiteSpace($_.ExecutablePath) -and
+                    [string]::Equals(
+                        [System.IO.Path]::GetFullPath([string]$_.ExecutablePath),
+                        $targetPath,
+                        [System.StringComparison]::OrdinalIgnoreCase
+                    )
+                $isRelated -or $isExactTarget
+            })
+        }
+        # Tauri can leave a second process for the same executable while the
+        # main window process is closing. Use the CIM executable path rather
+        # than Get-Process.Path (which can be unavailable during WebView2
+        # teardown), and stop every related instance before invoking NSIS.
+        for ($attempt = 0; $attempt -lt 20; $attempt++) {
+            $remaining = @(& $getRelatedProcesses)
             if ($remaining.Count -eq 0) {
                 break
             }
             foreach ($process in $remaining) {
-                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                $killer = Start-Process -FilePath "taskkill.exe" `
+                    -ArgumentList @("/PID", "$($process.ProcessId)", "/T", "/F") `
+                    -Wait -PassThru -WindowStyle Hidden
+                if ($killer.ExitCode -ne 0) {
+                    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+                }
             }
-            Start-Sleep -Milliseconds 500
+            Start-Sleep -Milliseconds 250
         }
     }
 }
 
 try {
+    if ($ForcePreflightFailure) {
+        throw "Forced preflight failure for cleanup verification."
+    }
     if (-not (Test-Path -LiteralPath $BundleDirectory -PathType Container)) {
         throw "NSIS bundle directory does not exist: $BundleDirectory"
     }
@@ -364,7 +428,17 @@ try {
                 }
                 if ((Test-Path -LiteralPath $sentinelPath) -and
                     ((Get-Content -LiteralPath $sentinelPath -Raw).Trim() -eq "preserve-user-data")) {
+                    $sentinelPreserved = $true
                     Write-Host "Uninstall completed and preserved the user-data sentinel."
+                    Write-SmokeArtifact -Name "success.txt" -Content (@(
+                            "Windows NSIS installer smoke test passed."
+                            "Product: $productName"
+                            "Version: $packageVersion"
+                            "Bundle identifier: $bundleIdentifier"
+                            "Installed executable: $applicationPath"
+                            "Uninstall preserved user data: true"
+                            "Timestamp: $([DateTimeOffset]::Now.ToString('o'))"
+                        ) -join [Environment]::NewLine)
                 } elseif ($null -eq $primaryFailure) {
                     throw "The silent uninstaller removed or changed the user-data sentinel."
                 }
@@ -374,6 +448,21 @@ try {
                 $cleanupFailure = $_
             }
             Write-SmokeArtifact -Name "uninstall-failure.txt" -Content $_.Exception.ToString()
+        }
+    }
+
+    # Profile creation happens before the main preflight try block, so cleanup
+    # must remain inside this guaranteed finally path. Otherwise a failed
+    # product/version preflight leaves a BabelLeaf-installer-profile-* tree in
+    # the user's temp directory.
+    if ($null -ne $isolatedProfileRoot -and (Test-Path -LiteralPath $isolatedProfileRoot)) {
+        try {
+            Remove-Item -LiteralPath $isolatedProfileRoot -Recurse -Force -ErrorAction Stop
+        } catch {
+            if ($null -eq $cleanupFailure) {
+                $cleanupFailure = $_
+            }
+            Write-SmokeArtifact -Name "profile-cleanup-failure.txt" -Content $_.Exception.ToString()
         }
     }
 }
@@ -391,6 +480,41 @@ if ($null -ne $primaryFailure -or $null -ne $cleanupFailure) {
     }
 }
 
+# A dedicated smoke bundle is disposable after its uninstall-retention result
+# has been captured. Validate both exact known-folder targets before deleting;
+# production BabelLeaf profiles can never enter this path.
+if ($IsolatedProfile -and $profileWasClean) {
+    try {
+        if (-not $bundleIdentifier.EndsWith(".smoke", [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to clean a non-smoke bundle profile: $bundleIdentifier"
+        }
+        $expectedConfigDirectory = [System.IO.Path]::GetFullPath(
+            (Join-Path $knownRoamingAppData $bundleIdentifier)
+        )
+        $expectedLocalDataDirectory = [System.IO.Path]::GetFullPath(
+            (Join-Path $knownLocalAppData $bundleIdentifier)
+        )
+        foreach ($target in @($appConfigDirectory, $appLocalDataDirectory)) {
+            $resolvedTarget = [System.IO.Path]::GetFullPath($target)
+            if ($resolvedTarget -ne $expectedConfigDirectory -and
+                $resolvedTarget -ne $expectedLocalDataDirectory) {
+                throw "Refusing to clean an unexpected installer-smoke profile: $resolvedTarget"
+            }
+            if (Test-Path -LiteralPath $resolvedTarget) {
+                Remove-Item -LiteralPath $resolvedTarget -Recurse -Force -ErrorAction Stop
+            }
+        }
+        if ($sentinelPreserved -and (Test-Path -LiteralPath $sentinelPath)) {
+            throw "The disposable smoke sentinel remains after bounded profile cleanup."
+        }
+    } catch {
+        if ($null -eq $cleanupFailure) {
+            $cleanupFailure = $_
+        }
+        Write-SmokeArtifact -Name "smoke-profile-cleanup-failure.txt" -Content $_.Exception.ToString()
+    }
+}
+
 if ($null -ne $primaryFailure) {
     if ($null -ne $cleanupFailure) {
         throw "$($primaryFailure.Exception.Message) Cleanup also failed: $($cleanupFailure.Exception.Message)"
@@ -399,14 +523,6 @@ if ($null -ne $primaryFailure) {
 }
 if ($null -ne $cleanupFailure) {
     throw $cleanupFailure
-}
-
-if ($null -ne $isolatedProfileRoot -and (Test-Path -LiteralPath $isolatedProfileRoot)) {
-    try {
-        Remove-Item -LiteralPath $isolatedProfileRoot -Recurse -Force -ErrorAction Stop
-    } catch {
-        throw "Failed to remove the isolated user-data profile '$isolatedProfileRoot': $($_.Exception.Message)"
-    }
 }
 
 Write-Host "Windows NSIS installer smoke test passed."

@@ -62,16 +62,17 @@ const TranslationMemoryPanel: React.FC<TranslationMemoryPanelProps> = ({
   const importMemory = async () => {
     if (!appService || !memory) return;
     setError(null);
-    const selection = await selectFiles({
-      type: 'generic',
-      multiple: false,
-      accept: 'application/json,.json,text/tab-separated-values,.tsv,application/x-tmx,.tmx',
-      extensions: ['json', 'tsv', 'tmx'],
-      dialogTitle: _('Import translation memory'),
-    });
-    const selected = selection.files[0];
-    if (!selected) return;
     try {
+      const selection = await selectFiles({
+        type: 'generic',
+        multiple: false,
+        accept: 'application/json,.json,text/tab-separated-values,.tsv,application/x-tmx,.tmx',
+        extensions: ['json', 'tsv', 'tmx'],
+        dialogTitle: _('Import translation memory'),
+      });
+      if (selection.error) throw new Error(selection.error);
+      const selected = selection.files[0];
+      if (!selected) return;
       const file =
         selected.file || (selected.path ? await appService.openFile(selected.path, 'None') : null);
       if (!file) throw new Error(_('Unable to open selected file.'));
@@ -89,14 +90,19 @@ const TranslationMemoryPanel: React.FC<TranslationMemoryPanelProps> = ({
 
   const exportMemory = async () => {
     if (!appService || !memory || entries.length === 0) return;
-    const data = memory.snapshot();
-    const extension = exportFormat === 'tmx' ? 'tmx' : exportFormat;
-    const saved = await appService.saveFile(
-      `BabelLeaf-translation-memory.${extension}`,
-      serializeMemoryInterchange(data, exportFormat),
-      { mimeType: getInterchangeMimeType(exportFormat) },
-    );
-    if (!saved) setError(_('Unable to save file'));
+    setError(null);
+    try {
+      const data = memory.snapshot();
+      const extension = exportFormat === 'tmx' ? 'tmx' : exportFormat;
+      const saved = await appService.saveFile(
+        `BabelLeaf-translation-memory.${extension}`,
+        serializeMemoryInterchange(data, exportFormat),
+        { mimeType: getInterchangeMimeType(exportFormat) },
+      );
+      if (!saved) setError(_('Unable to save file'));
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
   };
 
   const deleteEntry = async (key: string) => {

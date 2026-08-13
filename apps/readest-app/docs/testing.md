@@ -147,8 +147,8 @@ pnpm tauri:dev:test
 pnpm test:e2e
 ```
 
-- **Config:** `wdio.conf.ts`
-- **Pattern:** `e2e/**/*.e2e.ts`
+- **Config:** `wdio.conf.mjs`
+- **Pattern:** `e2e/**/*.e2e.mjs`
 - **Framework:** Mocha (via `@wdio/mocha-framework`)
 - **Connects to:** port 4445 (embedded WebDriver server)
 - **Use for:** UI interaction tests, window management, navigation flows.
@@ -160,5 +160,5 @@ pnpm test:e2e
 | `*.test.ts`         | `pnpm test`         | jsdom                 |
 | `*.browser.test.ts` | `pnpm test:browser` | Chromium (Playwright) |
 | `*.tauri.test.ts`   | `pnpm test:tauri`   | Tauri WebView         |
-| `*.e2e.ts`          | `pnpm test:e2e`     | Tauri app (WDIO)      |
+| `*.e2e.mjs`         | `pnpm test:e2e`     | Tauri app (WDIO)      |
 | `*.android.test.ts` | `pnpm test:android` | Android device (CDP)  |

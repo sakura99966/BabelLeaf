@@ -14,9 +14,16 @@ interface GroupItemProps {
   group: BooksGroup;
   isSelectMode: boolean;
   groupSelected: boolean;
+  preloadCover?: boolean;
 }
 
-const GroupItem: React.FC<GroupItemProps> = ({ mode, group, isSelectMode, groupSelected }) => {
+const GroupItem: React.FC<GroupItemProps> = ({
+  mode,
+  group,
+  isSelectMode,
+  groupSelected,
+  preloadCover = false,
+}) => {
   const _ = useTranslation();
   const { appService } = useEnv();
   const { settings } = useSettingsStore();
@@ -134,7 +141,7 @@ const GroupItem: React.FC<GroupItemProps> = ({ mode, group, isSelectMode, groupS
             }
             onScroll={mode === 'list' ? handleScroll : undefined}
           >
-            {group.books.slice(0, mode === 'grid' ? 4 : undefined).map((book) => (
+            {group.books.slice(0, mode === 'grid' ? 4 : undefined).map((book, index) => (
               <div
                 key={book.hash}
                 className={clsx(
@@ -146,6 +153,7 @@ const GroupItem: React.FC<GroupItemProps> = ({ mode, group, isSelectMode, groupS
                 <BookCover
                   book={book}
                   isPreview
+                  preload={preloadCover && index === 0}
                   showSpine={settings.librarySkeuomorphicCovers}
                   imageClassName='rounded-[2px]'
                 />

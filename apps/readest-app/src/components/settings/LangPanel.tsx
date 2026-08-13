@@ -13,7 +13,7 @@ import {
 import { useResetViewSettings } from '@/hooks/useResetSettings';
 import { useKeyDownActions } from '@/hooks/useKeyDownActions';
 import { TRANSLATED_LANGS, TRANSLATOR_LANGS } from '@/services/constants';
-import { ConvertChineseVariant } from '@/types/book';
+import { ConvertChineseVariant, TranslationDisplayMode } from '@/types/book';
 import { SettingsPanelPanelProp } from './SettingsDialog';
 import { getDirFromLanguage } from '@/utils/rtl';
 import { isCJKEnv } from '@/utils/misc';
@@ -40,6 +40,10 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   const [translationProvider, setTranslationProvider] = useState(viewSettings.translationProvider);
   const [translateTargetLang, setTranslateTargetLang] = useState(viewSettings.translateTargetLang);
   const [showTranslateSource, setShowTranslateSource] = useState(viewSettings.showTranslateSource);
+  const [translationDisplayMode, setTranslationDisplayMode] = useState<TranslationDisplayMode>(
+    viewSettings.translationDisplayMode ??
+      (viewSettings.showTranslateSource ? 'stacked' : 'translated'),
+  );
   const [ttsReadAloudText, setTtsReadAloudText] = useState(viewSettings.ttsReadAloudText);
   const [replaceQuotationMarks, setReplaceQuotationMarks] = useState(
     viewSettings.replaceQuotationMarks,
@@ -79,6 +83,7 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
       translationProvider: setTranslationProvider,
       translateTargetLang: setTranslateTargetLang,
       showTranslateSource: setShowTranslateSource,
+      translationDisplayMode: (value) => setTranslationDisplayMode(value as TranslationDisplayMode),
       ttsReadAloudText: setTtsReadAloudText,
       replaceQuotationMarks: setReplaceQuotationMarks,
     });
@@ -158,6 +163,27 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
     saveViewSettings(envConfig, bookKey, 'ttsReadAloudText', option, false, false);
   };
 
+  const getTranslationDisplayModeOptions = () => [
+    { value: 'original', label: _('Original only') },
+    { value: 'translated', label: _('Translated only') },
+    { value: 'stacked', label: _('Original and translated (stacked)') },
+    { value: 'columns', label: _('Original and translated (side by side)') },
+  ];
+
+  const handleSelectTranslationDisplayMode = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const option = event.target.value as TranslationDisplayMode;
+    setTranslationDisplayMode(option);
+    const showSource = option !== 'translated';
+    setShowTranslateSource(showSource);
+    saveViewSettings(envConfig, bookKey, 'translationDisplayMode', option, false, false);
+    saveViewSettings(envConfig, bookKey, 'showTranslateSource', showSource, false, false);
+    setViewSettings(bookKey, {
+      ...viewSettings,
+      translationDisplayMode: option,
+      showTranslateSource: showSource,
+    });
+  };
+
   const getTTSTextOptions = () => {
     return [
       { value: 'both', label: _('Source and Translated') },
@@ -186,7 +212,7 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
       true,
       false,
     ).then(() => {
-      if (!showTranslateSource && translationEnabled) {
+      if (translationDisplayMode === 'translated' && translationEnabled) {
         recreateViewer(envConfig, bookKey);
       }
     });
@@ -207,6 +233,19 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showTranslateSource]);
+
+  useEffect(() => {
+    if (translationDisplayMode === (viewSettings.translationDisplayMode ?? 'stacked')) return;
+    saveViewSettings(
+      envConfig,
+      bookKey,
+      'translationDisplayMode',
+      translationDisplayMode,
+      false,
+      false,
+    ).then(() => recreateViewer(envConfig, bookKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [translationDisplayMode]);
 
   useEffect(() => {
     if (ttsReadAloudText === viewSettings.ttsReadAloudText) return;
@@ -298,6 +337,7 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
         <NavigationRow
           title={_('Manage Dictionaries')}
           onClick={() => setShowCustomDictionaries(true)}
+          data-testid='manage-dictionaries'
           className='h-14'
         />
       </BoxedList>
@@ -309,11 +349,17 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
           onChange={() => setTranslationEnabled(!translationEnabled)}
           disabled={!bookKey}
         />
-        <SettingsSwitchRow
-          label={_('Show Source Text')}
-          checked={showTranslateSource}
-          onChange={() => setShowTranslateSource(!showTranslateSource)}
-        />
+        <SettingsRow
+          label={_('Translation Display')}
+          data-setting-id='settings.language.translationDisplay'
+        >
+          <SettingsSelect
+            value={translationDisplayMode}
+            onChange={handleSelectTranslationDisplayMode}
+            ariaLabel={_('Translation Display')}
+            options={getTranslationDisplayModeOptions()}
+          />
+        </SettingsRow>
         <SettingsRow label={_('TTS Text')} data-setting-id='settings.language.ttsTextTranslation'>
           <SettingsSelect
             value={ttsReadAloudText}

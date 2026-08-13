@@ -134,16 +134,17 @@ const TranslationGlossaryPanel: React.FC<TranslationGlossaryPanelProps> = ({
   const importGlossary = async () => {
     if (!appService || !store) return;
     setError(null);
-    const selection = await selectFiles({
-      type: 'generic',
-      multiple: false,
-      accept: 'application/json,.json,text/tab-separated-values,.tsv,application/x-tbx,.tbx',
-      extensions: ['json', 'tsv', 'tbx'],
-      dialogTitle: _('Import glossary'),
-    });
-    const selected = selection.files[0];
-    if (!selected) return;
     try {
+      const selection = await selectFiles({
+        type: 'generic',
+        multiple: false,
+        accept: 'application/json,.json,text/tab-separated-values,.tsv,application/x-tbx,.tbx',
+        extensions: ['json', 'tsv', 'tbx'],
+        dialogTitle: _('Import glossary'),
+      });
+      if (selection.error) throw new Error(selection.error);
+      const selected = selection.files[0];
+      if (!selected) return;
       const file =
         selected.file || (selected.path ? await appService.openFile(selected.path, 'None') : null);
       if (!file) throw new Error(_('Unable to open selected file.'));
@@ -169,13 +170,18 @@ const TranslationGlossaryPanel: React.FC<TranslationGlossaryPanelProps> = ({
 
   const exportGlossary = async () => {
     if (!appService || !glossary) return;
-    const extension = exportFormat === 'tbx' ? 'tbx' : exportFormat;
-    const saved = await appService.saveFile(
-      `BabelLeaf-glossary.${extension}`,
-      serializeGlossaryInterchange(glossary, exportFormat),
-      { mimeType: getInterchangeMimeType(exportFormat) },
-    );
-    if (!saved) setError(_('Unable to save file'));
+    setError(null);
+    try {
+      const extension = exportFormat === 'tbx' ? 'tbx' : exportFormat;
+      const saved = await appService.saveFile(
+        `BabelLeaf-glossary.${extension}`,
+        serializeGlossaryInterchange(glossary, exportFormat),
+        { mimeType: getInterchangeMimeType(exportFormat) },
+      );
+      if (!saved) setError(_('Unable to save file'));
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
   };
 
   return (

@@ -110,6 +110,7 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
             </span>
             <input
               type='text'
+              data-testid='library-search-input'
               value={searchQuery}
               placeholder={
                 currentBooksCount > 1
@@ -133,6 +134,7 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
             {searchQuery && (
               <button
                 type='button'
+                data-testid='library-clear-search'
                 onClick={() => {
                   setSearchQuery('');
                   debouncedUpdateQueryParam('');
@@ -146,6 +148,7 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
             <span className='bg-base-content/50 mx-2 h-4 w-[0.5px]'></span>
             <Dropdown
               label={_('Import Books')}
+              testId='library-import-books'
               className={clsx(
                 'exclude-title-bar-mousedown dropdown-bottom dropdown-center cursor-pointer',
               )}
@@ -160,6 +163,7 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
             {isMobile ? null : (
               <button
                 onClick={onToggleSelectMode}
+                data-testid='library-select-books'
                 aria-label={_('Select Books')}
                 title={_('Select Books')}
                 className='h-6'
@@ -202,6 +206,7 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
             </Dropdown>
             <Dropdown
               label={_('Settings Menu')}
+              testId='library-settings-menu'
               className='exclude-title-bar-mousedown dropdown-bottom dropdown-end'
               buttonClassName='btn btn-ghost h-8 min-h-8 w-8 p-0'
               toggleButton={<MdOutlineMenu role='none' size={iconSize18} />}

@@ -15,3 +15,14 @@ export const SAMPLE_EPUB = path.join(
   fixturesDir,
   '../../src/__tests__/fixtures/data/sample-alice.epub',
 );
+
+export const FORMAT_FIXTURES = {
+  EPUB: SAMPLE_EPUB,
+  PDF: path.join(fixturesDir, '../../src/__tests__/fixtures/data/sample-alice.pdf'),
+  MOBI: path.join(fixturesDir, '../../src/__tests__/fixtures/data/sample-war-peace.mobi'),
+  AZW3: path.join(fixturesDir, '../../src/__tests__/fixtures/data/sample-babelleaf.azw3'),
+  FB2: path.join(fixturesDir, '../../src/__tests__/fixtures/data/sample-metadata.fb2'),
+  CBZ: path.join(fixturesDir, '../../src/__tests__/fixtures/data/sample-metadata.cbz'),
+  TXT: path.join(fixturesDir, '../../src/__tests__/fixtures/data/sample-alice.txt'),
+  Markdown: path.join(fixturesDir, '../../src/__tests__/fixtures/data/sample-fixture.md'),
+} as const;

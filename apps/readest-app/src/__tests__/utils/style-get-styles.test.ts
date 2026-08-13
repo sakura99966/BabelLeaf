@@ -742,6 +742,16 @@ describe('getTranslationStyles branches (via getStyles)', () => {
     expect(css).toContain('.translation-target-block');
     expect(css).toContain('.translation-target-toc');
   });
+
+  it.each([
+    ['original', '.translation-source.translation-display-original'],
+    ['translated', '.translation-source.translation-display-translated'],
+    ['stacked', '.translation-source'],
+    ['columns', '.translation-source.translation-display-columns'],
+  ] as const)('emits the %s reader presentation contract', (mode, selector) => {
+    const css = getStyles(makeViewSettings({ translationDisplayMode: mode }), theme);
+    expect(css).toContain(selector);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -4,42 +4,25 @@ import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { parseWebViewInfo } from '@/utils/ua';
 import { getAppVersion } from '@/utils/version';
+import { setAboutDialogVisible, useDialogVisibility } from '@/hooks/useDialogVisibility';
 import Dialog from './Dialog';
 import Link from './Link';
 
-export const setAboutDialogVisible = (visible: boolean) => {
-  const dialog = document.getElementById('about_window');
-  if (dialog) {
-    const event = new CustomEvent('setDialogVisibility', {
-      detail: { visible },
-    });
-    dialog.dispatchEvent(event);
-  }
-};
+export { setAboutDialogVisible };
 
-export const AboutWindow = () => {
+interface AboutWindowProps {
+  visible?: boolean;
+  onVisibleChange?: (visible: boolean) => void;
+}
+
+export const AboutWindow = ({ visible, onVisibleChange }: AboutWindowProps = {}) => {
   const _ = useTranslation();
   const { appService } = useEnv();
   const [browserInfo, setBrowserInfo] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useDialogVisibility('about_window', visible, onVisibleChange);
 
   useEffect(() => {
     setBrowserInfo(parseWebViewInfo(appService));
-
-    const handleCustomEvent = (event: CustomEvent) => {
-      setIsOpen(event.detail.visible);
-    };
-
-    const el = document.getElementById('about_window');
-    if (el) {
-      el.addEventListener('setDialogVisibility', handleCustomEvent as EventListener);
-    }
-
-    return () => {
-      if (el) {
-        el.removeEventListener('setDialogVisibility', handleCustomEvent as EventListener);
-      }
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

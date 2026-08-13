@@ -3,12 +3,13 @@ import type { LanguageModel } from 'ai';
 import type { AIProvider, AIProviderName, AISettings } from '../types';
 import { AI_TIMEOUTS } from '../utils/retry';
 import { getAIFetch } from '../utils/httpFetch';
+import { responseContainsModel } from '../utils/modelAvailability';
 
 /** Official OpenAI API endpoint. This value is deliberately not user-editable. */
 export const OPENAI_API_BASE_URL = 'https://api.openai.com/v1';
 
-/** Pinned translation model; changing it requires an explicit release update. */
-export const OPENAI_TRANSLATION_MODEL = 'gpt-5-mini-2025-08-07';
+/** Stable OpenAI alias; the provider owns snapshot rotation behind this alias. */
+export const OPENAI_TRANSLATION_MODEL = 'gpt-5-mini';
 
 /** Named OpenAI adapter with an API-key-only configuration surface. */
 export class OpenAIProvider implements AIProvider {
@@ -50,7 +51,7 @@ export class OpenAIProvider implements AIProvider {
         headers: { Authorization: `Bearer ${this.apiKey}` },
         signal: AbortSignal.timeout(AI_TIMEOUTS.HEALTH_CHECK),
       });
-      return response.ok;
+      return await responseContainsModel(response, OPENAI_TRANSLATION_MODEL);
     } catch {
       return false;
     }

@@ -98,7 +98,10 @@ describe('translation-only AI providers', () => {
     provider.getModel();
     expect(chatModel).toHaveBeenCalledWith(DEEPSEEK_TRANSLATION_MODEL);
 
-    mockFetch.mockResolvedValueOnce({ ok: true });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [{ id: DEEPSEEK_TRANSLATION_MODEL }] }),
+    });
     await expect(provider.healthCheck()).resolves.toBe(true);
     expect(mockFetch).toHaveBeenCalledWith(
       `${DEEPSEEK_API_BASE_URL}/models`,
@@ -106,6 +109,17 @@ describe('translation-only AI providers', () => {
         headers: { Authorization: 'Bearer secret' },
       }),
     );
+  });
+
+  test('provider health checks reject an HTTP 200 response that omits the selected model', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
+    const provider = new OpenAIProvider({
+      ...DEFAULT_AI_SETTINGS,
+      provider: 'openai',
+      openaiApiKey: 'secret',
+    });
+
+    await expect(provider.healthCheck()).resolves.toBe(false);
   });
 
   test('OpenAI uses the fixed official endpoint and pinned translation model', async () => {

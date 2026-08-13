@@ -1,0 +1,43 @@
+{
+  "format": "babelleaf.ocr-model-catalog",
+  "schemaVersion": 1,
+  "source": "https://github.com/tesseract-ocr/tessdata_fast",
+  "release": "4.1.0",
+  "releaseCommit": "a8ba5063ab8013372a20e300da0c97ee46b92b07",
+  "license": {
+    "spdx": "Apache-2.0",
+    "fileName": "LICENSE",
+    "sizeBytes": 11358,
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  "models": [
+    {
+      "name": "eng",
+      "id": "tessdata-fast-eng",
+      "languages": ["en"],
+      "sizeBytes": 4113088,
+      "sha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+    },
+    {
+      "name": "chi_sim",
+      "id": "tessdata-fast-chi-sim",
+      "languages": ["zh-CN"],
+      "sizeBytes": 2469156,
+      "sha256": "a5fcb6f0db1e1d6d8522f39db4e848f05984669172e584e8d76b6b3141e1f730"
+    },
+    {
+      "name": "jpn",
+      "id": "tessdata-fast-jpn",
+      "languages": ["ja"],
+      "sizeBytes": 2471260,
+      "sha256": "1f5de9236d2e85f5fdf4b3c500f2d4926f8d9449f28f5394472d9e8d83b91b4d"
+    },
+    {
+      "name": "jpn_vert",
+      "id": "tessdata-fast-jpn-vertical",
+      "languages": ["ja-vertical"],
+      "sizeBytes": 3037480,
+      "sha256": "bf1e2640954691797e2dc14f38533e601b59ee37958698ae0f0b81dc6f09c71b"
+    }
+  ]
+}

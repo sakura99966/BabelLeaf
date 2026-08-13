@@ -29,10 +29,9 @@ mod macos;
 mod mobi_parser;
 mod parser_common;
 mod range_file;
-#[cfg(desktop)]
+#[cfg(all(desktop, not(feature = "webdriver")))]
 mod window_state;
 #[cfg(target_os = "windows")]
-use tauri::webview::ScrollBarStyle;
 use tauri::{command, Emitter, WebviewUrl, WebviewWindowBuilder};
 #[cfg(target_os = "android")]
 use tauri_plugin_native_bridge::register_select_directory_callback;
@@ -225,20 +224,112 @@ struct SingleInstancePayload {
     cwd: String,
 }
 
+#[cfg(feature = "webdriver")]
+fn webdriver_port() -> u16 {
+    std::env::var("TAURI_WEBDRIVER_PORT")
+        .ok()
+        .and_then(|value| value.parse::<u16>().ok())
+        .unwrap_or(tauri_plugin_webdriver::DEFAULT_PORT)
+}
+
+#[cfg(feature = "webdriver")]
+fn publish_webdriver_stage(stage: &str) -> std::io::Result<()> {
+    std::fs::write(
+        std::env::temp_dir().join(format!("babelleaf-webdriver-{}.stage", webdriver_port())),
+        stage,
+    )
+}
+
+#[cfg(feature = "webdriver")]
+fn publish_webdriver_pid() -> std::io::Result<()> {
+    let process_id = std::process::id().to_string();
+    let fallback_pid_file =
+        std::env::temp_dir().join(format!("babelleaf-webdriver-{}.pid", webdriver_port()));
+    std::fs::write(&fallback_pid_file, &process_id)?;
+
+    if let Ok(pid_file) = std::env::var("BABELLEAF_WEBDRIVER_PID_FILE") {
+        let pid_file = PathBuf::from(pid_file);
+        if pid_file != fallback_pid_file {
+            std::fs::write(pid_file, &process_id)?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(feature = "webdriver")]
+fn start_webdriver_exit_watcher(app_handle: tauri::AppHandle) -> std::io::Result<()> {
+    let Some(exit_file) = std::env::var_os("BABELLEAF_WEBDRIVER_EXIT_FILE") else {
+        return Ok(());
+    };
+    let exit_file = PathBuf::from(exit_file);
+    std::thread::Builder::new()
+        .name("babelleaf-webdriver-exit".into())
+        .spawn(move || loop {
+            if exit_file.is_file() {
+                app_handle.exit(0);
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        })
+        .map(|_| ())
+}
+
+#[cfg(desktop)]
+fn portable_runtime_directory() -> Option<PathBuf> {
+    let executable = std::env::current_exe().ok()?;
+    let directory = executable.parent()?.to_path_buf();
+    directory
+        .join("settings.json")
+        .is_file()
+        .then_some(directory)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default()
-        .plugin(
-            tauri_plugin_log::Builder::new()
-                .level(log::LevelFilter::Info)
-                .level_for("tracing", log::LevelFilter::Warn)
-                .level_for("tantivy", log::LevelFilter::Warn)
-                .build(),
-        )
-        .plugin(tauri_plugin_process::init())
+    #[cfg(desktop)]
+    let portable_runtime_directory = portable_runtime_directory();
+    #[cfg(not(desktop))]
+    let portable_runtime_directory: Option<PathBuf> = None;
+    let is_portable_runtime = portable_runtime_directory.is_some();
+    let builder = tauri::Builder::default();
+
+    // The WebDriver build runs inside an isolated test profile. The log plugin
+    // resolves its default target through the OS profile APIs, which are not
+    // redirectable on Windows and are read-only in the test sandbox. Keep the
+    // production logger enabled while omitting it from the test-only binary.
+    #[cfg(not(feature = "webdriver"))]
+    let builder = {
+        let logger = tauri_plugin_log::Builder::new()
+            .level(log::LevelFilter::Info)
+            .level_for("tracing", log::LevelFilter::Warn)
+            .level_for("tantivy", log::LevelFilter::Warn);
+        #[cfg(desktop)]
+        let logger = if let Some(directory) = portable_runtime_directory.as_ref() {
+            use tauri_plugin_log::{Target, TargetKind};
+            logger.targets([
+                Target::new(TargetKind::Stdout),
+                Target::new(TargetKind::Folder {
+                    path: directory.join("logs"),
+                    file_name: None,
+                }),
+            ])
+        } else {
+            logger
+        };
+        builder
+            .plugin(logger.build())
+            .plugin(tauri_plugin_process::init())
+    };
+
+    #[cfg(feature = "webdriver")]
+    let builder = builder.plugin(tauri_plugin_process::init());
+
+    let builder = builder
         .invoke_handler(tauri::generate_handler![
             get_executable_dir,
             allow_paths_in_scopes,
+            #[cfg(target_os = "windows")]
+            windows::set_webview_memory_usage,
             dir_scanner::read_dir,
             epub_parser::parse_epub_metadata,
             epub_parser::extract_epub_cover_full,
@@ -250,23 +341,46 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             macos::system_dictionary::show_lookup_popover,
         ])
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(tauri_plugin_fs::init());
+
+    // Portable mode stores its library, settings, cache, logs and WebView
+    // profile beside the executable. Do not load Tauri's system AppData-backed
+    // scope state in that mode; the executable directory is granted on every
+    // launch below, so local portable content remains readable.
+    #[cfg(desktop)]
+    let builder = if is_portable_runtime {
+        builder
+    } else {
+        builder.plugin(tauri_plugin_persisted_scope::init())
+    };
+    #[cfg(not(desktop))]
+    let builder = builder.plugin(tauri_plugin_persisted_scope::init());
+
+    let builder = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_sharekit::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_device_info::init())
         .plugin(tauri_plugin_turso::init())
         .plugin(tauri_plugin_native_bridge::init())
         .plugin(tauri_plugin_native_tts::init())
-        .plugin(tauri_plugin_webview_upgrade::init())
         // Serves local file byte-ranges to `RemoteFile` via `?path=&start=&end=`
         // (range-in-URL, not a `Range` header) so Android's WebView doesn't
         // re-apply the offset. Scope-gated by `asset_protocol_scope`.
         .register_asynchronous_uri_scheme_protocol(range_file::SCHEME, range_file::handle);
+
+    // Native share UI is only used on Apple/mobile targets. Windows and Linux
+    // deliberately use the Web Share/clipboard fallback, so registering the
+    // plugin there adds launch state without exposing a usable code path.
+    #[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+    let builder = builder.plugin(tauri_plugin_sharekit::init());
+
+    // This plugin exists solely to attach its Android startup initializer; its
+    // Rust implementation is otherwise a no-op on every platform.
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_webview_upgrade::init());
 
     #[cfg(desktop)]
     let builder = builder.plugin(
@@ -292,11 +406,14 @@ pub fn run() {
     // window-state plugin loads it, so a bad `.window-state.json` (e.g. the
     // Windows minimized `-32000` sentinel) can't crash WebView2 on launch.
     // See https://github.com/readest/readest/issues/4398.
-    #[cfg(desktop)]
-    let builder = builder.plugin(window_state::init());
-
-    #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+    #[cfg(all(desktop, not(feature = "webdriver")))]
+    let builder = if is_portable_runtime {
+        builder
+    } else {
+        builder
+            .plugin(window_state::init())
+            .plugin(tauri_plugin_window_state::Builder::default().build())
+    };
 
     #[cfg(target_os = "macos")]
     let builder = builder.plugin(macos::traffic_light::init());
@@ -311,7 +428,9 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_webdriver::init());
 
     builder
-        .setup(|#[allow(unused_variables)] app| {
+        .setup(move |#[allow(unused_variables)] app| {
+            #[cfg(feature = "webdriver")]
+            publish_webdriver_stage("app-setup-started")?;
             // When running with the webdriver feature (E2E/integration tests),
             // grant all default permissions to remote URLs (http://127.0.0.1:*)
             // so that Vitest browser-mode tests can call plugin commands.
@@ -319,6 +438,8 @@ pub fn run() {
             {
                 use tauri::Manager;
                 app.add_capability(include_str!("../capabilities-extra/webdriver.json"))?;
+                start_webdriver_exit_watcher(app.handle().clone())?;
+                publish_webdriver_stage("capability-added")?;
             }
             #[cfg(desktop)]
             {
@@ -336,6 +457,8 @@ pub fn run() {
             #[cfg(desktop)]
             {
                 allow_dir_in_scopes(app.handle(), &PathBuf::from(get_executable_dir()));
+                #[cfg(feature = "webdriver")]
+                publish_webdriver_stage("executable-scope-added")?;
             }
 
             #[cfg(target_os = "android")]
@@ -343,15 +466,22 @@ pub fn run() {
                 allow_dir_in_scopes(app, path);
             });
 
-            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            #[cfg(all(
+                any(target_os = "windows", target_os = "linux"),
+                not(feature = "webdriver")
+            ))]
             {
-                use tauri_plugin_deep_link::DeepLinkExt;
-                let _ = app.deep_link().register_all();
+                if !is_portable_runtime {
+                    use tauri_plugin_deep_link::DeepLinkExt;
+                    let _ = app.deep_link().register_all();
+                }
             }
 
             #[cfg(desktop)]
             {
                 app.handle().plugin(tauri_plugin_cli::init())?;
+                #[cfg(feature = "webdriver")]
+                publish_webdriver_stage("cli-plugin-initialized")?;
             }
 
             // Check for e-ink device on Android before building the window
@@ -404,8 +534,12 @@ pub fn run() {
                 is_appimage = is_appimage
             );
 
+            // Keep hidden/background WebViews from consuming an unrestricted
+            // renderer budget on platforms that support this policy. Foreground
+            // reading remains unaffected, while the launch-hidden window and
+            // future auxiliary views may yield CPU/memory when not visible.
             let win_builder = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-                .background_throttling(BackgroundThrottlingPolicy::Disabled)
+                .background_throttling(BackgroundThrottlingPolicy::Throttle)
                 .background_color(if is_eink {
                     tauri::window::Color(255, 255, 255, 255)
                 } else {
@@ -413,10 +547,121 @@ pub fn run() {
                 })
                 .initialization_script(&init_script);
 
+            // WebView2 otherwise writes its browser profile to LocalAppData
+            // even when the JavaScript data resolver is in portable mode.
+            #[cfg(target_os = "windows")]
+            let win_builder = if let Some(directory) = portable_runtime_directory.as_ref() {
+                win_builder.data_directory(directory.join("EBWebView"))
+            } else {
+                #[cfg(feature = "webdriver")]
+                {
+                    match std::env::var_os("BABELLEAF_WEBDRIVER_WEBVIEW_DATA_DIR") {
+                        Some(directory) => win_builder.data_directory(PathBuf::from(directory)),
+                        None => win_builder,
+                    }
+                }
+                #[cfg(not(feature = "webdriver"))]
+                {
+                    win_builder
+                }
+            };
+
+            // Test-only marker for deterministic native file-import workflows.
+            // The JavaScript side also requires a compile-time E2E flag, so
+            // neither condition can be enabled in a production package by page
+            // content or a runtime environment variable.
+            #[cfg(feature = "webdriver")]
+            let win_builder = win_builder.initialization_script(
+                r#"
+                (() => {
+                    Object.defineProperty(window, '__BABELLEAF_WEBDRIVER__', {
+                        value: true,
+                        writable: false,
+                        configurable: false
+                    });
+                    const failures = [];
+                    Object.defineProperty(window, '__BABELLEAF_WEBDRIVER_INVOKE_FAILURES__', {
+                        value: failures,
+                        writable: false,
+                        configurable: false
+                    });
+                    const traffic = [];
+                    Object.defineProperty(window, '__BABELLEAF_WEBDRIVER_TRAFFIC__', {
+                        value: traffic,
+                        writable: false,
+                        configurable: false
+                    });
+                    const recordTraffic = (kind, target) => {
+                        traffic.push({ kind, target: String(target) });
+                    };
+                    const originalFetch = window.fetch.bind(window);
+                    window.fetch = (...args) => {
+                        recordTraffic('fetch', args[0] instanceof Request ? args[0].url : args[0]);
+                        return originalFetch(...args);
+                    };
+                    const originalXhrOpen = XMLHttpRequest.prototype.open;
+                    XMLHttpRequest.prototype.open = function(method, url, ...args) {
+                        recordTraffic('xhr', url);
+                        return originalXhrOpen.call(this, method, url, ...args);
+                    };
+                    const OriginalWebSocket = window.WebSocket;
+                    window.WebSocket = class TrackingWebSocket extends OriginalWebSocket {
+                        constructor(url, protocols) {
+                            recordTraffic('websocket', url);
+                            super(url, protocols);
+                        }
+                    };
+                    if (window.EventSource) {
+                        const OriginalEventSource = window.EventSource;
+                        window.EventSource = class TrackingEventSource extends OriginalEventSource {
+                            constructor(url, options) {
+                                recordTraffic('event-source', url);
+                                super(url, options);
+                            }
+                        };
+                    }
+                    const internals = window.__TAURI_INTERNALS__;
+                    if (!internals || typeof internals.invoke !== 'function') return;
+                    const originalInvoke = internals.invoke.bind(internals);
+                    internals.invoke = async (command, args, options) => {
+                        if (String(command).startsWith('plugin:http|')) {
+                            recordTraffic('tauri-http', command);
+                        }
+                        try {
+                            return await originalInvoke(command, args, options);
+                        } catch (error) {
+                            failures.push({ command, error: String(error) });
+                            throw error;
+                        }
+                    };
+                })();
+                "#,
+            );
+
+            // Keep the reader's idle WebView2 process tree bounded on Windows.
+            // WebView2 background update/telemetry channels are disabled;
+            // BabelLeaf's explicit provider requests use the application HTTP
+            // boundary and are unaffected by these Chromium background flags.
+            // V8's size policy trades peak throughput for a smaller young
+            // generation. A single raster worker bounds compositor thread
+            // stacks without disabling hardware acceleration or WebGL, which
+            // the page-curl renderer requires. Reader, translation and comic
+            // workload gates cover the resulting execution path before release.
+            #[cfg(target_os = "windows")]
+            let win_builder = win_builder.additional_browser_args(
+                "--disable-background-networking --disable-component-update \
+                 --disable-domain-reliability \
+                 --num-raster-threads=1 \
+                 --js-flags=--optimize-for-size \
+                 --disable-features=msWebOOUI,msPdfOOUI",
+            );
+
             #[cfg(target_os = "macos")]
             let win_builder = win_builder.inner_size(1280.0, 800.0).resizable(true);
             #[cfg(all(not(target_os = "macos"), desktop))]
             let win_builder = win_builder.inner_size(800.0, 600.0).resizable(true);
+            #[cfg(desktop)]
+            let win_builder = win_builder.min_inner_size(480.0, 360.0);
 
             #[cfg(target_os = "macos")]
             let win_builder = win_builder
@@ -434,9 +679,7 @@ pub fn run() {
 
                 #[cfg(target_os = "windows")]
                 {
-                    builder = builder
-                        .transparent(false)
-                        .scroll_bar_style(ScrollBarStyle::FluentOverlay);
+                    builder = builder.transparent(false);
                 }
                 #[cfg(target_os = "linux")]
                 {
@@ -455,14 +698,23 @@ pub fn run() {
 
             #[cfg(not(target_os = "macos"))]
             {
-                win_builder.build().unwrap();
+                #[cfg(feature = "webdriver")]
+                publish_webdriver_stage("window-build-started")?;
+                let _window = win_builder.build()?;
+                #[cfg(feature = "webdriver")]
+                {
+                    publish_webdriver_stage("window-built")?;
+                    publish_webdriver_pid()?;
+                }
             }
             // let win = win_builder.build().unwrap();
             // win.open_devtools();
 
             #[cfg(target_os = "macos")]
             {
-                let window = win_builder.build().unwrap();
+                let window = win_builder.build()?;
+                #[cfg(feature = "webdriver")]
+                publish_webdriver_pid()?;
                 // On macOS, closing a window (via Cmd+W or the red traffic light)
                 // should not quit the app — only Cmd+Q should — and normally hides
                 // instead of minimizing (#5240): the app keeps running in the dock

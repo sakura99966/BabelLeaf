@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { VscLibrary } from 'react-icons/vsc';
 import { MdOutlineMenu } from 'react-icons/md';
 import { MdPhotoLibrary } from 'react-icons/md';
@@ -32,8 +32,12 @@ import SettingsToggler from './SettingsToggler';
 import TranslationToggler from './TranslationToggler';
 import ViewMenu from './ViewMenu';
 import SyncInfoDialog from './SyncInfoDialog';
-import TranslationWorkbenchDialog from './TranslationWorkbenchDialog';
-import ComicWorkspaceDialog from './ComicWorkspaceDialog';
+
+// These workspaces pull in archive/PDF, OCR, glossary, and export code. Keep
+// them out of the reader startup bundle and load them only after the user
+// opens the corresponding dialog.
+const TranslationWorkbenchDialog = lazy(() => import('./TranslationWorkbenchDialog'));
+const ComicWorkspaceDialog = lazy(() => import('./ComicWorkspaceDialog'));
 
 interface HeaderBarProps {
   bookKey: string;
@@ -325,20 +329,24 @@ const HeaderBar: React.FC<HeaderBarProps> = ({
           )}
           {isTranslationWorkbenchOpen && (
             <ModalPortal>
-              <TranslationWorkbenchDialog
-                bookKey={bookKey}
-                isOpen={isTranslationWorkbenchOpen}
-                onClose={() => setIsTranslationWorkbenchOpen(false)}
-              />
+              <Suspense fallback={null}>
+                <TranslationWorkbenchDialog
+                  bookKey={bookKey}
+                  isOpen={isTranslationWorkbenchOpen}
+                  onClose={() => setIsTranslationWorkbenchOpen(false)}
+                />
+              </Suspense>
             </ModalPortal>
           )}
           {isComicWorkspaceOpen && (
             <ModalPortal>
-              <ComicWorkspaceDialog
-                bookKey={bookKey}
-                isOpen={isComicWorkspaceOpen}
-                onClose={() => setIsComicWorkspaceOpen(false)}
-              />
+              <Suspense fallback={null}>
+                <ComicWorkspaceDialog
+                  bookKey={bookKey}
+                  isOpen={isComicWorkspaceOpen}
+                  onClose={() => setIsComicWorkspaceOpen(false)}
+                />
+              </Suspense>
             </ModalPortal>
           )}
           <WindowButtons

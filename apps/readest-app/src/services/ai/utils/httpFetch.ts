@@ -1,6 +1,35 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { isTauriAppPlatform } from '@/services/environment';
 
+export const AI_CLOUD_ORIGINS = Object.freeze([
+  'https://api.deepseek.com',
+  'https://api.openai.com',
+  'https://api.anthropic.com',
+]);
+
+const isLoopbackOllamaOrigin = (url: URL): boolean =>
+  url.protocol === 'http:' &&
+  !url.username &&
+  !url.password &&
+  (url.hostname === '127.0.0.1' || url.hostname === 'localhost');
+
+const toRequestUrl = (input: RequestInfo | URL): URL | null => {
+  try {
+    const value = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    return new URL(value);
+  } catch {
+    return null;
+  }
+};
+
+/** Return true only for the fixed cloud providers or loopback Ollama. */
+export const isAllowedAIEndpoint = (input: RequestInfo | URL): boolean => {
+  const url = toRequestUrl(input);
+  if (!url || url.username || url.password) return false;
+  const origin = url.origin.replace(/\/$/, '');
+  return AI_CLOUD_ORIGINS.includes(origin) || isLoopbackOllamaOrigin(url);
+};
+
 /**
  * AI requests must not follow redirects. A redirect could otherwise send an
  * API key or book text to a host outside the fixed provider allow-list. Cookies
@@ -8,12 +37,16 @@ import { isTauriAppPlatform } from '@/services/environment';
  * the request headers.
  */
 export const createSafeAIFetch = (baseFetch: typeof fetch): typeof fetch => {
-  return (input, init) =>
-    baseFetch(input, {
+  return (input, init) => {
+    if (!isAllowedAIEndpoint(input)) {
+      return Promise.reject(new Error('AI request target is outside the BabelLeaf allowlist'));
+    }
+    return baseFetch(input, {
       ...(init ?? {}),
       credentials: 'omit',
       redirect: 'error',
     });
+  };
 };
 
 /**

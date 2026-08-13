@@ -13,6 +13,7 @@ import type { ActiveAIProviderName, AISettings } from '@/services/ai/types';
 import { useSettingsStore } from '@/store/settingsStore';
 import { BoxedList, SettingLabel, SettingsRow } from './primitives';
 import OcrModelPackPanel from './OcrModelPackPanel';
+import InpaintModelPackPanel from './InpaintModelPackPanel';
 
 type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 
@@ -250,6 +251,7 @@ const AIPanel: React.FC = () => {
       </BoxedList>
 
       <OcrModelPackPanel />
+      <InpaintModelPackPanel />
     </div>
   );
 };

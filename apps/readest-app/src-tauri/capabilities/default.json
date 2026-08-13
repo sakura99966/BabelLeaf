@@ -140,6 +140,7 @@
     "native-bridge:default",
     "allow-get-executable-dir",
     "allow-allow-paths-in-scopes",
+    "allow-set-webview-memory-usage",
     "allow-read-dir",
     "allow-parse-epub-metadata",
     "allow-extract-epub-cover-full",

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { detectLanguage } from '@/utils/lang';
+import { detectLanguage } from '@/utils/languageDetection';
 
 describe('detectLanguage - Result Tests', () => {
   describe('English text detection', () => {

@@ -9,7 +9,7 @@ import { formatAuthors, formatTitle, getPrimaryLanguage } from '@/utils/book';
 /**
  * Cross-language parity tests for the native Rust EPUB parser (PR #4369).
  *
- * These run inside the real Tauri WebView (see scripts/test-tauri.sh), which
+ * These run inside the real Tauri WebView (see scripts/test-tauri.mjs), which
  * is the only environment where both parsers are reachable at once:
  *   - the Rust commands (`parse_epub_metadata` / `parse_epub_full`) via the
  *     Tauri IPC `invoke()`, and

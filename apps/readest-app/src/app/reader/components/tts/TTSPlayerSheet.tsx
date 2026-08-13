@@ -12,8 +12,8 @@ import {
   MdPlayArrow,
 } from 'react-icons/md';
 import { RiVoiceAiFill } from 'react-icons/ri';
-import { TTSVoicesGroup } from '@/services/tts';
-import { DEFAULT_PARAGRAPH_GAP_SEC } from '@/services/tts/TTSController';
+import type { TTSVoicesGroup } from '@/services/tts/types';
+import { DEFAULT_PARAGRAPH_GAP_SEC } from '@/services/tts/constants';
 import { useEnv } from '@/context/EnvContext';
 import { useReaderStore } from '@/store/readerStore';
 import { useBookProgress } from '@/store/readerProgressStore';
@@ -21,7 +21,7 @@ import { useBookDataStore } from '@/store/bookDataStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { TranslationFunc, useTranslation } from '@/hooks/useTranslation';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
-import { getLanguageName } from '@/utils/lang';
+import { getLanguageName } from '@/utils/languageCatalog';
 import { formatPlaybackTime } from '@/utils/time';
 import Dialog from '@/components/Dialog';
 import { TTSPlaybackInfo } from './usePlaybackInfo';

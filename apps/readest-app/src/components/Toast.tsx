@@ -117,6 +117,8 @@ export const Toast = () => {
   return (
     toastMessage && (
       <div
+        data-testid='app-toast'
+        data-toast-type={toastType}
         data-capture-invalidating-overlay='true'
         className={clsx(
           'toast z-[130] w-auto max-w-screen-sm transition-all duration-300',

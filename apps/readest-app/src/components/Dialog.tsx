@@ -9,7 +9,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useDeviceControlStore } from '@/store/deviceStore';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
-import { impactFeedback } from '@tauri-apps/plugin-haptics';
+import { impactFeedback } from '@/utils/haptics';
 import { getDirFromUILanguage } from '@/utils/rtl';
 import { eventDispatcher } from '@/utils/event';
 import { Overlay } from './Overlay';

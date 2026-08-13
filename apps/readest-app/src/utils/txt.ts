@@ -1,6 +1,6 @@
 import { partialMD5 } from './md5';
 import { getBaseFilename } from './path';
-import { detectLanguage } from './lang';
+import { detectLanguage } from './languageDetection';
 import { configureZip } from './zip';
 
 interface Metadata {

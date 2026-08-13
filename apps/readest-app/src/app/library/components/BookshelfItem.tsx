@@ -91,6 +91,7 @@ interface BookshelfItemProps {
   coverFit: LibraryCoverFitType;
   isSelectMode: boolean;
   itemSelected: boolean;
+  preloadCover?: boolean;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   toggleSelection: (hash: string) => void;
   handleGroupBooks: () => void;
@@ -107,6 +108,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
   coverFit,
   isSelectMode,
   itemSelected,
+  preloadCover = false,
   setLoading,
   toggleSelection,
   handleGroupBooks,
@@ -384,7 +386,9 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
   // through every parent. Books carry their content-hash; groups carry
   // their full group name.
   const itemDataAttrs =
-    'format' in item ? { 'data-book-hash': item.hash } : { 'data-group-name': item.name };
+    'format' in item
+      ? { 'data-book-hash': item.hash, 'data-book-format': item.format }
+      : { 'data-group-name': item.name };
 
   return (
     <div className={clsx(mode === 'grid' ? 'h-full' : 'sm:hover:bg-base-300/50 px-4 sm:px-6')}>
@@ -418,6 +422,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
               coverFit={coverFit}
               isSelectMode={isSelectMode}
               bookSelected={itemSelected}
+              preloadCover={preloadCover}
               showBookDetailsModal={showBookDetailsModal}
               showTimeRemaining={showTimeRemaining}
             />
@@ -427,6 +432,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
               group={item}
               isSelectMode={isSelectMode}
               groupSelected={itemSelected}
+              preloadCover={preloadCover}
             />
           )}
         </div>

@@ -23,7 +23,7 @@ const ComicTranslationOverlay: React.FC<ComicTranslationOverlayProps> = ({
   onRegionSelect,
 }) => {
   const blocks = createComicOverlayBlocks(page);
-  if (blocks.length === 0) return null;
+  if (!visible || blocks.length === 0) return null;
 
   return (
     <div
@@ -65,7 +65,7 @@ const ComicTranslationOverlay: React.FC<ComicTranslationOverlayProps> = ({
             (block.orientation === 'vertical' ? 'vertical-rl' : 'horizontal-tb'),
           transform: block.rotationDeg ? `rotate(${block.rotationDeg}deg)` : undefined,
           whiteSpace: 'pre-wrap',
-          overflow: 'hidden',
+          overflow: blockStyle?.fit === 'overflow' ? 'visible' : 'hidden',
           cursor: onRegionSelect ? 'pointer' : 'default',
           userSelect: visible ? 'text' : 'none',
           WebkitTextStroke:

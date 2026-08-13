@@ -21,13 +21,21 @@ import { interceptWindowOpen } from '@/utils/open';
 import { mountAdditionalFonts } from '@/styles/fonts';
 import { isTauriAppPlatform } from '@/services/environment';
 import { getSysFontsList, setSystemUIVisibility } from '@/utils/bridge';
-import { AboutWindow } from '@/components/AboutWindow';
-import { KeyboardShortcutsHelp } from '@/components/KeyboardShortcutsHelp';
+import { useDialogVisibility } from '@/hooks/useDialogVisibility';
 import { ProofreadRulesManager } from './ProofreadRules';
 import { Toast } from '@/components/Toast';
 import { getLocale } from '@/utils/misc';
 import { initDayjs } from '@/utils/time';
 import ReaderContent from './ReaderContent';
+
+const AboutWindow = React.lazy(() =>
+  import('@/components/AboutWindow').then(({ AboutWindow }) => ({ default: AboutWindow })),
+);
+const KeyboardShortcutsHelp = React.lazy(() =>
+  import('@/components/KeyboardShortcutsHelp').then(({ KeyboardShortcutsHelp }) => ({
+    default: KeyboardShortcutsHelp,
+  })),
+);
 
 /*
 Z-Index Layering Guide:
@@ -64,6 +72,13 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
   const { isNotebookVisible, isNotebookPinned } = useNotebookStore();
   const { getIsNotebookVisible, setNotebookVisible } = useNotebookStore();
   const { isDarkMode, systemUIAlwaysHidden, isRoundedWindow } = useThemeStore();
+  const [isAboutDialogOpen, setAboutDialogOpen] = useDialogVisibility('about_window');
+  const [isShortcutsDialogOpen, setShortcutsDialogOpen] = useDialogVisibility(
+    'shortcuts_help',
+    undefined,
+    undefined,
+    '?',
+  );
 
   useTheme({ systemUIVisible: settings.alwaysShowStatusBar, appThemeColor: 'base-100' });
   useScreenWakeLock(settings.screenWakeLock, appService?.hasWindow);
@@ -147,8 +162,17 @@ const Reader: React.FC<{ ids?: string }> = ({ ids }) => {
     >
       <Suspense fallback={<div className='full-height'></div>}>
         <ReaderContent ids={ids} settings={settings} />
-        <AboutWindow />
-        <KeyboardShortcutsHelp />
+        <Suspense fallback={null}>
+          {isAboutDialogOpen && (
+            <AboutWindow visible={isAboutDialogOpen} onVisibleChange={setAboutDialogOpen} />
+          )}
+          {isShortcutsDialogOpen && (
+            <KeyboardShortcutsHelp
+              visible={isShortcutsDialogOpen}
+              onVisibleChange={setShortcutsDialogOpen}
+            />
+          )}
+        </Suspense>
         <ProofreadRulesManager />
         <Toast />
       </Suspense>

@@ -1,13 +1,11 @@
-import type { Options } from '@wdio/types';
-
-export const config: Options.Testrunner & { capabilities: unknown } = {
+export const config = {
   runner: 'local',
-  specs: ['./e2e/**/*.e2e.ts'],
+  specs: ['./e2e/**/*.e2e.mjs'],
   maxInstances: 1,
   capabilities: [
     {
       browserName: 'chrome',
-    } as WebdriverIO.Capabilities,
+    },
   ],
   logLevel: 'error',
   bail: 0,

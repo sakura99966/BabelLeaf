@@ -1,7 +1,4 @@
-import { LocaleWithTextInfo } from '@/types/misc';
-import { franc } from 'franc-min';
-import { iso6392 } from 'iso-639-2';
-import { iso6393To1 } from 'iso-639-3';
+import type { LocaleWithTextInfo } from '@/types/misc';
 
 export const isCJKStr = (str: string) => {
   return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(str ?? '');
@@ -97,40 +94,57 @@ export const isSameLang = (lang1?: string | null, lang2?: string | null): boolea
   return normalizedLang1 === normalizedLang2;
 };
 
+let englishLanguageNames: Intl.DisplayNames | null | undefined;
+
+const getEnglishLanguageNames = (): Intl.DisplayNames | null => {
+  if (englishLanguageNames !== undefined) return englishLanguageNames;
+  try {
+    englishLanguageNames = new Intl.DisplayNames(['en'], {
+      type: 'language',
+      fallback: 'none',
+    });
+  } catch {
+    englishLanguageNames = null;
+  }
+  return englishLanguageNames;
+};
+
 export const isValidLang = (lang?: string) => {
   if (!lang) return false;
   if (typeof lang !== 'string') return false;
-  if (['und', 'mul', 'mis', 'zxx'].includes(lang)) return false;
   const code = normalizedLangCode(lang);
-  return iso6392.some((l) => l.iso6391 === code || l.iso6392B === code);
+  if (['und', 'mul', 'mis', 'zxx'].includes(code)) return false;
+  if (!/^[a-z]{2,3}$/.test(code)) return false;
+
+  try {
+    const names = getEnglishLanguageNames();
+    if (names) return names.of(code) !== undefined;
+  } catch {
+    return false;
+  }
+
+  // DisplayNames is present on every supported WebView, but keep a bounded
+  // compatibility fallback for older embedded engines. Canonical three-letter
+  // aliases collapse to two letters; structurally valid two-letter tags are
+  // accepted for OS-provided voices even when the engine lacks name data.
+  try {
+    const canonical = new Intl.Locale(code).language;
+    return code.length === 2 || canonical.length === 2;
+  } catch {
+    return false;
+  }
 };
 
+/** Convert a known ISO 639-2/B alias without loading the full language table. */
 export const code6392to6391 = (code: string): string => {
-  const lang = iso6392.find((l) => l.iso6392B === code);
-  return lang?.iso6391 || '';
-};
-
-const commonIndivToMacro: Record<string, string> = {
-  cmn: 'zho',
-  arb: 'ara',
-  arz: 'ara',
-  ind: 'msa',
-  zsm: 'msa',
-  nob: 'nor',
-  nno: 'nor',
-  pes: 'fas',
-  quy: 'que',
-};
-
-export const code6393to6391 = (code: string): string => {
-  const macro = commonIndivToMacro[code] || code;
-  return iso6393To1[macro] || '';
-};
-
-export const getLanguageName = (code: string): string => {
-  const lang = normalizedLangCode(code);
-  const language = iso6392.find((l) => l.iso6391 === lang || l.iso6392B === lang);
-  return language ? language.name : lang;
+  const normalized = code.toLowerCase();
+  if (normalized.length !== 3 || !isValidLang(normalized)) return '';
+  try {
+    const canonical = new Intl.Locale(normalized).language;
+    return canonical.length === 2 ? canonical : '';
+  } catch {
+    return '';
+  }
 };
 
 export const inferLangFromScript = (text: string, lang: string): string => {
@@ -144,17 +158,6 @@ export const inferLangFromScript = (text: string, lang: string): string => {
     }
   }
   return lang;
-};
-
-export const detectLanguage = (content: string): string => {
-  try {
-    const iso6393Lang = franc(content.substring(0, 1000));
-    const iso6391Lang = code6393to6391(iso6393Lang) || 'en';
-    return iso6391Lang;
-  } catch {
-    console.warn('Language detection failed, defaulting to en.');
-    return 'en';
-  }
 };
 
 export const getLanguageInfo = (lang: string) => {

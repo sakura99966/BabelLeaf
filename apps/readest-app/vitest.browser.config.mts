@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
 import { loadEnvFile } from './vitest.env.mts';
+import path from 'node:path';
 
 // Browser tests exercise the local-only frontend without hosted-service settings.
 const env = { ...loadEnvFile('.env'), NEXT_PUBLIC_APP_PLATFORM: 'web' };
@@ -13,6 +14,10 @@ export default defineConfig({
     'process.env': JSON.stringify(env),
   },
   resolve: {
+    alias: {
+      '@simplecc': path.resolve(__dirname, '../../packages/simplecc-wasm/dist/web'),
+      '@pdfjs': path.resolve(__dirname, 'public/vendor/pdfjs'),
+    },
     conditions: ['development'],
   },
   optimizeDeps: {

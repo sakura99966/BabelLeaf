@@ -1,0 +1,6 @@
+{
+  "cargo:cfg_block@0.1.1": {
+    "license": "Apache-2.0",
+    "evidence": "Crate license-file LICENSE; SHA-256 408BBC4D10BDF74D8C9B74B64EA4910603257E24133DA18EDC4D16198E3B4010"
+  }
+}

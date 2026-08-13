@@ -6,7 +6,7 @@ import {
   CJK_SANS_SERIF_FONTS,
   CJK_SERIF_FONTS,
 } from '@/services/constants';
-import { ViewSettings } from '@/types/book';
+import { TranslationDisplayMode, ViewSettings } from '@/types/book';
 import {
   themes,
   Palette,
@@ -720,7 +720,11 @@ export const getDictStyles = (bg: string, fg: string, isDarkMode: boolean) => {
   `;
 };
 
-const getTranslationStyles = (showSource: boolean) => `
+const getTranslationStyles = (
+  showSource: boolean,
+  displayMode: TranslationDisplayMode = 'stacked',
+) => `
+  /* Default mode for newly-created translation nodes: ${displayMode}. */
   .translation-source {
   }
   .translation-target {
@@ -736,6 +740,31 @@ const getTranslationStyles = (showSource: boolean) => `
     display: block !important;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  /* Reader presentation modes are applied to each source element so the
+     original and generated text remain anchored to the same DOM location. */
+  .translation-source.translation-display-original .translation-target {
+    display: none !important;
+  }
+  .translation-source.translation-display-translated {
+    color: transparent !important;
+    text-shadow: none !important;
+  }
+  .translation-source.translation-display-translated > .translation-target {
+    color: initial !important;
+  }
+  .translation-source.translation-display-columns {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1em;
+    align-items: start;
+  }
+  .translation-source.translation-display-columns > .translation-target {
+    grid-column: 2;
+    margin: 0 !important;
+  }
+  .translation-source.translation-display-columns > .translation-target + * {
+    grid-column: 1;
   }
 `;
 
@@ -873,7 +902,10 @@ export const getStyles = (
     viewSettings.backgroundTextureId,
     viewSettings.isEink,
   );
-  const translationStyles = getTranslationStyles(viewSettings.showTranslateSource!);
+  const translationStyles = getTranslationStyles(
+    viewSettings.showTranslateSource!,
+    viewSettings.translationDisplayMode,
+  );
   const warichuStyles = getWarichuStyles();
   const userStylesheet = viewSettings.userStylesheet!;
   // The `@namespace` declaration must lead the stylesheet: a `@namespace` rule
@@ -913,7 +945,10 @@ export const applyTranslationStyle = (viewSettings: ViewSettings) => {
 
   const styleElement = document.createElement('style');
   styleElement.id = styleId;
-  styleElement.textContent = getTranslationStyles(viewSettings.showTranslateSource);
+  styleElement.textContent = getTranslationStyles(
+    viewSettings.showTranslateSource,
+    viewSettings.translationDisplayMode,
+  );
 
   document.head.appendChild(styleElement);
 };

@@ -1,24 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useTranslation } from '@/hooks/useTranslation';
 import { isMacPlatform } from '@/services/environment';
 import { getShortcutsForDisplay } from '@/helpers/shortcuts';
 import { formatKeyForDisplay } from '@/utils/shortcutKeys';
+import { setShortcutsDialogVisible, useDialogVisibility } from '@/hooks/useDialogVisibility';
 import Dialog from './Dialog';
 import Link from './Link';
 
-export const setShortcutsDialogVisible = (visible: boolean) => {
-  const dialog = document.getElementById('shortcuts_help');
-  if (dialog) {
-    const event = new CustomEvent('setDialogVisibility', {
-      detail: { visible },
-    });
-    dialog.dispatchEvent(event);
-  }
-};
+export { setShortcutsDialogVisible };
 
-export const KeyboardShortcutsHelp = () => {
+interface KeyboardShortcutsHelpProps {
+  visible?: boolean;
+  onVisibleChange?: (visible: boolean) => void;
+}
+
+export const KeyboardShortcutsHelp = ({
+  visible,
+  onVisibleChange,
+}: KeyboardShortcutsHelpProps = {}) => {
   const _ = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useDialogVisibility('shortcuts_help', visible, onVisibleChange, '?');
   const isMac = isMacPlatform();
 
   const sections = useMemo(() => getShortcutsForDisplay(isMac), [isMac]);
@@ -69,42 +70,6 @@ export const KeyboardShortcutsHelp = () => {
     ),
     [_, isMac],
   );
-
-  useEffect(() => {
-    const handleCustomEvent = (event: CustomEvent) => {
-      setIsOpen(event.detail.visible);
-    };
-
-    const el = document.getElementById('shortcuts_help');
-    if (el) {
-      el.addEventListener('setDialogVisibility', handleCustomEvent as EventListener);
-    }
-
-    return () => {
-      if (el) {
-        el.removeEventListener('setDialogVisibility', handleCustomEvent as EventListener);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== '?') return;
-
-      const activeElement = document.activeElement as HTMLElement;
-      const isInteractive =
-        activeElement.tagName === 'INPUT' ||
-        activeElement.tagName === 'TEXTAREA' ||
-        activeElement.isContentEditable;
-      if (isInteractive) return;
-
-      event.preventDefault();
-      setIsOpen((prev) => !prev);
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   const handleClose = () => {
     setIsOpen(false);

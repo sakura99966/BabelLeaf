@@ -19,16 +19,9 @@ import {
 } from '@/utils/cache';
 import { AppService } from '@/types/system';
 import Dialog from '@/components/Dialog';
+import { setCacheManagerDialogVisible, useDialogVisibility } from '@/hooks/useDialogVisibility';
 
-export const setCacheManagerDialogVisible = (visible: boolean) => {
-  const dialog = document.getElementById('cache_manager_window');
-  if (dialog) {
-    const event = new CustomEvent('setDialogVisibility', {
-      detail: { visible },
-    });
-    dialog.dispatchEvent(event);
-  }
-};
+export { setCacheManagerDialogVisible };
 
 type CacheStatus = 'scanning' | 'idle' | 'confirming' | 'clearing' | 'done' | 'error';
 
@@ -54,10 +47,15 @@ const getCacheSources = async (appService: AppService): Promise<CacheSource[]> =
   return sources;
 };
 
-export const CacheManagerWindow = () => {
+interface CacheManagerWindowProps {
+  visible?: boolean;
+  onVisibleChange?: (visible: boolean) => void;
+}
+
+export const CacheManagerWindow = ({ visible, onVisibleChange }: CacheManagerWindowProps = {}) => {
   const _ = useTranslation();
   const { appService } = useEnv();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useDialogVisibility('cache_manager_window', visible, onVisibleChange);
   const [status, setStatus] = useState<CacheStatus>('scanning');
   const [count, setCount] = useState(0);
   const [size, setSize] = useState(0);
@@ -82,25 +80,11 @@ export const CacheManagerWindow = () => {
   };
 
   useEffect(() => {
-    const handleCustomEvent = (event: CustomEvent) => {
-      setIsOpen(event.detail.visible);
-      if (event.detail.visible) {
-        scanCache();
-      }
-    };
-
-    const el = document.getElementById('cache_manager_window');
-    if (el) {
-      el.addEventListener('setDialogVisibility', handleCustomEvent as EventListener);
+    if (isOpen) {
+      void scanCache();
     }
-
-    return () => {
-      if (el) {
-        el.removeEventListener('setDialogVisibility', handleCustomEvent as EventListener);
-      }
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appService]);
+  }, [appService, isOpen]);
 
   const handleClearClick = () => {
     if (status === 'idle' && count > 0) {

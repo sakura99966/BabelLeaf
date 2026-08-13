@@ -19,6 +19,7 @@ interface BookItemProps {
   coverFit: LibraryCoverFitType;
   isSelectMode: boolean;
   bookSelected: boolean;
+  preloadCover?: boolean;
   showBookDetailsModal: (book: Book) => void;
   showTimeRemaining: boolean;
 }
@@ -29,6 +30,7 @@ const BookItem: React.FC<BookItemProps> = ({
   coverFit,
   isSelectMode,
   bookSelected,
+  preloadCover = false,
   showBookDetailsModal,
   showTimeRemaining,
 }) => {
@@ -80,6 +82,7 @@ const BookItem: React.FC<BookItemProps> = ({
           mode={mode}
           book={book}
           coverFit={coverFit}
+          preload={preloadCover}
           showSpine={settings.librarySkeuomorphicCovers}
           imageClassName={clsx(
             'shadow-md',

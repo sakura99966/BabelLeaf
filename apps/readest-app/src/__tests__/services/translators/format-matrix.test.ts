@@ -34,24 +34,16 @@ describe('translation format matrix', () => {
     ['EPUB', 'sample-alice.epub', 'application/epub+zip'],
     ['PDF', 'sample-alice.pdf', 'application/pdf'],
     ['MOBI', 'sample-war-peace.mobi', 'application/x-mobipocket-ebook'],
-    ['AZW', 'sample-war-peace.mobi', 'application/x-mobipocket-ebook'],
-    ['AZW3', 'sample-war-peace.mobi', 'application/x-mobipocket-ebook'],
+    ['AZW3', 'sample-babelleaf.azw3', 'application/vnd.amazon.mobi8-ebook'],
     ['FB2', 'sample-metadata.fb2', 'application/x-fictionbook+xml'],
     ['TXT', 'sample-alice.txt', 'text/plain'],
-    ['MD', 'sample-alice.txt', 'text/plain'],
+    ['MD', 'sample-fixture.md', 'text/markdown'],
   ])(
     'extracts text from the supported %s route',
     async (format, fixtureName, type) => {
-      const filename =
-        format === 'AZW'
-          ? 'sample-war-peace.azw'
-          : format === 'AZW3'
-            ? 'sample-war-peace.azw3'
-            : format === 'MD'
-              ? 'sample-alice.md'
-              : fixtureName;
+      const filename = fixtureName;
       const file = new File([fixture(fixtureName, type)], filename, {
-        type: format === 'MD' ? 'text/markdown' : type,
+        type,
       });
       const opened = await new DocumentLoader(file).open();
       const items = await extractTranslationItems(opened.book, {
@@ -89,12 +81,24 @@ describe('translation format matrix', () => {
     expect(checkPerformanceMeasurement({ name: 'pageTurnMs', value: 250, unit: 'ms' })).toBe(true);
     expect(checkPerformanceMeasurement({ name: 'pageTurnMs', value: 251, unit: 'ms' })).toBe(false);
     expect(TRANSLATION_FORMAT_FIXTURE_MATRIX).toHaveLength(9);
+    expect(
+      TRANSLATION_FORMAT_FIXTURE_MATRIX.find((fixture) => fixture.format === 'AZW')
+        ?.validFixtureSource,
+    ).toBe('generated-local');
+    expect(
+      TRANSLATION_FORMAT_FIXTURE_MATRIX.find((fixture) => fixture.format === 'AZW3')
+        ?.validFixtureSource,
+    ).toBe('repository-owned');
     expect(OCR_FORMAT_FIXTURE_MATRIX.map((fixture) => fixture.sourceFormat)).toEqual([
       'PDF',
       'CBZ',
       'FBZ',
       'IMAGE_FOLDER',
     ]);
+    expect(
+      OCR_FORMAT_FIXTURE_MATRIX.find((fixture) => fixture.sourceFormat === 'FBZ')
+        ?.validFixtureSource,
+    ).toBe('generated-local');
     expect(COMIC_WORKSPACE_FIXTURE_MATRIX).toHaveLength(2);
     expect(COMIC_WORKSPACE_FIXTURE_MATRIX.every((fixture) => fixture.recoveryFixture)).toBe(true);
   });

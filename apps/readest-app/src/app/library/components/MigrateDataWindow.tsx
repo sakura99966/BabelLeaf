@@ -23,16 +23,9 @@ import { requestStoragePermission } from '@/utils/permission';
 import Dialog from '@/components/Dialog';
 import Dropdown from '@/components/Dropdown';
 import MenuItem from '@/components/MenuItem';
+import { setMigrateDataDirDialogVisible, useDialogVisibility } from '@/hooks/useDialogVisibility';
 
-export const setMigrateDataDirDialogVisible = (visible: boolean) => {
-  const dialog = document.getElementById('migrate_data_dir_window');
-  if (dialog) {
-    const event = new CustomEvent('setDialogVisibility', {
-      detail: { visible },
-    });
-    dialog.dispatchEvent(event);
-  }
-};
+export { setMigrateDataDirDialogVisible };
 
 type MigrationStatus = 'idle' | 'selecting' | 'migrating' | 'completed' | 'error';
 
@@ -42,11 +35,20 @@ interface MigrationProgress {
   currentFile?: string;
 }
 
-export const MigrateDataWindow = () => {
+interface MigrateDataWindowProps {
+  visible?: boolean;
+  onVisibleChange?: (visible: boolean) => void;
+}
+
+export const MigrateDataWindow = ({ visible, onVisibleChange }: MigrateDataWindowProps = {}) => {
   const _ = useTranslation();
   const { appService, envConfig } = useEnv();
   const { settings, setSettings, saveSettings } = useSettingsStore();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useDialogVisibility(
+    'migrate_data_dir_window',
+    visible,
+    onVisibleChange,
+  );
   const [currentDataDir, setCurrentDataDir] = useState('');
   const [newDataDir, setNewDataDir] = useState('');
   const [migrationStatus, setMigrationStatus] = useState<MigrationStatus>('idle');
@@ -61,26 +63,12 @@ export const MigrateDataWindow = () => {
   const [androidNewDirs, setAndroidNewDirs] = useState<{ path: string; label: string }[]>([]);
 
   useEffect(() => {
-    const handleCustomEvent = (event: CustomEvent) => {
-      setIsOpen(event.detail.visible);
-      if (event.detail.visible) {
-        loadCurrentDataDir();
-        loadAndroidDirs();
-      }
-    };
-
-    const el = document.getElementById('migrate_data_dir_window');
-    if (el) {
-      el.addEventListener('setDialogVisibility', handleCustomEvent as EventListener);
+    if (isOpen) {
+      void loadCurrentDataDir();
+      void loadAndroidDirs();
     }
-
-    return () => {
-      if (el) {
-        el.removeEventListener('setDialogVisibility', handleCustomEvent as EventListener);
-      }
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isOpen]);
 
   const loadCurrentDataDir = async () => {
     try {

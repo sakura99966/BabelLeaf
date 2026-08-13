@@ -10,9 +10,8 @@ import {
   copyFile,
   stat,
   BaseDirectory,
-  WriteFileOptions,
-  DirEntry,
 } from '@tauri-apps/plugin-fs';
+import type { WriteFileOptions, DirEntry } from '@tauri-apps/plugin-fs';
 import { invoke, convertFileSrc } from '@tauri-apps/api/core';
 import { open as openDialog, save as saveDialog, ask } from '@tauri-apps/plugin-dialog';
 import {
@@ -25,15 +24,13 @@ import {
   tempDir,
 } from '@tauri-apps/api/path';
 import { type as osType } from '@tauri-apps/plugin-os';
-import { shareFile } from '@choochmeque/tauri-plugin-sharekit-api';
-
 import {
-  FileSystem,
-  BaseDir,
-  AppPlatform,
-  ResolvedPath,
-  FileItem,
-  DistChannel,
+  type FileSystem,
+  type BaseDir,
+  type AppPlatform,
+  type ResolvedPath,
+  type FileItem,
+  type DistChannel,
 } from '@/types/system';
 import { getOSPlatform, isContentURI, isFileURI, isValidURL } from '@/utils/misc';
 import { getDirPath, getFilename } from '@/utils/path';
@@ -44,8 +41,8 @@ import { copyFiles } from '@/utils/files';
 import { detectViewTransitionGroup, detectViewTransitionsAPI } from '@/utils/viewTransition';
 
 import { BaseAppService } from './appService';
-import { DatabaseOpts, DatabaseService } from '@/types/database';
-import { SchemaType } from '@/services/database/migrate';
+import type { DatabaseOpts, DatabaseService } from '@/types/database';
+import type { SchemaType } from '@/services/database/migrate';
 import {
   DATA_SUBDIR,
   LOCAL_BOOKS_SUBDIR,
@@ -180,6 +177,14 @@ const getPathResolver = ({
     const customBasePrefix = getCustomBasePrefix?.(base);
     switch (base) {
       case 'Settings':
+        if (customBasePrefixSync && customBasePrefix) {
+          return {
+            baseDir: 0,
+            basePrefix: customBasePrefix,
+            fp: `${customBasePrefixSync()}${path ? `/${path}` : ''}`,
+            base,
+          };
+        }
         return {
           baseDir: isPortable ? 0 : BaseDirectory.AppConfig,
           basePrefix: isPortable && execDir ? async () => execDir : appConfigDir,
@@ -188,9 +193,11 @@ const getPathResolver = ({
         };
       case 'Cache':
         return {
-          baseDir: BaseDirectory.AppCache,
-          basePrefix: appCacheDir,
-          fp: path,
+          baseDir: customBaseDir ?? BaseDirectory.AppCache,
+          basePrefix: customBasePrefix ?? appCacheDir,
+          fp: customBasePrefixSync
+            ? `${customBasePrefixSync()}/Cache${path ? `/${path}` : ''}`
+            : path,
           base,
         };
       case 'Log':
@@ -538,7 +545,7 @@ export const nativeFileSystem: FileSystem = {
   },
 };
 
-const DIST_CHANNEL = (process.env['NEXT_PUBLIC_DIST_CHANNEL'] || 'readest') as DistChannel;
+const DIST_CHANNEL = (process.env.NEXT_PUBLIC_DIST_CHANNEL || 'readest') as DistChannel;
 
 export class NativeAppService extends BaseAppService {
   fs = nativeFileSystem;
@@ -589,6 +596,10 @@ export class NativeAppService extends BaseAppService {
     super();
     if (customRootDir) {
       this.customRootDir = customRootDir;
+      // Install the explicit root before init() reads settings. Native E2E
+      // runners pass this override specifically to prevent even a read from
+      // the real user profile during bootstrap.
+      this.fs.resolvePath = getPathResolver({ customRootDir });
     }
   }
 
@@ -596,15 +607,17 @@ export class NativeAppService extends BaseAppService {
     const execDir = await invoke<string>('get_executable_dir');
     this.execDir = execDir;
     if (
-      process.env['NEXT_PUBLIC_PORTABLE_APP'] ||
+      process.env.NEXT_PUBLIC_PORTABLE_APP ||
       (await this.fs.exists(`${execDir}/${SETTINGS_FILENAME}`, 'None'))
     ) {
       this.isPortableApp = true;
-      this.fs.resolvePath = getPathResolver({
-        customRootDir: execDir,
-        isPortable: this.isPortableApp,
-        execDir,
-      });
+      if (!this.customRootDir) {
+        this.fs.resolvePath = getPathResolver({
+          customRootDir: execDir,
+          isPortable: this.isPortableApp,
+          execDir,
+        });
+      }
     }
     const settings = await this.loadSettings();
     if (this.customRootDir || settings.customRootDir) {
@@ -696,6 +709,20 @@ export class NativeAppService extends BaseAppService {
   }
 
   async selectFiles(name: string, extensions: string[]): Promise<string[]> {
+    if (
+      process.env.NEXT_PUBLIC_BABELLEAF_E2E === '1' &&
+      window.__BABELLEAF_WEBDRIVER__ === true &&
+      Array.isArray(window.__BABELLEAF_E2E_FILE_SELECTION)
+    ) {
+      const injectedSelection = window.__BABELLEAF_E2E_FILE_SELECTION.filter(
+        (value): value is string => typeof value === 'string' && value.length > 0,
+      );
+      delete window.__BABELLEAF_E2E_FILE_SELECTION;
+      if (injectedSelection.length > 0) {
+        await this.allowPathsInScopes(injectedSelection, false);
+      }
+      return injectedSelection;
+    }
     const selected = await openDialog({
       multiple: true,
       filters: [{ name, extensions }],
@@ -760,6 +787,7 @@ export class NativeAppService extends BaseAppService {
           }
         }
         try {
+          const { shareFile } = await import('@choochmeque/tauri-plugin-sharekit-api');
           await shareFile(shareablePath, {
             mimeType: options?.mimeType || 'application/octet-stream',
             // Anchor the macOS NSSharingServicePicker / iPad popover to

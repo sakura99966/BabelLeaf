@@ -3,10 +3,11 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `v0.4.3` package; the 0.4.1.2/0.4.1.3 OCR adapter checkpoints, 0.4.2/0.4.3 image-pipeline services, desktop comic workspace, local model-pack management, and image-only PDF export are included; no model weights are bundled
-- Roadmap revision: 7
+- Current implementation baseline: `v0.4.3` package; the concrete Windows x64 Tesseract WASM OCR path, exact local `tessdata_fast` gate, strict local OpenCV LaMa/ONNX Runtime inpainting path, image-pipeline services, desktop comic workspace, local model-pack management, and image-only PDF export are included; no model weights are bundled
+- Acceptance status: `v0.4.3` implementation and every user-independent local automated gate pass in the current working tree. Formal release acceptance remains **pending external evidence**: credentialed provider lifecycles, representative legal-corpus quality review, exact final-package clean-host workflows, human TTS review, signing, legal review, committed-source provenance, and remote CI. Platform implementation remains blocked. The authoritative split verdict and current hashes are recorded in `docs/PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md`.
+- Roadmap revision: 12
 - Approved scope date: 2026-08-08
-- Last closure update: 2026-08-08
+- Last closure update: 2026-08-13
 - Target stable release: `1.0.0`
 
 This document is the source of truth for BabelLeaf version planning, implementation sequencing, code review, and release acceptance. Release notes record what a version actually delivered; this roadmap records what must be delivered before work advances to the next version.
@@ -75,21 +76,21 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | Requirement | Current state at 0.4.3 | Remaining milestone |
 | --- | --- | --- |
 | Local library and reader | Implemented from the Readest baseline | Format and platform matrix hardened through 0.8 |
-| EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths exist; 0.3.2 fixture, resource-limit, PDF diagnostics, 0.4.0 OCR source routing, 0.4.1 workspace routing, and 0.4.3 local-PDF page rasterization are tracked; format-matrix qualification remains required | Cross-platform proof in 0.8 |
+| EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths, resource limits, PDF diagnostics, OCR/workspace routing, and 48-entry local fixture matrix pass; exact final-package clean-host routing remains external evidence | Cross-platform proof in 0.8 |
 | Selection and viewport translation | Implemented | Provider UX hardening and platform validation through 0.8 |
 | Chapter and full-book translation | Persistent bounded queue, recovery dashboard, retry, review, stable anchors, and interchange delivered | Stress and platform portability through 0.8 |
 | DeepSeek V4, OpenAI, Claude, Ollama | Named adapter framework delivered | Release-time endpoint/model verification and platform validation through 0.8 |
 | Bilingual reading and sidecar | Aligned layouts, layout-independent anchors, portable sidecar, machine-result retention, and review recovery delivered | Migration and cross-platform portability through 0.8 |
 | Glossary and translation memory | Runtime enforcement plus validated management, limits, invalidation visibility, and JSON/TSV/TBX/TMX interchange delivered | Cross-platform migration and validation through 0.8 |
 | Human review | Full review workspace with edit, approve, revert, status filters, provenance, keyboard paging, autosaved drafts, recovery, and JSON/TSV/XLIFF interchange delivered | Cross-format alignment and platform validation through 0.8 |
-| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, OCR sidecar, bounded queue, versioned model packs, checksums, benchmark evidence, selectable text layer, engine gate, desktop workspace/overlay/editor, ONNX adapter, image cleanup/typesetting/export, image-only PDF writer, and recoverable multi-stage pipeline services delivered | A production OCR engine/model remains an explicit imported-pack quality and license gate |
-| Performance and resource controls | 0.3.2 budgets plus 0.4.0 OCR page-time and peak-memory budgets and 0.4.1 workspace save/overlay budgets are tracked | Measured gates and optimization through 0.9 |
-| Local dictionaries and word lookup | Baseline capability exists | Simplified-Chinese UX and native platform validation in 0.5-0.8 |
-| Local or native speech | Baseline capability exists | Queue, language/voice selection, accessibility, and native validation in 0.5-0.8 |
-| Scanned PDF and comic OCR | Local sidecar, task recovery, diagnostics, selectable text layer, desktop model-pack lifecycle, evidence-enforcing engine gate, ONNX adapter, and batch pipeline services delivered; no production weights are bundled | Candidate quality/resource evidence for an imported local pack |
+| Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, OCR sidecar, bounded queue, versioned model packs, checksums, benchmark evidence, selectable text layer, engine gate, desktop workspace/overlay/editor, concrete lazy Tesseract WASM OCR, concrete lazy OpenCV LaMa/ONNX Runtime cleanup, image cleanup/typesetting/export, image-only PDF writer, and recoverable multi-stage pipeline services delivered | Exact installed-package and representative legal-corpus OCR/inpainting evidence remains required |
+| Performance and resource controls | The current unsigned 0.4.3 Windows executable starts in 162.79 ms, reaches 349.13 MiB during 60-second warmup, and peaks at 97.43 MiB during the required 300-second idle interval against a 350 MiB budget; OCR and LaMa workload measurements are recorded separately | Broader minimum-host and cross-platform measurement through 0.9 |
+| Local dictionaries and word lookup | Native E2E proves real MDict import, persistence, enable, lookup path, and removal | Human UX review and native platform validation in 0.5-0.8 |
+| Local or native speech | Native Windows E2E proves English, Japanese, and Simplified Chinese synthesis completion | Human audio review plus queue, accessibility, and native platform validation in 0.5-0.8 |
+| Scanned PDF and comic OCR | Local sidecar, task recovery, diagnostics, selectable text layer, desktop model-pack lifecycle, evidence-enforcing engine gate, ONNX adapter, and a concrete local Tesseract WASM path are delivered; exact `tessdata_fast` zh-CN/en/ja/vertical-ja imports pass the deterministic Windows worker matrix; no model weights are bundled | Representative legal manga/scanned-book quality matrix and exact installed-package workflow |
 | Comic translation and editable overlays | Workspace, desktop reader entry, explicit region translation bridge, correction/review, selectable OCR layer, stale-revision rules, non-flattening overlay, editable mask/layout sidecar, and application-facing editing facade delivered | Native page-canvas parity on future platforms |
-| Erasing, inpainting, typesetting, translated export | Deterministic bounded cleanup, optional local worker boundary, desktop mask/typeset controls, image-set/CBZ/ZIP/image-only PDF export, source protection, and validation delivered | Model-backed inpainting quality remains an imported-worker gate |
-| Windows production reliability | Unsigned package and isolated NSIS smoke verification exist | Signing and 1.0 release qualification in 0.9-1.0 |
+| Erasing, inpainting, typesetting, translated export | Deterministic bounded cleanup, strictly catalogued local LaMa model import, current-page preview, opt-in model cleanup, desktop mask/typeset controls, image-set/CBZ/ZIP/image-only PDF export, source protection, and measured high transient memory delivered | Representative manga quality and exact installed-package export on the minimum host remain open |
+| Windows production reliability | The final unsigned standard package passes preflight, build, 300-second performance, and source-complete SBOM gates; an isolated smoke flavor passes install, responsive launch, uninstall, cleanup, and data retention | Exact final-package clean-host workflow, signing, committed-source provenance, remote CI, and external/manual evidence |
 | macOS | Shared source structure only | 0.5.0 |
 | Android | Generated platform structure only | 0.6.0 |
 | iOS/iPadOS | Generated platform structure only | 0.7.0 |
@@ -107,7 +108,7 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | 0.4.1.2 | OCR runtime adapter checkpoint | A model-agnostic local ONNX adapter and candidate registry are test-covered; no production engine or model is selected |
 | 0.4.1.3 | Multi-artifact OCR model-pack checkpoint | Version-2 manifests, per-artifact verification, aggregate inventory checksums, backward-compatible loading, and ONNX artifact routing are test-covered; no production engine or model is selected |
 | 0.4.2 | Image cleanup and typesetting | Text can be erased, repaired, typeset, and exported to a separate translated copy; editable state is sidecar-backed |
-| 0.4.3 | PC feature closure | The desktop reader exposes the comic workspace, local OCR sidecar/model workflow, selectable text, translation, cleanup, typesetting, and separate CBZ/PDF export; all PC release checks pass |
+| 0.4.3 | PC feature closure | The desktop reader exposes the comic workspace, local OCR sidecar/model workflow, selectable text, translation, cleanup, typesetting, and separate CBZ/PDF export. **Current gate: implementation and local automation pass; formal release acceptance is pending the external/user-owned gates in the final acceptance record.** |
 | 0.5.0 | macOS and portable-core qualification | macOS ships natively and desktop assumptions are removed from the shared core |
 | 0.6.0 | Android | Android imports, reads, translates, looks up, speaks, and persists supported local content |
 | 0.7.0 | iOS/iPadOS | iOS and iPadOS meet equivalent native import, reading, translation, speech, and persistence requirements |
@@ -342,12 +343,16 @@ The 0.4.3 queue supports ordered OCR/translation/cleanup/typesetting/export
 stages, pause, resume, cancellation, retry, restart recovery, revision history,
 selective rerun, checkpoint persistence, redacted diagnostics, cache pruning,
 and export identity validation. The desktop reader exposes the comic workspace,
-local model-pack lifecycle, and sequential local-PDF page rasterization; unit
-tests cover failure, recovery, resource, source-preservation, and image-only
-PDF paths. A separately installed and
-measured OCR candidate is still required before claiming a bundled production
-OCR quality result; the repository does not bundle weights or download them
-automatically.
+local model-pack lifecycle, sequential local-PDF page rasterization, concrete
+Tesseract WASM OCR, and explicit local LaMa cleanup. All user-independent local
+automated format, regression, native, build, performance, package-preflight,
+security-audit, and source-SBOM gates pass in the current working tree. The
+repository does not bundle or download model weights. Formal release acceptance
+remains pending representative legal-corpus quality review, credentialed
+provider lifecycles, exact final-package clean-host workflows, human TTS review,
+signing, legal review, committed-source provenance, and remote CI. The exact
+split verdict is in `PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md`; platform
+implementation is blocked until those external gates close.
 
 ## 0.5.0 - macOS and portable-core qualification
 
@@ -471,7 +476,7 @@ BabelLeaf 1.0 is complete only when all of the following are true:
 | Japanese manga OCR | manga-ocr, manga-ocr-rs | Benchmark accuracy and portability; select by measured result rather than repository popularity |
 | Cross-platform inference | ONNX Runtime | Preferred abstraction when compatible with selected models and target package budgets |
 | Image processing | OpenCV | Use bounded native operations behind the worker protocol |
-| Inpainting | LaMa or a measured successor | Optional downloadable model; code and weights reviewed separately |
+| Inpainting | Strictly catalogued OpenCV LaMa or a measured successor | Explicit local model import only; code and weights reviewed separately; no implicit download |
 | Comic end-to-end behavior | Comic Translate, BallonsTranslator, manga-image-translator | Benchmark and architecture/editor reference; do not merge multiple complete applications |
 | Selectable comic text | mokuro | Sidecar and overlay reference |
 | Comic reading UX | YACReader, KOReader | Navigation, RTL, double-page, zoom, touch, and library reference only unless a specific component is separately approved |
@@ -517,9 +522,9 @@ No work may be declared complete because a build command alone succeeded. Packag
 ## Roadmap governance
 
 - The next implementation target after the 0.4.3 closure is 0.5.0 macOS and
-  portable-core qualification. Production OCR engine/model evidence remains a
-  release-time gate for model-dependent claims; it must not be bypassed by
-  bundling an unverified runtime or weights.
+  portable-core qualification. Representative and exact-package OCR evidence,
+  along with the other recorded PC acceptance blockers, remains required before
+  that transition; unverified runtimes or weights cannot bypass the gate.
 - Development must stop at each version boundary for review and acceptance before entering the next version unless the user explicitly authorizes continuous work through named versions.
 - P0 and P1 defects found in review belong to the current version and must be resolved before the next version begins.
 - Research spikes may occur ahead of schedule only in disposable branches or ignored evaluation directories and may not become production dependencies without the milestone's selection gate.

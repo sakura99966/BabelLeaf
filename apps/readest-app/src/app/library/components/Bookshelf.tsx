@@ -662,6 +662,10 @@ const Bookshelf: React.FC<BookshelfProps> = ({
           coverFit={coverFit as LibraryCoverFitType}
           isSelectMode={isSelectMode}
           itemSelected={itemSelected}
+          // The automatic desktop grid can show up to twelve columns. Eagerly
+          // load only that bounded first row; every virtualized row after it
+          // remains lazy and therefore does not expand the idle footprint.
+          preloadCover={index < 12}
           setLoading={setLoading}
           toggleSelection={toggleSelection}
           handleGroupBooks={groupSelectedBooks}

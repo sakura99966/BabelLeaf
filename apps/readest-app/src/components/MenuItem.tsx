@@ -21,6 +21,7 @@ interface MenuItemProps {
   children?: React.ReactNode;
   siblings?: React.ReactNode;
   detailsOpen?: boolean;
+  testId?: string;
   onClick?: () => void;
   setIsDropdownOpen?: (isOpen: boolean) => void;
 }
@@ -41,6 +42,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
   children,
   siblings,
   detailsOpen = false,
+  testId,
   onClick,
   setIsDropdownOpen,
 }) => {
@@ -132,6 +134,7 @@ const MenuItem: React.FC<MenuItemProps> = ({
   return (
     <div className='flex'>
       <button
+        data-testid={testId}
         role={disabled ? 'none' : 'menuitem'}
         aria-label={
           toggled !== undefined ? `${label} - ${toggled ? _('ON') : _('OFF')}` : undefined

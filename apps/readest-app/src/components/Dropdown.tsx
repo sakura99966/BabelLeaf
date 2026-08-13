@@ -19,6 +19,7 @@ interface DropdownProps {
   disabled?: boolean;
   onToggle?: (isOpen: boolean) => void;
   showTooltip?: boolean;
+  testId?: string;
 }
 
 type MenuItemProps = {
@@ -70,6 +71,7 @@ const Dropdown: React.FC<DropdownProps> = ({
   disabled,
   onToggle,
   showTooltip = true,
+  testId,
 }) => {
   const dropdownId = useId();
   const context = useDropdownContext();
@@ -127,6 +129,7 @@ const Dropdown: React.FC<DropdownProps> = ({
           aria-haspopup='menu'
           aria-expanded={isOpen}
           aria-label={label}
+          data-testid={testId}
           title={showTooltip ? label : undefined}
           className={clsx(
             'dropdown-toggle touch-target',

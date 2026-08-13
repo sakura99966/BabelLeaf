@@ -3,6 +3,7 @@
 import '@/utils/polyfill';
 import i18n from '@/i18n/i18n';
 import { useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { IconContext } from 'react-icons';
 import { useEnv } from '@/context/EnvContext';
 import { initSystemThemeListener, loadDataTheme } from '@/store/themeStore';
@@ -13,16 +14,29 @@ import { useSettingsSync } from '@/hooks/useSettingsSync';
 import { useDefaultIconSize } from '@/hooks/useResponsiveSize';
 import { useBackgroundTexture } from '@/hooks/useBackgroundTexture';
 import { useEinkMode } from '@/hooks/useEinkMode';
+import { useWindowsMemoryTarget } from '@/hooks/useWindowsMemoryTarget';
 import { getLocale } from '@/utils/misc';
 import { getDirFromUILanguage } from '@/utils/rtl';
 import { getAndroidPatchedViewportContent } from '@/utils/viewport';
 import { getLibraryViewSettings } from '@/helpers/settings';
 import { DropdownProvider } from '@/context/DropdownContext';
-import { CommandPaletteProvider, CommandPalette } from '@/components/command-palette';
+import {
+  CommandPaletteProvider,
+  useCommandPalette,
+} from '@/components/command-palette/CommandPaletteProvider';
 import AtmosphereOverlay from '@/components/AtmosphereOverlay';
-import AppLockScreen from '@/components/AppLockScreen';
-import AppLockDialog from '@/components/settings/AppLockDialog';
 import { useAppLockStore } from '@/store/appLockStore';
+
+const CommandPalette = dynamic(() => import('@/components/command-palette/CommandPalette'), {
+  ssr: false,
+});
+const AppLockScreen = dynamic(() => import('@/components/AppLockScreen'), { ssr: false });
+const AppLockDialog = dynamic(() => import('@/components/settings/AppLockDialog'), { ssr: false });
+
+const ConditionalCommandPalette = () => {
+  const { isOpen } = useCommandPalette();
+  return isOpen ? <CommandPalette /> : null;
+};
 
 const Providers = ({ children }: { children: React.ReactNode }) => {
   const { envConfig, appService } = useEnv();
@@ -32,11 +46,13 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
   const {
     isInitialized: isLockInitialized,
     isUnlocked,
+    dialogMode: appLockDialogMode,
     initialize: initializeAppLock,
   } = useAppLockStore();
   const iconSize = useDefaultIconSize();
   useSafeAreaInsets(); // Initialize safe area insets
   useSettingsSync(); // Adopt global settings broadcast by other windows (#4580)
+  useWindowsMemoryTarget(!!appService?.isWindowsApp);
 
   useEffect(() => {
     const handlerLanguageChanged = (lng: string) => {
@@ -128,10 +144,10 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
             style={appShellHidden ? { display: 'none' } : undefined}
           >
             {children}
-            <CommandPalette />
+            <ConditionalCommandPalette />
             <AtmosphereOverlay />
           </div>
-          <AppLockDialog />
+          {appLockDialogMode && <AppLockDialog />}
           {showAppLockScreen && <AppLockScreen />}
         </CommandPaletteProvider>
       </DropdownProvider>

@@ -1,7 +1,7 @@
 import type { Book, BookLookupIndex } from '@/types/book';
 import type { AppService, OsPlatform } from '@/types/system';
 import type { SystemSettings } from '@/types/settings';
-import { normalizeFilePathForIndex } from '@/services/bookService';
+import { normalizeFilePathForIndex } from '@/services/bookLookup';
 import { isContentURI, isValidURL } from '@/utils/misc';
 
 export interface IngestFileDeps {

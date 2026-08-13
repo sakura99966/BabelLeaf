@@ -13,6 +13,7 @@ interface BookCoverProps {
   imageClassName?: string;
   showSpine?: boolean;
   isPreview?: boolean;
+  preload?: boolean;
   onImageError?: () => void;
   onAspectRatioChange?: (ratio: number) => void;
 }
@@ -26,6 +27,7 @@ const BookCover: React.FC<BookCoverProps> = memo<BookCoverProps>(
     className,
     imageClassName,
     isPreview,
+    preload = false,
     onImageError,
     onAspectRatioChange,
   }) => {
@@ -80,7 +82,7 @@ const BookCover: React.FC<BookCoverProps> = memo<BookCoverProps>(
               src={book.metadata?.coverImageUrl || book.coverImageUrl!}
               alt={book.title}
               fill={true}
-              loading='lazy'
+              loading={preload ? 'eager' : 'lazy'}
               draggable={false}
               className={clsx('cover-image crop-cover-img object-cover', imageClassName)}
               onLoad={handleImageLoad}
@@ -104,7 +106,7 @@ const BookCover: React.FC<BookCoverProps> = memo<BookCoverProps>(
                 width={0}
                 height={0}
                 sizes='100vw'
-                loading='lazy'
+                loading={preload ? 'eager' : 'lazy'}
                 draggable={false}
                 className={clsx(
                   'cover-image fit-cover-img h-auto max-h-full w-auto max-w-full shadow-md',
@@ -161,6 +163,7 @@ const BookCover: React.FC<BookCoverProps> = memo<BookCoverProps>(
       prevProps.mode === nextProps.mode &&
       prevProps.coverFit === nextProps.coverFit &&
       prevProps.isPreview === nextProps.isPreview &&
+      prevProps.preload === nextProps.preload &&
       prevProps.showSpine === nextProps.showSpine &&
       prevProps.className === nextProps.className &&
       prevProps.imageClassName === nextProps.imageClassName

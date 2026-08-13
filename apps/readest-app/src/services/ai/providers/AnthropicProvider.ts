@@ -1,6 +1,7 @@
 import type { AIProvider, AIProviderName, AISettings, AITextGenerationRequest } from '../types';
 import { AI_TIMEOUTS } from '../utils/retry';
 import { getAIFetch } from '../utils/httpFetch';
+import { responseContainsModel } from '../utils/modelAvailability';
 
 /** Official Anthropic Messages API endpoint. This value is not user-editable. */
 export const ANTHROPIC_API_BASE_URL = 'https://api.anthropic.com';
@@ -76,7 +77,7 @@ export class AnthropicProvider implements AIProvider {
 
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.httpFetch(`${ANTHROPIC_API_BASE_URL}/v1/models?limit=1`, {
+      const response = await this.httpFetch(`${ANTHROPIC_API_BASE_URL}/v1/models?limit=100`, {
         method: 'GET',
         headers: {
           'x-api-key': this.apiKey,
@@ -84,7 +85,7 @@ export class AnthropicProvider implements AIProvider {
         },
         signal: AbortSignal.timeout(AI_TIMEOUTS.HEALTH_CHECK),
       });
-      return response.ok;
+      return await responseContainsModel(response, ANTHROPIC_TRANSLATION_MODEL);
     } catch {
       return false;
     }
