@@ -39,6 +39,13 @@ describe('BookCover', () => {
     expect(img?.getAttribute('loading')).toBe('lazy');
   });
 
+  it('loads an above-the-fold cover eagerly', () => {
+    const { container } = render(<BookCover book={makeBook()} coverFit='crop' preload />);
+    const img = container.querySelector('img.cover-image');
+    expect(img).toBeTruthy();
+    expect(img?.getAttribute('loading')).toBe('eager');
+  });
+
   it('reports natural aspect ratio via onAspectRatioChange when fit-mode image loads', () => {
     const onAspectRatioChange = vi.fn();
     const { container } = render(

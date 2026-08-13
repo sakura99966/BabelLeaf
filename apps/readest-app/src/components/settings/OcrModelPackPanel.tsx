@@ -11,7 +11,16 @@ import {
 } from '@/services/translators';
 import { BoxedList, SettingLabel } from './primitives';
 
-const MODEL_IMPORT_EXTENSIONS = ['json', 'onnx', 'bin', 'txt', 'vocab', 'model', 'weights'];
+const MODEL_IMPORT_EXTENSIONS = [
+  'json',
+  'onnx',
+  'bin',
+  'txt',
+  'vocab',
+  'model',
+  'weights',
+  'traineddata',
+];
 
 const basename = (name: string): string => name.replaceAll('\\', '/').split('/').pop() || name;
 
@@ -79,7 +88,9 @@ const OcrModelPackPanel: React.FC = () => {
       const files = await Promise.all(
         result.files.map((file) => readSelectedFile(file, appService)),
       );
-      const manifestFile = files.find((file) => file.name.toLowerCase().endsWith('.json'));
+      const manifestFile =
+        files.find((file) => basename(file.name).toLowerCase() === 'manifest.json') ??
+        files.find((file) => file.name.toLowerCase().endsWith('.json'));
       if (!manifestFile)
         throw new Error(_('Select the model manifest JSON and all declared artifacts.'));
       const manifest = JSON.parse(new TextDecoder().decode(manifestFile.bytes)) as unknown;

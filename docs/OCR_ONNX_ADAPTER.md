@@ -1,5 +1,9 @@
 # BabelLeaf ONNX OCR adapter checkpoint
 
+> Current note, 2026-08-13: this ONNX boundary remains available for future
+> candidates, but the selected Windows x64 PC runtime is Tesseract WASM. See
+> `OCR_TESSERACT_RUNTIME.md`. No ONNX candidate is release-approved.
+
 ## Purpose
 
 This checkpoint provides a model-agnostic local adapter for ONNX-backed OCR

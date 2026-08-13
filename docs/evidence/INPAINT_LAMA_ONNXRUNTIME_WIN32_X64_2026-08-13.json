@@ -1,0 +1,48 @@
+{
+  "format": "babelleaf.lama-verification",
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-13T14:54:37.894Z",
+  "platform": "win32-x64",
+  "runtime": {
+    "id": "onnxruntime-web",
+    "version": "1.27.0",
+    "license": "MIT",
+    "executionProvider": "wasm",
+    "threads": 1
+  },
+  "model": {
+    "id": "opencv-inpainting-lama",
+    "version": "2025jan",
+    "source": "https://huggingface.co/opencv/inpainting_lama",
+    "sourceRevision": "aee6d22f0a13e5e35af1c9a1c3afd62841fc6f3f",
+    "license": "Apache-2.0",
+    "sizeBytes": 92591623,
+    "sha256": "7df918ac3921d3daf0aae1d219776cf0dc4e4935f035af81841b40adcf74fdf2"
+  },
+  "test": {
+    "sample": "deterministic synthetic paper texture with masked black glyph-like strokes",
+    "dimensions": [512, 512],
+    "maskedPixels": 15717,
+    "finiteValues": 786432,
+    "outputValues": 786432,
+    "changedChannelRatio": 0.3707238446692541,
+    "modelLoadMs": 3488.1609,
+    "inferenceMs": 11059.9186,
+    "processRssMiB": 747.08203125,
+    "visualInspection": "masked glyph-like strokes removed; paper texture reconstructed",
+    "workingEvidence": "target/inpaint-models/lama-verification.json",
+    "inputImage": "target/inpaint-models/lama-verification/input.png",
+    "outputImage": "target/inpaint-models/lama-verification/output.png"
+  },
+  "productBoundary": {
+    "bundledWithApplication": false,
+    "downloadedByApplication": false,
+    "explicitLocalImportRequired": true,
+    "explicitPerExportOptInRequired": true,
+    "startupLoaded": false,
+    "maxConcurrentSessions": 1,
+    "sessionReleasedAfterPreviewOrExport": true,
+    "sourceBytesModified": false
+  },
+  "verdict": "basic runtime and synthetic visual gate passed; representative manga corpus and exact installed-package workflow remain required"
+}

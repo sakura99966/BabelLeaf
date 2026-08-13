@@ -1,5 +1,11 @@
 # BabelLeaf 0.4.0-0.4.3 OCR foundation, comic workspace, and pipeline
 
+> Superseding implementation note, 2026-08-13: the Windows x64 PC path now has
+> a concrete, release-gated Tesseract WASM runtime and exact locally imported
+> `tessdata_fast` model catalog. See `OCR_TESSERACT_RUNTIME.md`. Statements
+> below that no engine has been selected describe the earlier foundation
+> checkpoint and are no longer current for that platform.
+
 ## Scope
 
 0.4.0 establishes the local OCR data, worker, model, task, and selectable

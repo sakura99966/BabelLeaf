@@ -3,6 +3,7 @@ import type { LanguageModel } from 'ai';
 import type { AIProvider, AIProviderName, AISettings } from '../types';
 import { AI_TIMEOUTS } from '../utils/retry';
 import { getAIFetch } from '../utils/httpFetch';
+import { responseContainsModel } from '../utils/modelAvailability';
 
 /** Official DeepSeek API endpoint. This value is deliberately not user-editable. */
 export const DEEPSEEK_API_BASE_URL = 'https://api.deepseek.com';
@@ -59,7 +60,7 @@ export class DeepSeekProvider implements AIProvider {
         headers: { Authorization: `Bearer ${this.apiKey}` },
         signal: AbortSignal.timeout(AI_TIMEOUTS.HEALTH_CHECK),
       });
-      return response.ok;
+      return await responseContainsModel(response, DEEPSEEK_TRANSLATION_MODEL);
     } catch {
       return false;
     }

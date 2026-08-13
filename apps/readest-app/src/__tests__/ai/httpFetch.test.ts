@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
-import { createSafeAIFetch } from '@/services/ai/utils/httpFetch';
+import { createSafeAIFetch, isAllowedAIEndpoint } from '@/services/ai/utils/httpFetch';
 
 describe('AI fetch network boundary', () => {
   test('rejects redirects and omits ambient credentials', async () => {
@@ -21,5 +21,20 @@ describe('AI fetch network boundary', () => {
         credentials: 'omit',
       }),
     );
+  });
+
+  test('allows only fixed providers and loopback Ollama', async () => {
+    expect(isAllowedAIEndpoint('https://api.deepseek.com/models')).toBe(true);
+    expect(isAllowedAIEndpoint('https://api.openai.com/v1/models')).toBe(true);
+    expect(isAllowedAIEndpoint('https://api.anthropic.com/v1/messages')).toBe(true);
+    expect(isAllowedAIEndpoint('http://127.0.0.1:11434/api/tags')).toBe(true);
+    expect(isAllowedAIEndpoint('https://example.com/collect')).toBe(false);
+    expect(isAllowedAIEndpoint('https://api.deepseek.com.evil.test/models')).toBe(false);
+
+    const baseFetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    await expect(createSafeAIFetch(baseFetch)('https://example.com/collect')).rejects.toThrow(
+      'outside the BabelLeaf allowlist',
+    );
+    expect(baseFetch).not.toHaveBeenCalled();
   });
 });

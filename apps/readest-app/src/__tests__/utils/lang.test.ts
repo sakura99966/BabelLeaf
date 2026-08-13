@@ -8,12 +8,11 @@ import {
   normalizedLangCode,
   isSameLang,
   isValidLang,
-  code6392to6391,
-  code6393to6391,
-  getLanguageName,
   inferLangFromScript,
   getLanguageInfo,
 } from '@/utils/lang';
+import { code6392to6391, getLanguageName } from '@/utils/languageCatalog';
+import { code6393to6391 } from '@/utils/languageDetection';
 
 describe('isCJKStr', () => {
   it('should return true for strings containing Chinese characters', () => {

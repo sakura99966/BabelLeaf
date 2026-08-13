@@ -13,6 +13,7 @@ interface NavigationRowProps {
   onClick: () => void;
   disabled?: boolean;
   'data-setting-id'?: string;
+  'data-testid'?: string;
   className?: string;
 }
 
@@ -33,6 +34,7 @@ const NavigationRow: React.FC<NavigationRowProps> = ({
   onClick,
   disabled,
   'data-setting-id': dataSettingId,
+  'data-testid': dataTestId,
   className,
 }) => {
   return (
@@ -41,6 +43,7 @@ const NavigationRow: React.FC<NavigationRowProps> = ({
       onClick={onClick}
       disabled={disabled}
       data-setting-id={dataSettingId}
+      data-testid={dataTestId}
       className={clsx(
         'group flex w-full items-center gap-3 py-4 pe-4 text-left',
         'transition-colors duration-150',

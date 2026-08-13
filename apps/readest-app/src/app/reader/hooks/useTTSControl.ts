@@ -15,7 +15,7 @@ import {
   TTSHighlightOptions,
   TTSVoicesGroup,
 } from '@/services/tts';
-import { DEFAULT_PARAGRAPH_GAP_SEC } from '@/services/tts/TTSController';
+import { DEFAULT_PARAGRAPH_GAP_SEC } from '@/services/tts/constants';
 import { eventDispatcher } from '@/utils/event';
 import { genSSMLRaw, parseSSMLLang } from '@/utils/ssml';
 import { throttle } from '@/utils/throttle';

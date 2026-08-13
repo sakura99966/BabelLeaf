@@ -61,11 +61,14 @@ vi.mock('@/services/settingsService', () => ({
   saveSettings: vi.fn().mockResolvedValue(undefined),
 }));
 
-async function loadServiceWithOS(os: 'macos' | 'windows' | 'linux' | 'ios' | 'android') {
+async function loadServiceWithOS(
+  os: 'macos' | 'windows' | 'linux' | 'ios' | 'android',
+  customRootDir?: string,
+) {
   osTypeMock.mockReturnValue(os);
   vi.resetModules();
   const mod = await import('@/services/nativeAppService');
-  return new mod.NativeAppService();
+  return new mod.NativeAppService(customRootDir);
 }
 
 // Regression (#3682): the Linux window used to be created fully transparent to
@@ -90,5 +93,16 @@ describe('NativeAppService rounded-window capability', () => {
   test('Windows does not use a rounded (transparent) window', async () => {
     const service = await loadServiceWithOS('windows');
     expect(service.hasRoundedWindow).toBe(false);
+  });
+});
+
+describe('NativeAppService explicit data-root isolation', () => {
+  test('routes settings to the explicit root before initialization', async () => {
+    const service = await loadServiceWithOS('windows', 'C:/babelleaf-e2e-profile');
+
+    expect(service.resolvePath('settings.json', 'Settings')).toMatchObject({
+      baseDir: 0,
+      fp: 'C:/babelleaf-e2e-profile/settings.json',
+    });
   });
 });

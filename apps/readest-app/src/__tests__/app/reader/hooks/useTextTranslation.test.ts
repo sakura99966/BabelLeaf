@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createTranslationTargetNode } from '@/app/reader/hooks/useTextTranslation';
+import {
+  applyTranslationDisplayMode,
+  createTranslationTargetNode,
+} from '@/app/reader/hooks/useTextTranslation';
 
 describe('createTranslationTargetNode', () => {
   it('sets dir="rtl" on the wrapper for an RTL target language', () => {
@@ -78,5 +81,40 @@ describe('createTranslationTargetNode', () => {
     });
 
     expect(wrapper.firstChild?.nodeName).toBe('BR');
+  });
+});
+
+describe('applyTranslationDisplayMode', () => {
+  const createTranslatedSource = () => {
+    const source = document.createElement('p');
+    source.setAttribute('original-text-nodes', JSON.stringify(['Original text']));
+    source.append(document.createTextNode('Original text'));
+    source.append(
+      createTranslationTargetNode({
+        translatedText: 'Translated text',
+        lang: 'en',
+        targetBlockClassName: 'translation-target-block',
+        hidden: false,
+        widthLineBreak: false,
+      }),
+    );
+    return source;
+  };
+
+  it('reapplies original and translated visibility immediately when the mode changes', () => {
+    const source = createTranslatedSource();
+
+    applyTranslationDisplayMode(source, 'translated', true);
+    expect(source.firstChild?.textContent).toBe('');
+    expect(source.querySelector('.translation-target')?.classList.contains('hidden')).toBe(false);
+
+    applyTranslationDisplayMode(source, 'original', true);
+    expect(source.firstChild?.textContent).toBe('Original text');
+    expect(source.querySelector('.translation-target')?.classList.contains('hidden')).toBe(true);
+
+    applyTranslationDisplayMode(source, 'columns', true);
+    expect(source.firstChild?.textContent).toBe('Original text');
+    expect(source.querySelector('.translation-target')?.classList.contains('hidden')).toBe(false);
+    expect(source.classList.contains('translation-display-columns')).toBe(true);
   });
 });

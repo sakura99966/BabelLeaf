@@ -11,6 +11,23 @@ const nextConfig = {
   output: isDev ? undefined : 'export',
   productionBrowserSourceMaps: false,
   pageExtensions: ['jsx', 'tsx'],
+  ...(isDev
+    ? {
+        // The web database worker transfers SharedArrayBuffer instances. Keep
+        // the local Next E2E server cross-origin isolated just like the
+        // repository-owned production static server.
+        headers: async () => [
+          {
+            source: '/:path*',
+            headers: [
+              { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
+              { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+              { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
+            ],
+          },
+        ],
+      }
+    : {}),
   // Note: This feature is required to use the Next.js Image component in SSG mode.
   // See https://nextjs.org/docs/messages/export-image-api for different workarounds.
   images: {
@@ -28,6 +45,13 @@ const nextConfig = {
   assetPrefix: '',
   reactStrictMode: true,
   webpack: (config) => {
+    // Keep ONNX Runtime's WASM outside the JavaScript bundle. The local LaMa
+    // adapter loads these immutable vendor assets only after an explicit
+    // inpainting action.
+    config.resolve.conditionNames = [
+      'onnxruntime-web-use-extern-wasm',
+      ...(config.resolve.conditionNames || []),
+    ];
     config.resolve.alias = {
       ...config.resolve.alias,
       nunjucks: 'nunjucks/browser/nunjucks.js',

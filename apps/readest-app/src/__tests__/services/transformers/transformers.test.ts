@@ -16,11 +16,16 @@ vi.mock('@/utils/simplecc', () => ({
 }));
 
 vi.mock('@/utils/lang', () => ({
-  detectLanguage: vi.fn(() => 'en'),
   getLanguageInfo: vi.fn(() => ({ direction: 'ltr' })),
   isSameLang: vi.fn(() => true),
   isValidLang: vi.fn(() => true),
   normalizedLangCode: (lang?: string | null) => (lang ? lang.split('-')[0]!.toLowerCase() : ''),
+}));
+
+vi.mock('@/utils/languageDetection', () => ({}));
+
+vi.mock('@/utils/languageDetection', () => ({
+  detectLanguage: vi.fn(() => 'en'),
 }));
 
 vi.mock('@/store/settingsStore', () => ({

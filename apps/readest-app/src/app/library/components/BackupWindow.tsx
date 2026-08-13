@@ -12,16 +12,9 @@ import { useFileSelector } from '@/hooks/useFileSelector';
 import { restoreFromBackupZip, saveBackupFile } from '@/services/backupService';
 import { useLibraryStore } from '@/store/libraryStore';
 import Dialog from '@/components/Dialog';
+import { setBackupDialogVisible, useDialogVisibility } from '@/hooks/useDialogVisibility';
 
-export const setBackupDialogVisible = (visible: boolean) => {
-  const dialog = document.getElementById('backup_window');
-  if (dialog) {
-    const event = new CustomEvent('setDialogVisibility', {
-      detail: { visible },
-    });
-    dialog.dispatchEvent(event);
-  }
-};
+export { setBackupDialogVisible };
 
 type BackupStatus = 'idle' | 'backing-up' | 'restoring' | 'completed' | 'error';
 
@@ -40,14 +33,20 @@ interface BackupResult {
 
 interface BackupWindowProps {
   onPullLibrary: (fullRefresh?: boolean, verbose?: boolean) => void;
+  visible?: boolean;
+  onVisibleChange?: (visible: boolean) => void;
 }
 
-export const BackupWindow: React.FC<BackupWindowProps> = ({ onPullLibrary }) => {
+export const BackupWindow: React.FC<BackupWindowProps> = ({
+  onPullLibrary,
+  visible,
+  onVisibleChange,
+}) => {
   const _ = useTranslation();
   const { appService } = useEnv();
   const { setLibrary } = useLibraryStore();
   const { selectFiles } = useFileSelector(appService, _);
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useDialogVisibility('backup_window', visible, onVisibleChange);
   const [status, setStatus] = useState<BackupStatus>('idle');
   const [progress, setProgress] = useState<BackupProgress>({ current: 0, total: 0 });
   const [errorMessage, setErrorMessage] = useState('');
@@ -61,24 +60,13 @@ export const BackupWindow: React.FC<BackupWindowProps> = ({ onPullLibrary }) => 
   };
 
   useEffect(() => {
-    const handleCustomEvent = (event: CustomEvent) => {
-      setIsOpen(event.detail.visible);
-      if (event.detail.visible) {
-        resetState();
-      }
-    };
-
-    const el = document.getElementById('backup_window');
-    if (el) {
-      el.addEventListener('setDialogVisibility', handleCustomEvent as EventListener);
+    if (isOpen) {
+      resetState();
     }
-
-    return () => {
-      if (el) {
-        el.removeEventListener('setDialogVisibility', handleCustomEvent as EventListener);
-      }
-    };
-  }, []);
+    // Reset only on a closed-to-open transition; resetState intentionally has
+    // component-local identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const handleBackup = async () => {
     if (!appService) return;

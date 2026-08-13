@@ -333,12 +333,16 @@ export interface TranslatorConfig {
   translationProvider: string;
   translateTargetLang: string;
   showTranslateSource: boolean;
+  /** Reader-side translation presentation; optional for pre-0.4 settings. */
+  translationDisplayMode?: TranslationDisplayMode;
   ttsReadAloudText: string;
   /** Last logical page shown by the durable bilingual translation workbench. */
   translationWorkbenchPage?: number;
   /** Stable source segment selected for reader-side navigation. */
   translationWorkbenchSegmentId?: string;
 }
+
+export type TranslationDisplayMode = 'original' | 'translated' | 'stacked' | 'columns';
 
 export interface NoteExportConfig {
   includeTitle: boolean;

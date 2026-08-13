@@ -44,5 +44,5 @@ management, platform globals).
 
 ```bash
 pnpm tauri:dev:test        # start the Tauri app with the webdriver feature
-pnpm test:e2e              # run wdio against it (specs: e2e/*.e2e.ts)
+pnpm test:e2e              # run wdio against it (specs: e2e/*.e2e.mjs)
 ```

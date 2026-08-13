@@ -1,8 +1,13 @@
 # BabelLeaf 0.4 PC acceptance baseline
 
-0.4 is accepted against the Windows desktop feature set. Later milestones are
-platform ports and native parity work; they must not remove or weaken this
-desktop baseline.
+This document defines the Windows desktop baseline that must be satisfied
+before 0.4 can be accepted. It is not, by itself, a statement that the current
+candidate has passed. The authoritative current verdict is recorded in
+`DEVELOPMENT_ROADMAP.md` and
+`PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md`. The older
+`PC_0.4_REMEDIATION_STATUS_2026-08-09.md` is a historical corrective ledger.
+Later milestones are platform ports and native parity work; they must not
+remove or weaken this desktop baseline.
 
 ## Required PC capabilities
 

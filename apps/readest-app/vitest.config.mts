@@ -11,6 +11,9 @@ export default defineConfig({
       // source files.  foliate-js/pdf.js lives outside that scope, so Vite
       // needs an explicit alias to find the vendored pdfjs build.
       '@pdfjs': path.resolve(__dirname, 'public/vendor/pdfjs'),
+      // Keep the browser test resolver on the filesystem path instead of
+      // emitting a `/public/...` URL; public assets are served from `/`.
+      '@simplecc': path.resolve(__dirname, '../../packages/simplecc-wasm/dist/web'),
       // `js-mdict` is consumed via tsconfig paths from `packages/js-mdict/src/`.
       // Its sources `import 'fflate'` directly — without an alias, vite's
       // import-analysis walks up from the redirected file location and fails
@@ -45,6 +48,15 @@ export default defineConfig({
         'src/**/__tests__/**',
         'src/**/test/**',
       ],
+      // Progressive gate for the current PC baseline. This is intentionally
+      // below the long-term target so new coverage can be raised without
+      // turning the release check into a permanently skipped report.
+      thresholds: {
+        statements: 45,
+        branches: 35,
+        functions: 40,
+        lines: 45,
+      },
     },
   },
 });

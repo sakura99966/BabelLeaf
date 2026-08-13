@@ -40,6 +40,7 @@ const ImportMenu: React.FC<ImportMenuProps> = ({
       <MenuItem
         label={_('From Local File')}
         Icon={<IoFileTray className='h-5 w-5' />}
+        testId='import-books-from-files'
         onClick={handleImportFromFiles}
       />
       {onImportBooksFromDirectory && (

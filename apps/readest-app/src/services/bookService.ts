@@ -32,7 +32,6 @@ import { DEFAULT_BOOK_SEARCH_CONFIG, DEFAULT_FIXED_LAYOUT_VIEW_SETTINGS } from '
 import { isContentURI, isValidURL, makeSafeFilename } from '@/utils/misc';
 import { deserializeConfig, serializeConfig, serializeRawConfig } from '@/utils/serializer';
 import { ClosableFile } from '@/utils/file';
-import { TxtToEpubConverter } from '@/utils/txt';
 import { svg2png } from '@/utils/svg';
 import { normalizeMetadataIsbn } from '@/utils/isbn';
 import { isLocalImageResource } from '@/utils/image';
@@ -43,110 +42,14 @@ import {
   resolveBookContentSource,
   type BookFileContentSource,
 } from './bookContent';
-
-export function buildBookLookupIndex(books: Book[], osPlatform?: OsPlatform): BookLookupIndex {
-  const byHash = new Map<string, Book>();
-  const byMetaKey = new Map<string, Book[]>();
-  const byFilePath = new Map<string, Book>();
-  for (const book of books) {
-    byHash.set(book.hash, book);
-    if (book.metaHash && !book.deletedAt) {
-      const key = `${book.metaHash}:${book.format}`;
-      const list = byMetaKey.get(key);
-      if (list) list.push(book);
-      else byMetaKey.set(key, [book]);
-    }
-    // In-place books carry the absolute source path on `filePath` (set by
-    // importBook below). Indexing them here lets a re-import of the exact
-    // same file short-circuit before touching disk or computing partialMD5.
-    // Skip URL-backed entries (remote books) and tombstoned ones.
-    if (book.filePath && !isValidURL(book.filePath) && !book.deletedAt) {
-      const key = normalizeFilePathForIndex(book.filePath, osPlatform);
-      if (key) byFilePath.set(key, book);
-    }
-  }
-  return { byHash, byMetaKey, byFilePath };
-}
-
-/**
- * Normalize an absolute file path into a stable map key for `byFilePath`.
- *
- * Mirrors the same rules `ingestService.shouldImportInPlace` uses to compare
- * paths against the user's in-place roots so both sides agree on whether a
- * given source file matches a previously-indexed book:
- *   - Backslashes are normalized to `/`.
- *   - Trailing slashes are stripped.
- *   - On case-insensitive filesystems (macOS / iOS / Windows) the key is
- *     lowercased. Linux / Android keep the original casing.
- *
- * Returns an empty string for non-string / falsy input so callers can do a
- * `if (key) map.set(key, …)` guard without an extra null check.
- */
-export function normalizeFilePathForIndex(path: string, osPlatform?: OsPlatform): string {
-  if (!path) return '';
-  const caseInsensitive =
-    osPlatform === 'macos' || osPlatform === 'ios' || osPlatform === 'windows';
-  const n = path.replace(/\\/g, '/').replace(/\/+$/, '');
-  return caseInsensitive ? n.toLowerCase() : n;
-}
-
-export interface ScannedFileEntry {
-  /** Absolute path, already joined with the folder root. */
-  fullPath: string;
-  /** File size in bytes. */
-  size: number;
-}
-
-/**
- * From a folder scan, keep only entries that (a) match one of `extensions`
- * (lowercased, no leading dot), (b) are at least `minSizeBytes`, and (c) are
- * NOT already in the library. Membership is tested against `existingPaths`,
- * which the caller builds from `buildBookLookupIndex(...).byFilePath.keys()`
- * (those keys are already normalized by `normalizeFilePathForIndex`, so we
- * normalize each scanned path the same way before comparing). Pure — no I/O.
- */
-export function selectNewImportableFiles(
-  entries: ScannedFileEntry[],
-  opts: {
-    extensions: string[];
-    minSizeBytes: number;
-    existingPaths: Set<string>;
-    osPlatform?: OsPlatform;
-  },
-): ScannedFileEntry[] {
-  const exts = new Set(opts.extensions.map((e) => e.toLowerCase()));
-  return entries.filter((entry) => {
-    const ext = entry.fullPath.split('.').pop()?.toLowerCase() ?? '';
-    if (!exts.has(ext)) return false;
-    if (opts.minSizeBytes > 0 && entry.size < opts.minSizeBytes) return false;
-    const key = normalizeFilePathForIndex(entry.fullPath, opts.osPlatform);
-    return !!key && !opts.existingPaths.has(key);
-  });
-}
-
-/**
- * Collect all known local source paths from the library into a normalized set.
- *
- * Unlike `buildBookLookupIndex(...).byFilePath`, this includes soft-deleted
- * books (`deletedAt` set) so that auto-import does not resurrect a book the
- * user intentionally removed from their library. `altFilePaths` is included
- * alongside `filePath`: several files in a watched folder can dedup into one
- * book (same bytes under two names, or two files sharing a metaHash), and a
- * path the importer folded away is just as "known" as the one it kept.
- *
- * URL-backed entries (remote books) are excluded — only on-disk paths matter.
- */
-export function collectKnownSourcePaths(books: Book[], osPlatform?: OsPlatform): Set<string> {
-  const paths = new Set<string>();
-  for (const book of books) {
-    for (const path of [book.filePath, ...(book.altFilePaths ?? [])]) {
-      if (!path || isValidURL(path)) continue;
-      const key = normalizeFilePathForIndex(path, osPlatform);
-      if (key) paths.add(key);
-    }
-  }
-  return paths;
-}
+import { normalizeFilePathForIndex } from './bookLookup';
+export {
+  buildBookLookupIndex,
+  collectKnownSourcePaths,
+  normalizeFilePathForIndex,
+  selectNewImportableFiles,
+} from './bookLookup';
+export type { ScannedFileEntry } from './bookLookup';
 
 /**
  * Move `book.filePath` into `book.altFilePaths` because `nextFilePath` is about
@@ -411,6 +314,7 @@ export async function importBook(
         filename = file.name;
       }
       if (/\.txt$/i.test(filename)) {
+        const { TxtToEpubConverter } = await import('@/utils/txt');
         const txt2epub = new TxtToEpubConverter();
         ({ file: fileobj } = await txt2epub.convert({ file: fileobj }));
       }

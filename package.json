@@ -12,7 +12,15 @@
     "worktree:new": "pnpm --filter @readest/readest-app worktree:new",
     "worktree:rm": "pnpm --filter @readest/readest-app worktree:rm",
     "format": "biome format --write . --line-ending=auto",
-    "format:check": "biome format . --line-ending=auto"
+    "format:check": "biome format . --line-ending=auto",
+    "verify:package-manager": "node scripts/verify-pnpm-version.mjs",
+    "verify:format-fixtures": "node scripts/verify-pnpm-version.mjs && node scripts/fixtures/generate-format-fixtures.mjs --output target/babelleaf-format-fixtures --manifest apps/readest-app/test-data/FORMAT_FIXTURE_MANIFEST.json",
+    "verify:ocr-models:local": "node scripts/verify-pnpm-version.mjs && node scripts/ocr/verify-tesseract-models.mjs",
+    "build:ocr-model-packs:local": "node scripts/verify-pnpm-version.mjs && node scripts/ocr/build-tesseract-model-packs.mjs",
+    "verify:inpaint-model:local": "node scripts/verify-pnpm-version.mjs && node scripts/inpaint/verify-lama-model.mjs",
+    "build:inpaint-model-pack:local": "node scripts/verify-pnpm-version.mjs && node scripts/inpaint/build-lama-model-pack.mjs",
+    "compliance:sbom": "node scripts/verify-pnpm-version.mjs && node scripts/generate-sbom.mjs --strict",
+    "compliance:sbom:local": "node scripts/generate-sbom.mjs"
   },
   "packageManager": "pnpm@11.1.1",
   "devDependencies": {

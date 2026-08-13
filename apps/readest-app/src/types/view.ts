@@ -1,6 +1,6 @@
 import { BookDoc } from '@/libs/document';
 import { BookNote, BookSearchConfig, BookSearchResult } from '@/types/book';
-import { TTSGranularity } from '@/services/tts';
+import type { TTSGranularity } from '@/services/tts/types';
 import { TTS } from 'foliate-js/tts.js';
 import { LocaleWithTextInfo } from './misc';
 

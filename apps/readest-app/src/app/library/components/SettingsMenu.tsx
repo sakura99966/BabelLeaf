@@ -3,10 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { PiGear, PiMoon, PiSun } from 'react-icons/pi';
 import { TbSunMoon } from 'react-icons/tb';
 
-import { setBackupDialogVisible } from '@/app/library/components/BackupWindow';
-import { setCacheManagerDialogVisible } from '@/app/library/components/CacheManagerWindow';
-import { setMigrateDataDirDialogVisible } from '@/app/library/components/MigrateDataWindow';
-import { setAboutDialogVisible } from '@/components/AboutWindow';
+import {
+  setAboutDialogVisible,
+  setBackupDialogVisible,
+  setCacheManagerDialogVisible,
+  setMigrateDataDirDialogVisible,
+} from '@/hooks/useDialogVisibility';
 import Menu from '@/components/Menu';
 import MenuItem from '@/components/MenuItem';
 import { useEnv } from '@/context/EnvContext';
@@ -212,6 +214,7 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ setIsDropdownOpen }) => {
       />
       <MenuItem
         label={_('Settings')}
+        testId='open-settings'
         Icon={PiGear}
         onClick={() => {
           closeMenu();

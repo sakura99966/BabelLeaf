@@ -30,6 +30,7 @@ vi.mock('@/utils/bridge', () => ({
 }));
 
 import { TTSSessionManager, getBookHashFromKey } from '@/services/tts/TTSSessionManager';
+import { ttsSessionPresence } from '@/services/tts/sessionPresence';
 import type { TTSController } from '@/services/tts/TTSController';
 import { eventDispatcher } from '@/utils/event';
 
@@ -98,12 +99,15 @@ describe('TTSSessionManager', () => {
   afterEach(() => {
     eventDispatcher.off('tts-playback-state', playbackListener as never);
     manager.setSleepTimer(0);
+    ttsSessionPresence.setActive(false);
   });
 
-  test('claim registers a hash-keyed session and binds the bridge', () => {
+  test('claim registers a hash-keyed session and binds the bridge', async () => {
     claim();
+    await flush();
     expect(manager.getSessionByHash('hashA')?.bookKey).toBe('hashA-r1');
     expect(manager.getActiveSession()?.bookHash).toBe('hashA');
+    expect(ttsSessionPresence.isActive()).toBe(true);
     expect(bridgeBind).toHaveBeenCalled();
     expect(sessionEvents.at(-1)?.reason).toBe('claimed');
   });
@@ -158,6 +162,7 @@ describe('TTSSessionManager', () => {
     controller.emitEnded('ended');
     await flush();
     expect(manager.getActiveSession()).toBeNull();
+    expect(ttsSessionPresence.isActive()).toBe(false);
     expect(bridgeUnbind).toHaveBeenCalled();
     expect(releaseKeepAlive).toHaveBeenCalled();
     expect(playbackStates.at(-1)?.state).toBe('stopped');

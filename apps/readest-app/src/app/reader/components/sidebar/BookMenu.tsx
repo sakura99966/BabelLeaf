@@ -13,7 +13,7 @@ import { eventDispatcher } from '@/utils/event';
 import { FIXED_LAYOUT_FORMATS } from '@/types/book';
 import { saveViewSettings } from '@/helpers/settings';
 import { setProofreadRulesVisibility } from '@/app/reader/components/ProofreadRules';
-import { setAboutDialogVisible } from '@/components/AboutWindow';
+import { setAboutDialogVisible } from '@/hooks/useDialogVisibility';
 import useBooksManager from '../../hooks/useBooksManager';
 import MenuItem from '@/components/MenuItem';
 import Menu from '@/components/Menu';

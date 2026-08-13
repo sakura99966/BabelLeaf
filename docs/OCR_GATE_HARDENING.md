@@ -1,5 +1,11 @@
 # BabelLeaf OCR gate hardening checkpoint
 
+> Superseding implementation note, 2026-08-13: the candidate-neutral gate is
+> now exercised by the concrete Windows x64 Tesseract WASM path documented in
+> `OCR_TESSERACT_RUNTIME.md`. Model bytes remain explicit local imports and are
+> not bundled. The historical limitation below still applies to ONNX and other
+> unqualified candidates, not to the exact trusted Tesseract catalog.
+
 ## Purpose
 
 This checkpoint closes the missing lifecycle pieces around the 0.4.0-0.4.1

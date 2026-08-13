@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-set-webview-memory-usage"
+description = "Enables the set_webview_memory_usage command without any pre-configured scope."
+commands.allow = ["set_webview_memory_usage"]
+
+[[permission]]
+identifier = "deny-set-webview-memory-usage"
+description = "Denies the set_webview_memory_usage command without any pre-configured scope."
+commands.deny = ["set_webview_memory_usage"]

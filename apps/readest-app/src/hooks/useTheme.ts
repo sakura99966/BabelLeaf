@@ -114,9 +114,7 @@ export const useTheme = ({
 
   useEffect(() => {
     if (!themeColor || !themes.find((t) => t.name === themeColor)) return;
-    if (useFallbackColors.current) {
-      applyCustomTheme(undefined, themeColor, true);
-    }
+    applyCustomTheme(undefined, themeColor, useFallbackColors.current);
   }, [themeColor]);
 
   useEffect(() => {

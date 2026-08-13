@@ -55,6 +55,98 @@ body {
   cursor: default;
 }
 
+/* Compact rich-text defaults for metadata, notes and Markdown previews.
+   These cover BabelLeaf's three prose surfaces without shipping the complete
+   Tailwind Typography selector matrix on every reader and library page. */
+@layer components {
+  .prose {
+    max-width: 65ch;
+    color: inherit;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+  }
+
+  .prose-sm {
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .prose :where(p, ul, ol, blockquote, pre, table) {
+    margin-block: 0.75em;
+  }
+
+  .prose :where(h1, h2, h3, h4) {
+    margin-block: 1.15em 0.5em;
+    color: inherit;
+    font-weight: 650;
+    line-height: 1.3;
+  }
+
+  .prose :where(ul, ol) {
+    padding-inline-start: 1.5em;
+  }
+
+  .prose ul {
+    list-style: disc;
+  }
+
+  .prose ol {
+    list-style: decimal;
+  }
+
+  .prose :where(a) {
+    color: inherit;
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .prose blockquote {
+    border-inline-start: 0.2em solid currentColor;
+    padding-inline-start: 0.9em;
+    opacity: 0.8;
+  }
+
+  .prose :where(code) {
+    border-radius: 0.25rem;
+    background: color-mix(in oklab, currentColor 10%, transparent);
+    padding: 0.1em 0.3em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.9em;
+  }
+
+  .prose pre {
+    overflow-x: auto;
+    border-radius: 0.5rem;
+    background: color-mix(in oklab, currentColor 10%, transparent);
+    padding: 0.75rem;
+  }
+
+  .prose pre code {
+    background: transparent;
+    padding: 0;
+  }
+
+  .prose :where(table) {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .prose :where(th, td) {
+    border: 1px solid color-mix(in oklab, currentColor 25%, transparent);
+    padding: 0.35em 0.5em;
+    text-align: start;
+  }
+
+  .prose > :first-child {
+    margin-top: 0;
+  }
+
+  .prose > :last-child {
+    margin-bottom: 0;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

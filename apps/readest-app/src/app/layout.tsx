@@ -110,7 +110,7 @@ function patchTauriHmrWebSocket(devHost?: string) {
 }
 
 const shouldInjectDevHmrPatch =
-  process.env['NODE_ENV'] === 'development' && process.env['NEXT_PUBLIC_APP_PLATFORM'] === 'tauri';
+  process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_APP_PLATFORM === 'tauri';
 const devHmrPatchScript = `(${patchTauriHmrWebSocket.toString()})(${JSON.stringify(
   process.env['TAURI_DEV_HOST'],
 )});`;
@@ -119,7 +119,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang='zh-CN'
-      className={process.env['NEXT_PUBLIC_APP_PLATFORM'] === 'tauri' ? 'edge-to-edge' : ''}
+      className={process.env.NEXT_PUBLIC_APP_PLATFORM === 'tauri' ? 'edge-to-edge' : ''}
     >
       <head>
         {shouldInjectDevHmrPatch ? (

@@ -17,7 +17,7 @@ export interface OcrTextLayerProps {
  */
 const OcrTextLayer: React.FC<OcrTextLayerProps> = ({ page, visible = true, className }) => {
   const blocks = createOcrTextLayerBlocks(page);
-  if (blocks.length === 0) return null;
+  if (!visible || blocks.length === 0) return null;
 
   return (
     <div

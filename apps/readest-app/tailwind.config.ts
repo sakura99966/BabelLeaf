@@ -1,7 +1,6 @@
 import type { Config } from 'tailwindcss';
 import { themes } from './src/styles/themes.ts';
 import daisyui from 'daisyui';
-import typography from '@tailwindcss/typography';
 import plugin from 'tailwindcss/plugin';
 
 const config: Config = {
@@ -9,13 +8,6 @@ const config: Config = {
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-  ],
-  safelist: [
-    { pattern: /bg-./ },
-    { pattern: /text-./ },
-    { pattern: /fill-./ },
-    { pattern: /decoration-./ },
-    { pattern: /tooltip-./ },
   ],
   theme: {
     extend: {
@@ -30,7 +22,6 @@ const config: Config = {
   },
   plugins: [
     daisyui,
-    typography,
     plugin(function ({ addVariant }) {
       addVariant('eink', 'html[data-eink="true"] &');
       addVariant('not-eink', 'html:not([data-eink="true"]) &');
@@ -38,18 +29,14 @@ const config: Config = {
   ],
   daisyui: {
     logs: false,
-    themes: themes.reduce(
-      (acc, { name, colors }) => {
-        acc.push({
-          [`${name}-light`]: colors.light,
-        });
-        acc.push({
-          [`${name}-dark`]: colors.dark,
-        });
-        return acc;
+    themes: [
+      {
+        'default-light': themes[0]!.colors.light,
       },
-      ['light', 'dark'] as (Record<string, unknown> | string)[],
-    ),
+      {
+        'default-dark': themes[0]!.colors.dark,
+      },
+    ],
   },
 };
 export default config;

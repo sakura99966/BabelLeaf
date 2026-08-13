@@ -27,6 +27,31 @@ export interface ComicPipelinePage extends ComicWorkerPageInput {
   pageIndex: number;
 }
 
+export interface ComicPipelinePageIdentity {
+  pageId: string;
+  width: number;
+  height: number;
+  byteLength: number;
+}
+
+/**
+ * Produces a bounded, deterministic identity for a local page set.
+ * It is intentionally independent of image bytes so queue restoration does
+ * not require retaining or hashing the source files after import.
+ */
+export const createComicPipelinePageSetSignature = (
+  pages: readonly ComicPipelinePageIdentity[],
+): string => {
+  let hash = 2_166_136_261;
+  for (const page of pages) {
+    for (const character of `${page.pageId}:${page.width}x${page.height}:${page.byteLength}|`) {
+      hash ^= character.charCodeAt(0);
+      hash = Math.imul(hash, 16_777_619);
+    }
+  }
+  return `${pages.length}-${(hash >>> 0).toString(16)}`;
+};
+
 export interface ComicPipelineItemResult {
   pageId: string;
   completedAt: number;
@@ -424,7 +449,8 @@ export class ComicPipelineQueue {
   private readonly maxAttempts: number;
   private readonly processPage: ProcessComicPipelinePage;
   private readonly checkpoint?: ComicPipelineCheckpoint;
-  private readonly controller = new AbortController();
+  /** Recreated after a user cancellation so a deliberate rerun gets a fresh signal. */
+  private controller = new AbortController();
   private readonly listeners = new Set<ComicPipelineListener>();
   private snapshot: ComicPipelineSnapshot;
   private runPromise: Promise<ComicPipelineSnapshot> | undefined;
@@ -557,6 +583,7 @@ export class ComicPipelineQueue {
       return Promise.resolve(this.getSnapshot());
     }
     if (this.runPromise) return this.runPromise;
+    if (this.controller.signal.aborted) this.controller = new AbortController();
     this.setStatus('running', 'started');
     const run = this.drain();
     this.runPromise = run;
@@ -583,6 +610,9 @@ export class ComicPipelineQueue {
   }
 
   retryFailed(): Promise<ComicPipelineSnapshot> {
+    if (this.runPromise) {
+      return this.runPromise.then(() => this.retryFailed());
+    }
     if (this.snapshot.status === 'running' || this.snapshot.status === 'queued')
       return Promise.resolve(this.getSnapshot());
     let changed = false;
@@ -604,6 +634,11 @@ export class ComicPipelineQueue {
   rerun(pageIds: string[]): ComicPipelineSnapshot {
     if (this.snapshot.status === 'running' || this.snapshot.status === 'queued') {
       throw new ComicPipelineError('Pause the comic pipeline before selecting pages to rerun');
+    }
+    if (this.runPromise) {
+      throw new ComicPipelineError(
+        'Wait for the cancelled comic pipeline to finish before rerunning',
+      );
     }
     const selected = new Set(pageIds);
     if (selected.size === 0)

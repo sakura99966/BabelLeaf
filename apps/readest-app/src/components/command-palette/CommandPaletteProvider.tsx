@@ -7,19 +7,18 @@ import { useThemeStore } from '@/store/themeStore';
 import { useEnv } from '@/context/EnvContext';
 import { isTauriAppPlatform } from '@/services/environment';
 import { tauriHandleSetAlwaysOnTop, tauriHandleToggleFullScreen } from '@/utils/window';
-import { setAboutDialogVisible } from '@/components/AboutWindow';
+import { setAboutDialogVisible } from '@/hooks/useDialogVisibility';
 import { saveSysSettings } from '@/helpers/settings';
-import { SettingsPanelType } from '@/components/settings/SettingsDialog';
-import {
-  CommandItem,
-  buildCommandRegistry,
-  searchCommands,
-  CommandSearchResult,
-  groupResultsByCategory,
-  trackCommandUsage,
-  getRecentCommands,
-  CommandCategory,
-} from '@/services/commandRegistry';
+import type { SettingsPanelType } from '@/components/settings/SettingsDialog';
+import type { CommandCategory, CommandItem, CommandSearchResult } from '@/services/commandRegistry';
+
+type CommandRegistryModule = typeof import('@/services/commandRegistry');
+
+const EMPTY_GROUPED_RESULTS: Record<CommandCategory, CommandSearchResult[]> = {
+  settings: [],
+  actions: [],
+  navigation: [],
+};
 
 interface CommandPaletteContextValue {
   isOpen: boolean;
@@ -57,6 +56,7 @@ export const CommandPaletteProvider: React.FC<CommandPaletteProviderProps> = ({ 
 
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [commandRegistry, setCommandRegistry] = useState<CommandRegistryModule | null>(null);
 
   const isDesktop = isTauriAppPlatform() && !appService?.isMobile;
 
@@ -106,21 +106,43 @@ export const CommandPaletteProvider: React.FC<CommandPaletteProviderProps> = ({ 
     [setSettingsDialogOpen, setActiveSettingsItemId],
   );
 
+  // The registry pulls in the fuzzy-search engine plus the full command icon
+  // set. Keep that code out of the launch path and load it only after the user
+  // explicitly opens the palette.
+  useEffect(() => {
+    if (!isOpen || commandRegistry) return;
+
+    let active = true;
+    void import('@/services/commandRegistry')
+      .then((module) => {
+        if (active) setCommandRegistry(module);
+      })
+      .catch((error) => {
+        console.error('Failed to load the command palette registry:', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [commandRegistry, isOpen]);
+
   // build command registry
   const commandItems = useMemo(
     () =>
-      buildCommandRegistry({
-        _,
-        openSettingsPanel,
-        toggleTheme,
-        toggleFullscreen,
-        toggleAlwaysOnTop,
-        toggleScreenWakeLock,
-        reloadPage,
-        toggleOpenLastBooks,
-        showAbout,
-        isDesktop,
-      }),
+      commandRegistry
+        ? commandRegistry.buildCommandRegistry({
+            _,
+            openSettingsPanel,
+            toggleTheme,
+            toggleFullscreen,
+            toggleAlwaysOnTop,
+            toggleScreenWakeLock,
+            reloadPage,
+            toggleOpenLastBooks,
+            showAbout,
+            isDesktop,
+          })
+        : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       _,
@@ -133,15 +155,26 @@ export const CommandPaletteProvider: React.FC<CommandPaletteProviderProps> = ({ 
       toggleOpenLastBooks,
       showAbout,
       isDesktop,
+      commandRegistry,
     ],
   );
 
   // search results
-  const results = useMemo(() => searchCommands(query, commandItems), [query, commandItems]);
-  const groupedResults = useMemo(() => groupResultsByCategory(results), [results]);
+  const results = useMemo(
+    () => (commandRegistry ? commandRegistry.searchCommands(query, commandItems) : []),
+    [commandItems, commandRegistry, query],
+  );
+  const groupedResults = useMemo(
+    () =>
+      commandRegistry ? commandRegistry.groupResultsByCategory(results) : EMPTY_GROUPED_RESULTS,
+    [commandRegistry, results],
+  );
 
   // recent items
-  const recentItems = useMemo(() => getRecentCommands(commandItems, 5), [commandItems]);
+  const recentItems = useMemo(
+    () => (commandRegistry ? commandRegistry.getRecentCommands(commandItems, 5) : []),
+    [commandItems, commandRegistry],
+  );
 
   // palette controls
   const open = useCallback(() => {
@@ -165,14 +198,14 @@ export const CommandPaletteProvider: React.FC<CommandPaletteProviderProps> = ({ 
   // execute command
   const executeCommand = useCallback(
     (item: CommandItem) => {
-      trackCommandUsage(item.id);
+      commandRegistry?.trackCommandUsage(item.id);
       close();
       // slight delay to allow modal to close before action
       requestAnimationFrame(() => {
         item.action();
       });
     },
-    [close],
+    [close, commandRegistry],
   );
 
   // keyboard shortcut handler (Ctrl/Cmd+Shift+P)

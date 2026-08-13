@@ -1,0 +1,100 @@
+{
+  "format": "babelleaf.tesseract-verification",
+  "schemaVersion": 1,
+  "measuredAt": "2026-08-13T14:54:23.939Z",
+  "platform": "win32-x64",
+  "nodeVersion": "v24.15.0",
+  "engine": "tesseract-wasm",
+  "engineVersion": "0.11.0",
+  "engineLicense": "BSD-2-Clause",
+  "wasmFile": "tesseract-core.wasm",
+  "wasmSha256": "3822dc6ee83d507f2bd2f83b97a3dd5dabf3ea71a9836d951602c9054615137e",
+  "workerMode": "OCRClient with a dedicated worker thread",
+  "modelSource": "https://github.com/tesseract-ocr/tessdata_fast",
+  "modelRelease": "4.1.0",
+  "modelReleaseCommit": "a8ba5063ab8013372a20e300da0c97ee46b92b07",
+  "modelLicense": "Apache-2.0",
+  "modelLicenseSha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+  "method": {
+    "script": "scripts/ocr/verify-tesseract-models.mjs",
+    "modelsDirectory": "target/ocr-models/tessdata_fast-4.1.0",
+    "threshold": "normalized character accuracy >= 0.70",
+    "networkDuringRecognition": false,
+    "verticalPreprocessing": "counter-clockwise page rotation before jpn_vert recognition",
+    "sourceCoordinateRestoration": "covered separately by tesseract-ocr-runtime.test.ts"
+  },
+  "fonts": {
+    "latin": "Arial",
+    "chinese": "Microsoft YaHei",
+    "japanese": "Meiryo"
+  },
+  "results": [
+    {
+      "id": "english-horizontal",
+      "language": "en",
+      "modelFile": "eng.traineddata",
+      "modelSizeBytes": 4113088,
+      "modelSha256": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+      "expected": "BabelLeaf offline reader",
+      "actual": "BabelLeaf offline reader\n",
+      "lineCount": 1,
+      "characterAccuracy": 1,
+      "elapsedMs": 152.18,
+      "peakMemoryMb": 175.38,
+      "peakMemoryDeltaMb": 70.26,
+      "passed": true
+    },
+    {
+      "id": "simplified-chinese-horizontal",
+      "language": "zh-CN",
+      "modelFile": "chi_sim.traineddata",
+      "modelSizeBytes": 2469156,
+      "modelSha256": "a5fcb6f0db1e1d6d8522f39db4e848f05984669172e584e8d76b6b3141e1f730",
+      "expected": "本地漫画翻译测试",
+      "actual": "本地漫画翻译测试\n",
+      "lineCount": 1,
+      "characterAccuracy": 1,
+      "elapsedMs": 176.28,
+      "peakMemoryMb": 184.34,
+      "peakMemoryDeltaMb": 37.86,
+      "passed": true
+    },
+    {
+      "id": "japanese-horizontal",
+      "language": "ja",
+      "modelFile": "jpn.traineddata",
+      "modelSizeBytes": 2471260,
+      "modelSha256": "1f5de9236d2e85f5fdf4b3c500f2d4926f8d9449f28f5394472d9e8d83b91b4d",
+      "expected": "日本語の漫画翻訳テスト",
+      "actual": "日本語の漫画翻訳テスト\n",
+      "lineCount": 1,
+      "characterAccuracy": 1,
+      "elapsedMs": 152.23,
+      "peakMemoryMb": 201.43,
+      "peakMemoryDeltaMb": 35.87,
+      "passed": true
+    },
+    {
+      "id": "japanese-vertical",
+      "language": "ja-vertical",
+      "modelFile": "jpn_vert.traineddata",
+      "modelSizeBytes": 3037480,
+      "modelSha256": "bf1e2640954691797e2dc14f38533e601b59ee37958698ae0f0b81dc6f09c71b",
+      "expected": "日本語漫画",
+      "actual": "日 本 語 漫 画\n",
+      "normalizedActual": "日本語漫画",
+      "lineCount": 1,
+      "characterAccuracy": 1,
+      "elapsedMs": 156.5,
+      "peakMemoryMb": 233.12,
+      "peakMemoryDeltaMb": 40.78,
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "limits": [
+    "The matrix is deterministic synthetic recognition evidence, not a representative manga quality corpus.",
+    "Installed NSIS workflow, hostile images, handwritten text, furigana, and mixed-orientation page quality require separate evidence.",
+    "Model bytes are local test inputs and are not bundled in the application or repository."
+  ]
+}

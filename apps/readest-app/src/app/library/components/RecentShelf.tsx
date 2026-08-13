@@ -37,7 +37,7 @@ const RECENT_SLIDE_WIDTH =
 type RecentSlideProps = Pick<
   RecentShelfProps,
   'coverFit' | 'onOpenBook' | 'showBookDetailsModal' | 'showTimeRemaining'
-> & { book: Book };
+> & { book: Book; preloadCover?: boolean };
 
 const RecentSlide: React.FC<RecentSlideProps> = ({
   book,
@@ -45,6 +45,7 @@ const RecentSlide: React.FC<RecentSlideProps> = ({
   onOpenBook,
   showBookDetailsModal,
   showTimeRemaining,
+  preloadCover,
 }) => {
   // Pointer-based tap, exactly like the grid (`BookItem` stops click
   // propagation). A swipe-to-scroll moves past useLongPress's moveThreshold and
@@ -85,6 +86,7 @@ const RecentSlide: React.FC<RecentSlideProps> = ({
             coverFit={coverFit}
             isSelectMode={false}
             bookSelected={false}
+            preloadCover={preloadCover}
             showBookDetailsModal={showBookDetailsModal}
             showTimeRemaining={showTimeRemaining}
           />
@@ -181,10 +183,11 @@ const RecentShelf: React.FC<RecentShelfProps> = ({
             className={clsx('flex gap-x-4 sm:gap-x-0 [--rs-gap:1rem] sm:[--rs-gap:0px]', colsClass)}
             style={colsStyle}
           >
-            {books.map((book) => (
+            {books.map((book, index) => (
               <RecentSlide
                 key={book.hash}
                 book={book}
+                preloadCover={index < RECENT_SHELF_BOOK_COUNT}
                 coverFit={coverFit}
                 onOpenBook={onOpenBook}
                 showBookDetailsModal={showBookDetailsModal}

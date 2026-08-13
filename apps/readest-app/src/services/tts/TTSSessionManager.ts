@@ -13,8 +13,17 @@ import { stubTranslation as _ } from '@/utils/misc';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { eventDispatcher } from '@/utils/event';
-import { releaseUnblockAudio, ttsMediaBridge, TTSMediaBridgeMeta } from './ttsMediaBridge';
+import type { TTSMediaBridgeMeta } from './ttsMediaBridge';
 import type { TTSController } from './TTSController';
+import { ttsSessionPresence } from './sessionPresence';
+
+type TTSMediaBridgeModule = typeof import('./ttsMediaBridge');
+let ttsMediaBridgeModulePromise: Promise<TTSMediaBridgeModule> | null = null;
+
+const getTTSMediaBridgeModule = (): Promise<TTSMediaBridgeModule> => {
+  ttsMediaBridgeModulePromise ??= import('./ttsMediaBridge');
+  return ttsMediaBridgeModulePromise;
+};
 
 export type TTSSessionMeta = TTSMediaBridgeMeta;
 
@@ -67,10 +76,15 @@ export class TTSSessionManager extends EventTarget {
       existing.controller.shutdown().catch(() => {});
     }
     this.#session = { bookHash, bookKey, controller };
+    ttsSessionPresence.setActive(true);
     this.#meta = meta;
     this.#lastRelayedState = null;
     this.#subscribe(controller);
-    void ttsMediaBridge.bind(controller, meta);
+    void getTTSMediaBridgeModule().then(({ ttsMediaBridge }) => {
+      if (this.#session?.controller === controller) {
+        void ttsMediaBridge.bind(controller, meta);
+      }
+    });
     this.#emitSessionChanged('claimed');
   }
 
@@ -115,7 +129,12 @@ export class TTSSessionManager extends EventTarget {
     if (!session) return null;
     session.bookKey = bookKey;
     this.#meta = meta;
-    void ttsMediaBridge.bind(session.controller, meta);
+    const controller = session.controller;
+    void getTTSMediaBridgeModule().then(({ ttsMediaBridge }) => {
+      if (this.#session?.controller === controller) {
+        void ttsMediaBridge.bind(controller, meta);
+      }
+    });
     return session;
   }
 
@@ -126,6 +145,7 @@ export class TTSSessionManager extends EventTarget {
     const meta = this.#meta;
     const wasDetached = !session.controller.isViewAttached;
     this.#session = null;
+    ttsSessionPresence.setActive(false);
     this.#meta = null;
     this.#clearSleepTimer();
     this.#unsubscribe(session.controller);
@@ -149,6 +169,7 @@ export class TTSSessionManager extends EventTarget {
       });
     }
 
+    const { releaseUnblockAudio, ttsMediaBridge } = await getTTSMediaBridgeModule();
     ttsMediaBridge.unbind();
     releaseUnblockAudio();
     // No use_background_audio(false) here: bridge.unbind() deactivates the
@@ -165,6 +186,7 @@ export class TTSSessionManager extends EventTarget {
     this.#unsubscribe(session.controller);
     this.#clearSleepTimer();
     this.#session = null;
+    ttsSessionPresence.setActive(false);
     this.#meta = null;
     this.#emitSessionChanged('released');
   }

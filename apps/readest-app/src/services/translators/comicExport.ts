@@ -3,9 +3,10 @@ import type { BaseDir, FileSystem } from '@/types/system';
 
 /** Versioned, source-preserving export helpers for translated comic pages. */
 export const COMIC_EXPORT_VERSION = 1 as const;
-export const MAX_COMIC_EXPORT_PAGES = 10_000;
-export const MAX_COMIC_EXPORT_PAGE_BYTES = 128 * 1024 * 1024;
-export const MAX_COMIC_EXPORT_BYTES = 512 * 1024 * 1024;
+/** Export limits are deliberately below the renderer's worst-case RGBA cost. */
+export const MAX_COMIC_EXPORT_PAGES = 2_000;
+export const MAX_COMIC_EXPORT_PAGE_BYTES = 64 * 1024 * 1024;
+export const MAX_COMIC_EXPORT_BYTES = 256 * 1024 * 1024;
 
 export type ComicExportFormat = 'image-set' | 'cbz' | 'zip' | 'pdf';
 export type ComicImageExtension = 'png' | 'jpg' | 'jpeg' | 'webp';

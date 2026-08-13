@@ -66,6 +66,7 @@ export interface ComicOverlayStyle {
   backgroundColor?: string;
   textAlign?: 'start' | 'center' | 'end';
   writingMode?: 'horizontal-tb' | 'vertical-rl';
+  fit?: 'shrink' | 'clip' | 'overflow';
   rotationDeg?: number;
   lineHeight?: number;
   paddingPx?: number;
@@ -118,6 +119,8 @@ export interface ComicRegionPatch {
   readingOrder?: number;
   ruby?: ComicRuby[];
   rotationDeg?: number;
+  /** Optional exported-overlay style correction kept in the workspace sidecar. */
+  overlayStyle?: ComicOverlayStyle;
 }
 
 export interface EffectiveComicRegion extends ComicTextRegion {
@@ -165,6 +168,7 @@ const WRITING_MODES = new Set<NonNullable<ComicOverlayStyle['writingMode']>>([
   'horizontal-tb',
   'vertical-rl',
 ]);
+const FIT_MODES = new Set<NonNullable<ComicOverlayStyle['fit']>>(['shrink', 'clip', 'overflow']);
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
@@ -279,6 +283,7 @@ const parseOverlayStyle = (value: unknown, field: string): ComicOverlayStyle => 
   if (!isRecord(value)) throw new ComicWorkspaceError(`Invalid comic overlay style: ${field}`);
   const textAlign = value['textAlign'];
   const writingMode = value['writingMode'];
+  const fit = value['fit'];
   if (
     textAlign !== undefined &&
     !TEXT_ALIGNMENTS.has(textAlign as NonNullable<ComicOverlayStyle['textAlign']>)
@@ -290,6 +295,9 @@ const parseOverlayStyle = (value: unknown, field: string): ComicOverlayStyle => 
     !WRITING_MODES.has(writingMode as NonNullable<ComicOverlayStyle['writingMode']>)
   ) {
     throw new ComicWorkspaceError(`Invalid comic overlay writing mode: ${field}`);
+  }
+  if (fit !== undefined && !FIT_MODES.has(fit as NonNullable<ComicOverlayStyle['fit']>)) {
+    throw new ComicWorkspaceError(`Invalid comic overlay fit mode: ${field}`);
   }
   const stringField = (
     name: keyof Pick<
@@ -326,6 +334,7 @@ const parseOverlayStyle = (value: unknown, field: string): ComicOverlayStyle => 
     ...(writingMode === undefined
       ? {}
       : { writingMode: writingMode as ComicOverlayStyle['writingMode'] }),
+    ...(fit === undefined ? {} : { fit: fit as ComicOverlayStyle['fit'] }),
     ...(value['rotationDeg'] === undefined
       ? {}
       : { rotationDeg: boundedNumber(value['rotationDeg'], `${field}.rotationDeg`, -360, 360) }),
@@ -664,6 +673,9 @@ const normalizePatch = (patch: ComicRegionPatch, page: ComicWorkspacePage): Comi
   if (patch.ruby !== undefined) normalized.ruby = parseRuby(patch.ruby, 'patch.ruby');
   if (patch.rotationDeg !== undefined)
     normalized.rotationDeg = boundedNumber(patch.rotationDeg, 'patch.rotationDeg', -360, 360);
+  if (patch.overlayStyle !== undefined) {
+    normalized.overlayStyle = parseOverlayStyle(patch.overlayStyle, 'patch.overlayStyle');
+  }
   return normalized;
 };
 
@@ -728,12 +740,14 @@ export const editComicRegion = (
   const region = findRegion(page, regionId);
   const previousText = effectiveSourceText(region);
   const normalized = normalizePatch(patch, page);
+  const { overlayStyle, ...manualPatch } = normalized;
   region.manual = {
     revision: (region.manual?.revision ?? 0) + 1,
     updatedAt: now,
     ...(region.manual ?? {}),
-    ...normalized,
+    ...manualPatch,
   };
+  if (overlayStyle) region.overlay = { style: overlayStyle, updatedAt: now };
   region.reviewStatus = 'corrected';
   region.updatedAt = now;
   page.updatedAt = now;

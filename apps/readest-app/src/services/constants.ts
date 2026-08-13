@@ -26,7 +26,7 @@ import { getDefaultMaxBlockSize, getDefaultMaxInlineSize } from '@/utils/config'
 import { stubTranslation as _ } from '@/utils/misc';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
 import { DEFAULT_ANNOTATION_TOOLBAR_ITEMS } from '@/utils/annotationToolbar';
-import { DEFAULT_PARAGRAPH_GAP_SEC } from './tts/TTSController';
+import { DEFAULT_PARAGRAPH_GAP_SEC } from './tts/constants';
 
 export const DATA_SUBDIR = 'Readest';
 export const LOCAL_BOOKS_SUBDIR = `${DATA_SUBDIR}/Books`;
@@ -313,6 +313,7 @@ export const DEFAULT_TRANSLATOR_CONFIG: TranslatorConfig = {
   translationProvider: 'deepseek',
   translateTargetLang: '',
   showTranslateSource: true,
+  translationDisplayMode: 'stacked',
   ttsReadAloudText: 'both',
 };
 

@@ -8,7 +8,7 @@ import { useBookDataStore } from '@/store/bookDataStore';
 import { useCommandPalette } from '@/components/command-palette';
 import { tauriHandleClose, tauriHandleToggleFullScreen, tauriQuitApp } from '@/utils/window';
 import { eventDispatcher } from '@/utils/event';
-import { setShortcutsDialogVisible } from '@/components/KeyboardShortcutsHelp';
+import { setShortcutsDialogVisible } from '@/hooks/useDialogVisibility';
 import { MAX_ZOOM_LEVEL, MIN_ZOOM_LEVEL, ZOOM_STEP } from '@/services/constants';
 import { getParagraphActionForKey } from '@/utils/paragraphPresentation';
 import { getScrollGapAttr } from '@/utils/webtoon';

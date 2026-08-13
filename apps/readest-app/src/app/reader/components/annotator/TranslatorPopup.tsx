@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import Popup from '@/components/Popup';
 import { Position } from '@/utils/sel';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useTranslator } from '@/hooks/useTranslator';
 import { TRANSLATOR_LANGS } from '@/services/constants';
@@ -47,7 +48,8 @@ const TranslatorPopup: React.FC<TranslatorPopupProps> = ({
   onDismiss,
 }) => {
   const _ = useTranslation();
-  const { settings, setSettings } = useSettingsStore();
+  const { envConfig } = useEnv();
+  const { settings, setSettings, saveSettings } = useSettingsStore();
   const [providers, setProviders] = useState<TranslatorType[]>([]);
   const [sourceLang, setSourceLang] = useState('AUTO');
   const [targetLang, setTargetLang] = useState(settings.globalReadSettings.translateTargetLang);
@@ -68,9 +70,17 @@ const TranslatorPopup: React.FC<TranslatorPopupProps> = ({
   };
 
   const handleTargetLangChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    settings.globalReadSettings.translateTargetLang = event.target.value;
-    setSettings(settings);
-    setTargetLang(event.target.value);
+    const nextTargetLang = event.target.value;
+    const nextSettings = {
+      ...settings,
+      globalReadSettings: {
+        ...settings.globalReadSettings,
+        translateTargetLang: nextTargetLang,
+      },
+    };
+    setSettings(nextSettings);
+    void saveSettings(envConfig, nextSettings).catch(() => undefined);
+    setTargetLang(nextTargetLang);
   };
 
   const handleProviderChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -79,8 +89,15 @@ const TranslatorPopup: React.FC<TranslatorPopupProps> = ({
     const selectedTranslator =
       availableTranslators.find((t) => t.name === requestedProvider) || availableTranslators[0]!;
     if (selectedTranslator) {
-      settings.globalReadSettings.translationProvider = selectedTranslator.name;
-      setSettings(settings);
+      const nextSettings = {
+        ...settings,
+        globalReadSettings: {
+          ...settings.globalReadSettings,
+          translationProvider: selectedTranslator.name,
+        },
+      };
+      setSettings(nextSettings);
+      void saveSettings(envConfig, nextSettings).catch(() => undefined);
       setProvider(selectedTranslator.name);
     }
   };
@@ -96,6 +113,8 @@ const TranslatorPopup: React.FC<TranslatorPopupProps> = ({
   }, [translators]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
     setLoading(true);
     const fetchTranslation = async () => {
       setError(null);
@@ -103,7 +122,13 @@ const TranslatorPopup: React.FC<TranslatorPopupProps> = ({
 
       try {
         const input = text.replaceAll('\n', '').trim();
-        const result = await translate([input]);
+        const result = await translate([input], {
+          source: sourceLang,
+          target: targetLang,
+          useCache: true,
+          signal: controller.signal,
+        });
+        if (!active) return;
         const translatedText = result[0];
         const detectedSource = null;
 
@@ -115,15 +140,19 @@ const TranslatorPopup: React.FC<TranslatorPopupProps> = ({
         if (sourceLang === 'AUTO' && detectedSource) {
           setDetectedSourceLang(detectedSource);
         }
-      } catch (err) {
-        console.error(err);
+      } catch {
+        if (!active || controller.signal.aborted) return;
         setError(_('Unable to fetch the translation. Check the configured model API.'));
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
-    fetchTranslation();
+    void fetchTranslation();
+    return () => {
+      active = false;
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, sourceLang, targetLang, provider, translate]);
 

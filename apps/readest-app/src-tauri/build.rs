@@ -13,6 +13,7 @@ fn main() {
         tauri_build::AppManifest::new().commands(&[
             "get_executable_dir",
             "allow_paths_in_scopes",
+            "set_webview_memory_usage",
             "read_dir",
             "parse_epub_metadata",
             "extract_epub_cover_full",

@@ -52,6 +52,8 @@ export interface ComicInpaintRequest {
 
 export interface ComicInpaintWorker {
   process(request: ComicInpaintRequest): Promise<ComicRgbaImage>;
+  /** Release model/runtime memory after a bounded batch. */
+  close?(): Promise<void> | void;
 }
 
 export interface ComicCleanupResult {

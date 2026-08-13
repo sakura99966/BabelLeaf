@@ -1,4 +1,5 @@
-import { detectLanguage, getLanguageInfo, isSameLang, isValidLang } from '@/utils/lang';
+import { getLanguageInfo, isSameLang, isValidLang } from '@/utils/lang';
+import { detectLanguage } from '@/utils/languageDetection';
 import type { Transformer } from './types';
 
 export const languageTransformer: Transformer = {

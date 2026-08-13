@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "fixture": "sample-babelleaf.azw3",
+  "source": "repository-authored deterministic EPUB",
+  "sourceGenerator": "babelleaf-format-fixtures@1.4.0",
+  "converter": {
+    "name": "Kindling",
+    "version": "0.31.0",
+    "commit": "7e3e8d7",
+    "license": "MIT",
+    "windowsSha256": "122581beef68e052a0636fb782cb7a465656f868cfcfccfb0231cde389215ede",
+    "releaseUrl": "https://github.com/ciscoriordan/kindling/releases/tag/v0.31.0"
+  },
+  "normalization": {
+    "palmCreationTimestamp": 3850070400,
+    "palmModificationTimestamp": 3850070400
+  },
+  "output": {
+    "bytes": 12535,
+    "sha256": "69bd0b13185447ef19383770dc92511303090a4f830fe80b584ff6219aea874f",
+    "fileVersion": 8,
+    "encryption": 0
+  },
+  "usage": "test-only; never copied into application release packages"
+}

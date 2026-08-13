@@ -382,17 +382,18 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   const handleImport = async () => {
     if (!appService) return;
     setError(null);
-    const selection = await selectFiles({
-      type: 'generic',
-      multiple: false,
-      accept:
-        'application/json,.json,text/tab-separated-values,.tsv,application/xliff+xml,.xlf,.xliff',
-      extensions: ['json', 'tsv', 'xlf', 'xliff'],
-      dialogTitle: _('Import Annotations'),
-    });
-    const selected = selection.files[0];
-    if (!selected) return;
     try {
+      const selection = await selectFiles({
+        type: 'generic',
+        multiple: false,
+        accept:
+          'application/json,.json,text/tab-separated-values,.tsv,application/xliff+xml,.xlf,.xliff',
+        extensions: ['json', 'tsv', 'xlf', 'xliff'],
+        dialogTitle: _('Import Annotations'),
+      });
+      if (selection.error) throw new Error(selection.error);
+      const selected = selection.files[0];
+      if (!selected) return;
       const file =
         selected.file || (selected.path ? await appService.openFile(selected.path, 'None') : null);
       if (!file) throw new Error(_('Unable to open book'));
@@ -421,21 +422,25 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   const handleExport = async () => {
     if (!appService || !artifact) return;
     setError(null);
-    const current = controllerRef.current?.getArtifact() || artifact;
-    const safeTarget = targetLang.replace(/[^a-zA-Z0-9-]+/g, '_') || 'target';
-    const extension = reviewExportFormat === 'xliff' ? 'xlf' : reviewExportFormat;
-    const filename =
-      reviewExportFormat === 'json'
-        ? `BabelLeaf-translation-${bookHash}-${safeTarget}.babelleaf-translation.json`
-        : `BabelLeaf-review-${bookHash}-${safeTarget}.${extension}`;
-    const content =
-      reviewExportFormat === 'json'
-        ? serializeTranslationSidecar(current)
-        : serializeReviewInterchange(current, reviewExportFormat);
-    const saved = await appService.saveFile(filename, content, {
-      mimeType: getInterchangeMimeType(reviewExportFormat),
-    });
-    if (!saved) setError(_('Unable to save file'));
+    try {
+      const current = controllerRef.current?.getArtifact() || artifact;
+      const safeTarget = targetLang.replace(/[^a-zA-Z0-9-]+/g, '_') || 'target';
+      const extension = reviewExportFormat === 'xliff' ? 'xlf' : reviewExportFormat;
+      const filename =
+        reviewExportFormat === 'json'
+          ? `BabelLeaf-translation-${bookHash}-${safeTarget}.babelleaf-translation.json`
+          : `BabelLeaf-review-${bookHash}-${safeTarget}.${extension}`;
+      const content =
+        reviewExportFormat === 'json'
+          ? serializeTranslationSidecar(current)
+          : serializeReviewInterchange(current, reviewExportFormat);
+      const saved = await appService.saveFile(filename, content, {
+        mimeType: getInterchangeMimeType(reviewExportFormat),
+      });
+      if (!saved) setError(_('Unable to save file'));
+    } catch (reason: unknown) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
   };
 
   const handleDeleteJob = async (job: TranslationJobSnapshot) => {

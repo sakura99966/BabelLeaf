@@ -2,7 +2,6 @@ import i18n from '@/i18n/i18n';
 import { create } from 'zustand';
 import { SystemSettings } from '@/types/settings';
 import { EnvConfigType } from '@/services/environment';
-import { initDayjs } from '@/utils/time';
 import { broadcastGlobalSettings } from '@/utils/settingsSync';
 
 export type FontPanelView = 'main-fonts' | 'custom-fonts';
@@ -61,6 +60,5 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   applyUILanguage: (uiLanguage?: string) => {
     const locale = uiLanguage ? uiLanguage : navigator.language;
     i18n.changeLanguage(locale);
-    initDayjs(locale);
   },
 }));

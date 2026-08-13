@@ -10,6 +10,7 @@
 /coverage
 .test-sandbox-node/
 .vitest-attachments/
+/src/__tests__/.babelleaf-wdio-fixtures/
 
 # benchmarks — personal local perf history; share via PR/issue copy-paste
 bench/results.jsonl
@@ -88,6 +89,7 @@ docs/superpowers
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/debug.log
 
 
 # Word Lens build-input corpora (ECDICT, WikDict, FrequencyWords, etc.) — large,

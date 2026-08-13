@@ -44,8 +44,7 @@ jobs:
               - 'packages/tao/**'
               - 'packages/tauri'
               - 'packages/tauri/**'
-              - 'packages/tauri-plugins'
-              - 'packages/tauri-plugins/plugins/fs/**'
+              - 'packages/tauri-plugin-fs/**'
 
       - name: setup sccache
         if: steps.changes.outputs.tauri == 'true'
@@ -96,12 +95,17 @@ jobs:
 
       - name: setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.1
 
       - name: setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24
           cache: pnpm
+
+      - name: verify package manager version
+        run: pnpm -w verify:package-manager
 
       - name: install dependencies
         working-directory: apps/readest-app
@@ -137,12 +141,17 @@ jobs:
 
       - name: setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.1
 
       - name: setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24
           cache: pnpm
+
+      - name: verify package manager version
+        run: pnpm -w verify:package-manager
 
       - name: install dependencies
         working-directory: apps/readest-app
@@ -177,6 +186,38 @@ jobs:
         working-directory: apps/readest-app
         run: pnpm test:browser
 
+  coverage_gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: 'true'
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.1
+
+      - name: setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: verify package manager version
+        run: pnpm -w verify:package-manager
+
+      - name: install dependencies and local vendors
+        working-directory: apps/readest-app
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline
+          pnpm setup-vendors
+
+      - name: run progressive coverage gate
+        working-directory: apps/readest-app
+        run: pnpm test:coverage -- --run
+
   build_tauri_app:
     runs-on: ubuntu-latest
     env:
@@ -189,12 +230,17 @@ jobs:
 
       - name: setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.1
 
       - name: setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24
           cache: pnpm
+
+      - name: verify package manager version
+        run: pnpm -w verify:package-manager
 
       - name: cache Turbopack dev output
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -241,6 +287,46 @@ jobs:
         working-directory: apps/readest-app
         run: xvfb-run pnpm test:tauri
 
+  security_audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: 'true'
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.1
+
+      - name: setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: verify package manager version
+        run: pnpm -w verify:package-manager
+
+      - name: install JavaScript dependencies
+        run: pnpm install --frozen-lockfile --prefer-offline
+
+      - name: audit production JavaScript dependencies
+        run: pnpm audit --prod --audit-level moderate
+
+      - name: setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: audit Windows Rust dependency graph
+        run: cargo audit --target-os windows
+
   windows_installer_smoke:
     runs-on: windows-latest
     timeout-minutes: 90
@@ -254,12 +340,17 @@ jobs:
 
       - name: setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.1
 
       - name: setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24
           cache: pnpm
+
+      - name: verify package manager version
+        run: pnpm -w verify:package-manager
 
       - name: install dependencies
         working-directory: apps/readest-app
@@ -325,12 +416,17 @@ jobs:
 
       - name: setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.1
 
       - name: setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24
           cache: pnpm
+
+      - name: verify package manager version
+        run: pnpm -w verify:package-manager
 
       - name: install dependencies
         working-directory: apps/readest-app
@@ -348,10 +444,97 @@ jobs:
         shell: pwsh
         run: pnpm test:browser
 
+  web_e2e:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: 'true'
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.1
+
+      - name: setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: verify package manager version
+        run: pnpm -w verify:package-manager
+
+      - name: install dependencies and local vendors
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm setup-vendors
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm exec playwright install chromium
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: build production web output
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: pnpm build-web
+
+      - name: run production web E2E
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: pnpm test:e2e:web
+
+  windows_native_e2e:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: 'true'
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6
+        with:
+          version: 11.1.1
+
+      - name: setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: verify package manager version
+        run: pnpm -w verify:package-manager
+
+      - name: install dependencies and local vendors
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile --prefer-offline
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm setup-vendors
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: setup Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
+        with:
+          toolchain: stable
+          target: x86_64-pc-windows-msvc
+          rustflags: ''
+          cache: false
+
+      - name: run native WebDriverIO E2E
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: pnpm test:e2e
+
   ci_gate:
     name: required-checks
     if: ${{ always() }}
-    needs: [rust_lint, check_app, test_app, build_tauri_app, windows_installer_smoke, windows_browser_tests]
+    needs: [rust_lint, check_app, test_app, coverage_gate, build_tauri_app, security_audit, windows_installer_smoke, windows_browser_tests, web_e2e, windows_native_e2e]
     runs-on: ubuntu-latest
     steps:
       - name: verify required job results
@@ -359,16 +542,20 @@ jobs:
           RUST_LINT_RESULT: ${{ needs.rust_lint.result }}
           CHECK_APP_RESULT: ${{ needs.check_app.result }}
           TEST_APP_RESULT: ${{ needs.test_app.result }}
+          COVERAGE_GATE_RESULT: ${{ needs.coverage_gate.result }}
           BUILD_TAURI_RESULT: ${{ needs.build_tauri_app.result }}
+          SECURITY_AUDIT_RESULT: ${{ needs.security_audit.result }}
           WINDOWS_SMOKE_RESULT: ${{ needs.windows_installer_smoke.result }}
           WINDOWS_BROWSER_RESULT: ${{ needs.windows_browser_tests.result }}
+          WEB_E2E_RESULT: ${{ needs.web_e2e.result }}
+          WINDOWS_NATIVE_E2E_RESULT: ${{ needs.windows_native_e2e.result }}
         run: |
           # rust_lint is intentionally allowed to skip when no native files changed.
           if [ "$RUST_LINT_RESULT" != "success" ] && [ "$RUST_LINT_RESULT" != "skipped" ]; then
             echo "rust_lint: $RUST_LINT_RESULT"
             exit 1
           fi
-          for result in "$CHECK_APP_RESULT" "$TEST_APP_RESULT" "$BUILD_TAURI_RESULT" "$WINDOWS_SMOKE_RESULT" "$WINDOWS_BROWSER_RESULT"; do
+          for result in "$CHECK_APP_RESULT" "$TEST_APP_RESULT" "$COVERAGE_GATE_RESULT" "$BUILD_TAURI_RESULT" "$SECURITY_AUDIT_RESULT" "$WINDOWS_SMOKE_RESULT" "$WINDOWS_BROWSER_RESULT" "$WEB_E2E_RESULT" "$WINDOWS_NATIVE_E2E_RESULT"; do
             if [ "$result" != "success" ]; then
               echo "required job result: $result"
               exit 1

@@ -5,7 +5,7 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * This suite drives the Next.js *web* build (`pnpm dev-web`) in a real browser.
  * It is complementary to — not a replacement for — the WebdriverIO suite
- * (`e2e/app.e2e.ts`, run via `pnpm test:e2e`), which drives the Tauri shell.
+ * (`e2e/app.e2e.mjs`, run via `pnpm test:e2e`), which drives the Tauri shell.
  *
  *   - Specs:        e2e/tests/**\/*.spec.ts
  *   - Page objects: e2e/pages
@@ -14,7 +14,8 @@ import { defineConfig, devices } from '@playwright/test';
  * Tests run unauthenticated against a fresh browser context, so each test
  * starts from an isolated, empty local library.
  */
-const PORT = 3000;
+const PORT = Number(process.env.BABELLEAF_WEB_E2E_PORT || 3000);
+const externalWebServer = process.env.BABELLEAF_E2E_EXTERNAL_SERVER === '1';
 
 export default defineConfig({
   testDir: './e2e/tests',
@@ -32,17 +33,23 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   use: {
     baseURL: `http://localhost:${PORT}`,
+    // The host machine may advertise zh-CN, while this lane asserts the
+    // stable English accessibility labels. Product locale behavior is tested
+    // separately; the browser harness must not depend on host locale.
+    locale: 'en-US',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  webServer: {
-    // CI runs against a production build (`pnpm build-web` runs first as a
-    // separate CI step) — `next dev` shows an error overlay on the app's
-    // `next-view-transitions` unhandled rejection, which intercepts clicks.
-    command: process.env.CI ? 'pnpm start-web' : 'pnpm dev-web',
-    port: PORT,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: externalWebServer
+    ? undefined
+    : {
+        // CI runs against the exported production build (`pnpm build-web`
+        // runs first as a separate CI step). The repository-owned static
+        // server adds the COOP/COEP headers required by the local WASM readers.
+        command: process.env.CI ? 'node scripts/serve-web.mjs' : 'pnpm dev-web',
+        port: PORT,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
 });

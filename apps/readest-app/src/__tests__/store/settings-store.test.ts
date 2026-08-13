@@ -6,23 +6,17 @@ vi.mock('@/i18n/i18n', () => ({
   },
 }));
 
-vi.mock('@/utils/time', () => ({
-  initDayjs: vi.fn(),
-}));
-
 vi.mock('@/utils/settingsSync', () => ({
   broadcastGlobalSettings: vi.fn(),
 }));
 
 import i18n from '@/i18n/i18n';
-import { initDayjs } from '@/utils/time';
 import { broadcastGlobalSettings } from '@/utils/settingsSync';
 import { useSettingsStore } from '@/store/settingsStore';
 import type { EnvConfigType } from '@/services/environment';
 import type { SystemSettings } from '@/types/settings';
 
 const mockChangeLanguage = vi.mocked(i18n.changeLanguage);
-const mockInitDayjs = vi.mocked(initDayjs);
 const mockBroadcastGlobalSettings = vi.mocked(broadcastGlobalSettings);
 
 function makeSettings(overrides: Partial<SystemSettings> = {}): SystemSettings {
@@ -172,7 +166,6 @@ describe('settingsStore', () => {
       useSettingsStore.getState().applyUILanguage('fr');
 
       expect(mockChangeLanguage).toHaveBeenCalledWith('fr');
-      expect(mockInitDayjs).toHaveBeenCalledWith('fr');
     });
 
     test('falls back to navigator.language when no language provided', () => {
@@ -180,7 +173,6 @@ describe('settingsStore', () => {
       useSettingsStore.getState().applyUILanguage();
 
       expect(mockChangeLanguage).toHaveBeenCalledWith(expectedLocale);
-      expect(mockInitDayjs).toHaveBeenCalledWith(expectedLocale);
     });
 
     test('falls back to navigator.language when undefined is passed', () => {
@@ -188,7 +180,6 @@ describe('settingsStore', () => {
       useSettingsStore.getState().applyUILanguage(undefined);
 
       expect(mockChangeLanguage).toHaveBeenCalledWith(expectedLocale);
-      expect(mockInitDayjs).toHaveBeenCalledWith(expectedLocale);
     });
 
     test('applies empty string language by falling back to navigator.language', () => {
@@ -197,7 +188,6 @@ describe('settingsStore', () => {
       useSettingsStore.getState().applyUILanguage('');
 
       expect(mockChangeLanguage).toHaveBeenCalledWith(expectedLocale);
-      expect(mockInitDayjs).toHaveBeenCalledWith(expectedLocale);
     });
 
     test('applies various locale codes', () => {
@@ -205,7 +195,6 @@ describe('settingsStore', () => {
         vi.clearAllMocks();
         useSettingsStore.getState().applyUILanguage(locale);
         expect(mockChangeLanguage).toHaveBeenCalledWith(locale);
-        expect(mockInitDayjs).toHaveBeenCalledWith(locale);
       }
     });
   });

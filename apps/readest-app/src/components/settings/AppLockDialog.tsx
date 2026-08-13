@@ -20,9 +20,8 @@ import { useSettingsStore } from '@/store/settingsStore';
 const fieldLabelClass = 'text-base-content/70 text-xs font-medium tracking-wide';
 
 /**
- * Always mounted (at Providers level). Reads `dialogMode` from
- * `useAppLockStore`; renders nothing when null. Dialog state lives in
- * the store rather than the SettingsMenu component because that
+ * Mounted by Providers only while `dialogMode` is active. Dialog state lives
+ * in the store rather than the SettingsMenu component because that
  * component unmounts the moment its dropdown closes — local state
  * would never make it to a render.
  */
