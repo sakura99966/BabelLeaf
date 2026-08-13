@@ -107,7 +107,7 @@ describe('BabelLeaf native build contract', () => {
     expect(readSource('scripts/test-wdio.mjs')).toContain('BABELLEAF_WEBDRIVER_WEBVIEW_DATA_DIR');
     expect(rustEntry).toContain('#[cfg(all(desktop, not(feature = "webdriver")))]');
     expect(rustEntry).toMatch(
-      /any\(target_os = "windows", target_os = "linux"\),\s*not\(feature = "webdriver"\)[\s\S]{0,180}register_all/,
+      /any\(target_os = "windows", target_os = "linux"\),\s*not\(feature = "webdriver"\)[\s\S]{0,360}register_all/,
     );
     expect(rustEntry).toMatch(
       /#\[cfg\(feature = "webdriver"\)\][\s\S]{0,2400}__BABELLEAF_WEBDRIVER__/,

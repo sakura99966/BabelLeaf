@@ -1,0 +1,2 @@
+# Hash-sensitive text fixtures must have identical bytes on every checkout.
+apps/readest-app/src/__tests__/fixtures/data/sample-fixture.md text eol=lf
