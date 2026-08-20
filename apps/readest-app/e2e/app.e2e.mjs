@@ -404,15 +404,26 @@ describe('JavaScript Execution', () => {
 });
 
 describe('Windows speech synthesis', () => {
-  it('should enumerate and complete muted English, Japanese, and Chinese utterances', async () => {
+  it('should enumerate voices and complete muted utterances for available language packs', async () => {
     await browser.execute((samples) => {
-      window.__BABELLEAF_TTS_RESULT__ = { done: false, failure: null, results: [] };
+      window.__BABELLEAF_TTS_RESULT__ = {
+        done: false,
+        failure: null,
+        results: [],
+        unavailable: [],
+        voiceCount: 0,
+      };
       const finish = (result) => {
         window.__BABELLEAF_TTS_RESULT__ = { done: true, ...result };
       };
       const deadline = window.setTimeout(() => {
         window.speechSynthesis.cancel();
-        finish({ failure: 'speech synthesis timed out', results: [] });
+        finish({
+          failure: 'speech synthesis timed out',
+          results: [],
+          unavailable: [],
+          voiceCount: 0,
+        });
       }, 30000);
 
       const getVoices = async () => {
@@ -427,14 +438,14 @@ describe('Windows speech synthesis', () => {
 
       void getVoices().then(async (voices) => {
         const completed = [];
+        const unavailable = [];
         for (const sample of samples) {
           const voice = voices.find((candidate) =>
             candidate.lang.toLowerCase().startsWith(sample.language.toLowerCase()),
           );
           if (!voice) {
-            window.clearTimeout(deadline);
-            finish({ failure: `missing ${sample.language} voice`, results: completed });
-            return;
+            unavailable.push(sample.language);
+            continue;
           }
 
           const result = await new Promise((resolve) => {
@@ -461,7 +472,7 @@ describe('Windows speech synthesis', () => {
           completed.push(result);
         }
         window.clearTimeout(deadline);
-        finish({ failure: null, results: completed });
+        finish({ failure: null, results: completed, unavailable, voiceCount: voices.length });
       });
     }, [
       { language: 'en', text: 'BabelLeaf speech verification.' },
@@ -475,7 +486,11 @@ describe('Windows speech synthesis', () => {
     const results = await browser.execute(() => window.__BABELLEAF_TTS_RESULT__);
 
     expect(results.failure).toBeNull();
-    expect(results.results).toHaveLength(3);
+    expect(results.voiceCount).toBeGreaterThan(0);
+    expect(results.results.some((result) => result.language === 'en')).toBe(true);
+    expect(
+      [...results.results.map((result) => result.language), ...results.unavailable].sort(),
+    ).toEqual(['en', 'ja', 'zh']);
     for (const result of results.results) {
       expect(result.started).toBe(true);
       expect(result.ended).toBe(true);

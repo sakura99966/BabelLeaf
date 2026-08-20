@@ -12,6 +12,13 @@ const webdriverPort = Number(process.env.BABELLEAF_WDIO_WEBDRIVER_PORT || 4445);
 const devPort = Number(process.env.BABELLEAF_WDIO_DEV_PORT || 3000);
 const timeoutMs = Number(process.env.BABELLEAF_WDIO_TIMEOUT_MS || 300_000);
 const children = [];
+const removeDirectory = (directory) =>
+  rm(directory, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 500,
+  });
 const baseEnvironment = {
   ...process.env,
   NEXT_PUBLIC_APP_PLATFORM: 'tauri',
@@ -276,7 +283,7 @@ try {
   await requireFreePort(devPort, 'Next.js development server');
   await requireFreePort(webdriverPort, 'Tauri WebDriver');
   console.log('Generating and verifying deterministic format fixtures...');
-  await rm(temporaryFormatFixtureDirectory, { recursive: true, force: true });
+  await removeDirectory(temporaryFormatFixtureDirectory);
   const fixtureGenerator = spawnNode(
     path.resolve(appRoot, '../../scripts/fixtures/generate-format-fixtures.mjs'),
     [
@@ -389,19 +396,29 @@ try {
   }
   // WebView2 can release its profile lock slightly after the Tauri process
   // exits. Give the runtime a bounded grace period before the next lane starts.
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  if (temporaryConfigDirectory) {
-    await rm(temporaryConfigDirectory, { recursive: true, force: true });
-  }
-  if (temporaryRuntimeDirectory) {
-    await rm(temporaryRuntimeDirectory, { recursive: true, force: true });
-  }
-  await rm(temporaryFormatFixtureDirectory, { recursive: true, force: true });
-  if (webdriverFallbackPidFile) {
-    await rm(webdriverFallbackPidFile, { force: true });
-  }
-  if (webdriverStageFile) {
-    await rm(webdriverStageFile, { force: true });
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    if (temporaryConfigDirectory) {
+      await removeDirectory(temporaryConfigDirectory);
+    }
+    if (temporaryRuntimeDirectory) {
+      await removeDirectory(temporaryRuntimeDirectory);
+    }
+    await removeDirectory(temporaryFormatFixtureDirectory);
+    if (webdriverFallbackPidFile) {
+      await rm(webdriverFallbackPidFile, { force: true });
+    }
+    if (webdriverStageFile) {
+      await rm(webdriverStageFile, { force: true });
+    }
+  } catch (error) {
+    if (failure) {
+      console.warn(
+        `Native E2E cleanup also failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } else {
+      failure = error;
+    }
   }
 }
 
