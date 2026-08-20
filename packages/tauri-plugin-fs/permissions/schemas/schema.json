@@ -2005,10 +2005,10 @@
           "markdownDescription": "This enables all read related commands without any pre-configured accessible paths."
         },
         {
-          "description": "This permission allows recursive read functionality on the application\nspecific base directories. \n",
+          "description": "This permission allows recursive read functionality on the application\nspecific base directories.\n",
           "type": "string",
           "const": "read-app-specific-dirs-recursive",
-          "markdownDescription": "This permission allows recursive read functionality on the application\nspecific base directories. \n"
+          "markdownDescription": "This permission allows recursive read functionality on the application\nspecific base directories.\n"
         },
         {
           "description": "This enables directory read and file metadata related commands without any pre-configured accessible paths.",

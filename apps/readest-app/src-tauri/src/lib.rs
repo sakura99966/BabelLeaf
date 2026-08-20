@@ -17,7 +17,7 @@ use tauri::utils::config::BackgroundThrottlingPolicy;
 use tauri::TitleBarStyle;
 
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::{command, AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_fs::FsExt;
 
 #[cfg(desktop)]
@@ -31,8 +31,6 @@ mod parser_common;
 mod range_file;
 #[cfg(all(desktop, not(feature = "webdriver")))]
 mod window_state;
-#[cfg(target_os = "windows")]
-use tauri::{command, Emitter, WebviewUrl, WebviewWindowBuilder};
 #[cfg(target_os = "android")]
 use tauri_plugin_native_bridge::register_select_directory_callback;
 
