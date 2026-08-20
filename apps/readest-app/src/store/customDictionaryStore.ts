@@ -322,7 +322,7 @@ export const useCustomDictionaryStore = create<DictionaryStoreState>((set, get) 
         dictionarySettings: dictSettings,
       };
       setSettings(next);
-      saveSettings(envConfig, next);
+      await saveSettings(envConfig, next);
     } catch (error) {
       console.error('Failed to save custom dictionaries settings:', error);
       throw error;

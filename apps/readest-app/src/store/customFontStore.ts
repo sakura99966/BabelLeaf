@@ -288,7 +288,7 @@ export const useCustomFontStore = create<FontStoreState>((set, get) => ({
       const { fonts } = get();
       settings.customFonts = fonts.map(toSettingsFont);
       setSettings(settings);
-      saveSettings(envConfig, settings);
+      await saveSettings(envConfig, settings);
     } catch (error) {
       console.error('Failed to save custom fonts settings:', error);
       throw error;

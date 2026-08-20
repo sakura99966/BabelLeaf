@@ -71,6 +71,36 @@ describe('customDictionaryStore local providers', () => {
     expect(useCustomDictionaryStore.getState().dictionaries[0]?.unavailable).toBeUndefined();
   });
 
+  it('waits for native settings persistence before resolving a save', async () => {
+    const originalSettingsState = useSettingsStore.getState();
+    let releasePersistence = () => {};
+    const persistence = new Promise<void>((resolve) => {
+      releasePersistence = resolve;
+    });
+    const saveSettings = vi.fn(() => persistence);
+    useSettingsStore.setState({ saveSettings });
+
+    try {
+      const savePromise = useCustomDictionaryStore.getState().saveCustomDictionaries({} as never);
+      const earlyOutcome = await Promise.race([
+        savePromise.then(() => 'resolved'),
+        Promise.resolve('pending'),
+      ]);
+
+      expect(saveSettings).toHaveBeenCalledTimes(1);
+      expect(earlyOutcome).toBe('pending');
+
+      releasePersistence();
+      await expect(savePromise).resolves.toBeUndefined();
+    } finally {
+      releasePersistence();
+      useSettingsStore.setState({
+        settings: originalSettingsState.settings,
+        saveSettings: originalSettingsState.saveSettings,
+      });
+    }
+  });
+
   it('migrates legacy online providers and dictionary tombstones out of local settings', async () => {
     const live = dictionary('mdict:live');
     const deleted = { ...dictionary('mdict:deleted'), deletedAt: 1 };

@@ -263,10 +263,19 @@ describe('Native local dictionaries', () => {
     await browser.execute((paths) => {
       window.__BABELLEAF_E2E_FILE_SELECTION = paths;
     }, fixtures);
-    await $('[data-testid="import-dictionary"]').click();
+    const importButton = await $('[data-testid="import-dictionary"]');
+    await importButton.click();
 
     const importedRow = await $('[data-testid="dictionary-row"][data-dictionary-kind="mdict"]');
     await importedRow.waitForDisplayed({ timeout: 30000 });
+    // The row enters the Zustand store before native settings persistence
+    // completes. The button is re-enabled only after that Promise settles, so
+    // use it as the reload boundary instead of racing the first render.
+    await browser.waitUntil(async () => importButton.isEnabled(), {
+      timeout: 30000,
+      timeoutMsg: 'Dictionary import did not finish persisting native settings',
+    });
+    expect(await $('[data-testid="app-toast"][data-toast-type="error"]').isExisting()).toBe(false);
     const importedToggle = await importedRow.$('input[type="checkbox"]');
     expect(await importedToggle.isSelected()).toBe(true);
     expect(await importedToggle.isEnabled()).toBe(true);
