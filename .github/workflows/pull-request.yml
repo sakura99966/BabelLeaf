@@ -533,6 +533,11 @@ jobs:
       - name: run native WebDriverIO E2E
         working-directory: apps/readest-app
         shell: pwsh
+        env:
+          # A cache-cold GitHub runner can spend more than five minutes compiling
+          # before the WebDriver listener starts. Keep the wait bounded below the
+          # job-level timeout while avoiding a false startup failure.
+          BABELLEAF_WDIO_TIMEOUT_MS: 600000
         run: pnpm test:e2e
 
   ci_gate:
