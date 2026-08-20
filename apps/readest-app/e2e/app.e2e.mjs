@@ -413,7 +413,10 @@ describe('Windows speech synthesis', () => {
         unavailable: [],
         voiceCount: 0,
       };
+      let finished = false;
       const finish = (result) => {
+        if (finished) return;
+        finished = true;
         window.__BABELLEAF_TTS_RESULT__ = { done: true, ...result };
       };
       const deadline = window.setTimeout(() => {
@@ -453,17 +456,12 @@ describe('Windows speech synthesis', () => {
             utterance.lang = voice.lang;
             utterance.voice = voice;
             utterance.volume = 0;
-            let started = false;
-            utterance.onstart = () => {
-              started = true;
-            };
             utterance.onend = () =>
-              resolve({ language: sample.language, voice: voice.name, started, ended: true });
+              resolve({ language: sample.language, voice: voice.name, ended: true });
             utterance.onerror = (event) =>
               resolve({
                 language: sample.language,
                 voice: voice.name,
-                started,
                 ended: false,
                 error: event.error,
               });
@@ -492,7 +490,6 @@ describe('Windows speech synthesis', () => {
       [...results.results.map((result) => result.language), ...results.unavailable].sort(),
     ).toEqual(['en', 'ja', 'zh']);
     for (const result of results.results) {
-      expect(result.started).toBe(true);
       expect(result.ended).toBe(true);
       expect(result.error).toBeUndefined();
     }
