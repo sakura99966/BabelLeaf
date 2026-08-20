@@ -1,18 +1,17 @@
 /**
- * Visual regression test for the AnnotationPopup component.
+ * Browser layout regression test for the AnnotationPopup component.
  *
  * Renders the *real* AnnotationPopup + HighlightOptions with actual
  * annotationToolButtons, DEFAULT_HIGHLIGHT_COLORS, and optional user
- * colors.  Tailwind CSS is loaded so the screenshot matches the live app.
+ * colors. Tailwind CSS is loaded so computed geometry matches the live app.
  *
  * Guards against the layout regression from PR #3741 (missing
  * `justify-between`, unwanted `flex-1` on the color strip).
  */
 
 import React from 'react';
-import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { page } from 'vitest/browser';
 import type { UserHighlightColor } from '@/types/book';
 import { EnvContextProvider } from '@/context/EnvContext';
 import type { EnvConfigType } from '@/services/environment';
@@ -82,11 +81,6 @@ const toolButtons = annotationToolButtons
     onClick: vi.fn(),
   }));
 
-// Browser-mode matcher types are unavailable to tsgo; cast once here.
-const expectElement = (locator: unknown) =>
-  // @ts-expect-error -- expect.element() exists in vitest browser mode
-  expect.element(locator) as { toMatchScreenshot: (name: string) => Promise<void> };
-
 /**
  * Fixed-size wrapper that contains both the popup and the absolutely
  * positioned highlight-options row above it, matching the real app
@@ -153,23 +147,41 @@ const renderPopup = (userColors: UserHighlightColor[] = []) => {
   );
 };
 
-const isWindowsBrowser = /Windows NT/i.test(navigator.userAgent);
+const assertLayout = (
+  wrapper: HTMLElement,
+  expectedColorCount: number,
+  expectedOverflow: boolean,
+) => {
+  const options = wrapper.querySelector<HTMLElement>('.highlight-options');
+  if (!options) throw new Error('Highlight options were not rendered');
 
-const assertWindowsLayout = (wrapper: HTMLElement) => {
-  // Chromium's font rasterization and native form controls differ from the
-  // Linux reference image. Keep the Windows lane deterministic with structural
-  // assertions while the reference screenshot remains the visual gate on CI's
-  // stable Linux runner.
+  const styleGroup = options.children.item(0) as HTMLElement | null;
+  const colorStrip = options.children.item(1) as HTMLElement | null;
+  if (!styleGroup || !colorStrip) throw new Error('Highlight option groups were not rendered');
+
+  const optionsStyle = getComputedStyle(options);
+  const stripStyle = getComputedStyle(colorStrip);
+  const optionsRect = options.getBoundingClientRect();
+  const styleRect = styleGroup.getBoundingClientRect();
+  const stripRect = colorStrip.getBoundingClientRect();
+
   expect(wrapper.getBoundingClientRect().width).toBe(POPUP_W);
   expect(wrapper.getBoundingClientRect().height).toBe(WRAPPER_H);
-  expect(wrapper.querySelectorAll('button').length).toBeGreaterThan(0);
+  expect(optionsStyle.display).toBe('flex');
+  expect(optionsStyle.flexDirection).toBe('row');
+  expect(optionsStyle.justifyContent).toBe('space-between');
+  expect(optionsRect.width).toBe(POPUP_W);
+  expect(optionsRect.height).toBe(POPUP_H);
+  expect(styleGroup.querySelectorAll('button')).toHaveLength(3);
+  expect(Math.abs(stripRect.right - optionsRect.right)).toBeLessThanOrEqual(1);
+  expect(stripRect.left - styleRect.right).toBeGreaterThanOrEqual(15);
+  expect(stripStyle.flexGrow).toBe('0');
+  expect(colorStrip.classList.contains('flex-1')).toBe(false);
+  expect(colorStrip.querySelectorAll('button')).toHaveLength(expectedColorCount);
+  expect(colorStrip.scrollWidth > colorStrip.clientWidth).toBe(expectedOverflow);
 };
 
 // ── Lifecycle ───────────────────────────────────────────────────────────
-
-beforeAll(async () => {
-  await page.viewport(800, 600);
-});
 
 afterEach(() => {
   cleanup();
@@ -177,20 +189,14 @@ afterEach(() => {
 
 // ── Tests ───────────────────────────────────────────────────────────────
 
-describe('AnnotationPopup layout screenshot', () => {
-  it('default 5 colors — compact color strip, large gap', async () => {
+describe('AnnotationPopup layout', () => {
+  it('default 5 colors — compact color strip, large gap', () => {
     const { container } = renderPopup();
     const wrapper = container.firstElementChild as HTMLElement;
-    if (isWindowsBrowser) {
-      assertWindowsLayout(wrapper);
-      return;
-    }
-    await expectElement(page.elementLocator(wrapper)).toMatchScreenshot(
-      'annotation-popup-5-colors',
-    );
+    assertLayout(wrapper, 5, false);
   });
 
-  it('5+5 user colors — color strip grows, gap shrinks', async () => {
+  it('5+5 user colors — color strip grows, gap shrinks', () => {
     const { container } = renderPopup([
       { hex: '#f97316' },
       { hex: '#06b6d4' },
@@ -199,16 +205,10 @@ describe('AnnotationPopup layout screenshot', () => {
       { hex: '#f43f5e' },
     ]);
     const wrapper = container.firstElementChild as HTMLElement;
-    if (isWindowsBrowser) {
-      assertWindowsLayout(wrapper);
-      return;
-    }
-    await expectElement(page.elementLocator(wrapper)).toMatchScreenshot(
-      'annotation-popup-10-colors',
-    );
+    assertLayout(wrapper, 10, true);
   });
 
-  it('5+10 user colors — color strip at max, overflow scrolls', async () => {
+  it('5+10 user colors — color strip at max, overflow scrolls', () => {
     const { container } = renderPopup([
       { hex: '#f97316' },
       { hex: '#06b6d4' },
@@ -222,12 +222,6 @@ describe('AnnotationPopup layout screenshot', () => {
       { hex: '#6366f1' },
     ]);
     const wrapper = container.firstElementChild as HTMLElement;
-    if (isWindowsBrowser) {
-      assertWindowsLayout(wrapper);
-      return;
-    }
-    await expectElement(page.elementLocator(wrapper)).toMatchScreenshot(
-      'annotation-popup-15-colors',
-    );
+    assertLayout(wrapper, 15, true);
   });
 });
