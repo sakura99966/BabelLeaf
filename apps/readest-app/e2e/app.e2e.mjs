@@ -2,6 +2,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const requireSpeechCompletion =
+  process.env.BABELLEAF_WDIO_REQUIRE_SPEECH_COMPLETION !== '0';
 const nativeFormatFixtures = [
   { format: 'EPUB', path: path.join(appRoot, 'src/__tests__/fixtures/data/sample-alice.epub') },
   { format: 'PDF', path: path.join(appRoot, 'src/__tests__/fixtures/data/sample-alice.pdf') },
@@ -413,7 +415,7 @@ describe('JavaScript Execution', () => {
 });
 
 describe('Windows speech synthesis', () => {
-  it('should enumerate voices and complete muted utterances for available language packs', async () => {
+  it('should enumerate voices and settle muted utterances for available language packs', async () => {
     await browser.execute((samples) => {
       window.__BABELLEAF_TTS_RESULT__ = {
         done: false,
@@ -499,8 +501,16 @@ describe('Windows speech synthesis', () => {
       [...results.results.map((result) => result.language), ...results.unavailable].sort(),
     ).toEqual(['en', 'ja', 'zh']);
     for (const result of results.results) {
-      expect(result.ended).toBe(true);
-      expect(result.error).toBeUndefined();
+      if (requireSpeechCompletion) {
+        expect(result.ended).toBe(true);
+        expect(result.error).toBeUndefined();
+      } else {
+        // GitHub-hosted Windows runners expose the Web Speech API and voices,
+        // but do not provide a supported audio-output contract. An explicit
+        // synthesis error is therefore a valid terminal callback there; local
+        // and release-machine acceptance still requires successful onend.
+        expect(result.ended || typeof result.error === 'string').toBe(true);
+      }
     }
   });
 });

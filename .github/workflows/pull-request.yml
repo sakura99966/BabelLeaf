@@ -538,6 +538,11 @@ jobs:
           # before the WebDriver listener starts. Keep the wait bounded below the
           # job-level timeout while avoiding a false startup failure.
           BABELLEAF_WDIO_TIMEOUT_MS: 600000
+          # Hosted runners do not guarantee a functional audio endpoint. This
+          # lane still enumerates voices, invokes each available language, and
+          # requires a terminal callback; developer/release machines retain the
+          # stricter default that requires successful speech completion.
+          BABELLEAF_WDIO_REQUIRE_SPEECH_COMPLETION: '0'
         run: pnpm test:e2e
 
   ci_gate:
