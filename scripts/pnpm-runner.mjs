@@ -66,9 +66,10 @@ function run(command, args) {
 
   if (isWindowsCommandFile) {
     const commandLine = [quoteForCmd(command), ...args.map(quoteForCmd)].join(' ');
-    return spawn(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', commandLine], {
+    return spawn(commandLine, {
       cwd: repositoryRoot,
       env: environment,
+      shell: true,
       stdio: 'inherit',
       windowsHide: true,
     });
@@ -89,13 +90,8 @@ const corepack = findExecutable(
   process.platform === 'win32' ? ['corepack.cmd', 'corepack.exe', 'corepack'] : ['corepack'],
 );
 
-let command = pnpm;
-let args = requestedArgs;
-
-if (!command && corepack) {
-  command = corepack;
-  args = ['pnpm', ...requestedArgs];
-}
+const command = corepack ?? pnpm;
+const args = corepack ? ['pnpm', ...requestedArgs] : requestedArgs;
 
 if (!command) {
   console.error(

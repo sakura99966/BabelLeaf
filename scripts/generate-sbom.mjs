@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readBabelLeafVersion } from './sbom-metadata.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const applicationVersion = readBabelLeafVersion(repoRoot);
 const defaultOutput = resolve(repoRoot, 'target', 'babelleaf-compliance', 'sbom.source.json');
 const licenseOverridesPath = resolve(repoRoot, 'scripts', 'sbom-license-overrides.json');
 
@@ -94,9 +96,9 @@ const npmResult =
           '/d',
           '/s',
           '/c',
-          `pnpm ${pnpmArgs.join(' ')}`,
+          `corepack pnpm ${pnpmArgs.join(' ')}`,
         ])
-      : command('pnpm', pnpmArgs);
+      : command('corepack', ['pnpm', ...pnpmArgs]);
 const npmComponents = new Map();
 const npmGaps = [];
 const skippedNpmPackages = new Set();
@@ -270,12 +272,12 @@ const gaps = [...npmGaps, ...cargoGaps];
 const document = {
   bomFormat: 'CycloneDX',
   specVersion: '1.5',
-  serialNumber: 'urn:uuid:babelleaf-source-sbom',
+  serialNumber: `urn:uuid:${randomUUID()}`,
   version: 1,
   metadata: {
     timestamp: new Date().toISOString(),
-    tools: [{ vendor: 'BabelLeaf', name: 'generate-sbom.mjs', version: '0.4.5' }],
-    component: { type: 'application', name: 'BabelLeaf', version: '0.4.3' },
+    tools: [{ vendor: 'BabelLeaf', name: 'generate-sbom.mjs', version: applicationVersion }],
+    component: { type: 'application', name: 'BabelLeaf', version: applicationVersion },
     properties: [
       { name: 'git.head', value: gitHead.ok ? gitHead.stdout.trim() : 'UNKNOWN' },
       { name: 'git.dirty', value: gitStatus.ok && gitStatus.stdout.trim() ? 'true' : 'false' },

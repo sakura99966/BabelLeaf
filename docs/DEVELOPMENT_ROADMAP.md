@@ -3,11 +3,11 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `v0.4.3` package; the concrete Windows x64 Tesseract WASM OCR path, exact local `tessdata_fast` gate, strict local OpenCV LaMa/ONNX Runtime inpainting path, image-pipeline services, desktop comic workspace, local model-pack management, and image-only PDF export are included; no model weights are bundled
-- Acceptance status: `v0.4.3` implementation and every user-independent local automated gate pass in the current working tree. Formal release acceptance remains **pending external evidence**: credentialed provider lifecycles, representative legal-corpus quality review, exact final-package clean-host workflows, human TTS review, signing, legal review, committed-source provenance, and remote CI. Platform implementation remains blocked. The authoritative split verdict and current hashes are recorded in `docs/PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md`.
-- Roadmap revision: 12
-- Approved scope date: 2026-08-08
-- Last closure update: 2026-08-13
+- Current implementation baseline: `0.4.4` PC release closure; it preserves the completed 0.4 feature scope and incorporates the acceptance, persistence, native-speech, installer, and CI corrections made after the historical `v0.4.3` tag. No new product capability or model weight is added by this patch.
+- Acceptance status: `0.4.4` implementation and local automated release gates pass. Published traceability is bound by one reviewed source commit, exact version metadata, the standard Windows x64 package, checksums, SBOM, release notes, green remote required checks, the immutable `v0.4.4` tag, and its GitHub release record. Formal PC acceptance remains **pending external evidence** for credentialed provider lifecycles, representative legal-corpus quality review, exact final-package clean-host workflows, human TTS review, signing, and legal review. Platform implementation remains blocked until those external gates close. The historical 0.4.3 automated verdict remains in `docs/PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md`; the superseding traceability record is `docs/PC_0.4.4_RELEASE_ACCEPTANCE_2026-08-23.md`.
+- Roadmap revision: 13
+- Approved scope date: 2026-08-23
+- Last closure update: 2026-08-23
 - Target stable release: `1.0.0`
 
 This document is the source of truth for BabelLeaf version planning, implementation sequencing, code review, and release acceptance. Release notes record what a version actually delivered; this roadmap records what must be delivered before work advances to the next version.
@@ -73,7 +73,7 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 
 ## Current baseline and requirement coverage
 
-| Requirement | Current state at 0.4.3 | Remaining milestone |
+| Requirement | Current state at 0.4.4 | Remaining milestone |
 | --- | --- | --- |
 | Local library and reader | Implemented from the Readest baseline | Format and platform matrix hardened through 0.8 |
 | EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths, resource limits, PDF diagnostics, OCR/workspace routing, and 48-entry local fixture matrix pass; exact final-package clean-host routing remains external evidence | Cross-platform proof in 0.8 |
@@ -84,13 +84,13 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | Glossary and translation memory | Runtime enforcement plus validated management, limits, invalidation visibility, and JSON/TSV/TBX/TMX interchange delivered | Cross-platform migration and validation through 0.8 |
 | Human review | Full review workspace with edit, approve, revert, status filters, provenance, keyboard paging, autosaved drafts, recovery, and JSON/TSV/XLIFF interchange delivered | Cross-format alignment and platform validation through 0.8 |
 | Comic worker boundary | Versioned protocol, capability discovery, limits, cancellation, provenance, OCR sidecar, bounded queue, versioned model packs, checksums, benchmark evidence, selectable text layer, engine gate, desktop workspace/overlay/editor, concrete lazy Tesseract WASM OCR, concrete lazy OpenCV LaMa/ONNX Runtime cleanup, image cleanup/typesetting/export, image-only PDF writer, and recoverable multi-stage pipeline services delivered | Exact installed-package and representative legal-corpus OCR/inpainting evidence remains required |
-| Performance and resource controls | The current unsigned 0.4.3 Windows executable starts in 162.79 ms, reaches 349.13 MiB during 60-second warmup, and peaks at 97.43 MiB during the required 300-second idle interval against a 350 MiB budget; OCR and LaMa workload measurements are recorded separately | Broader minimum-host and cross-platform measurement through 0.9 |
+| Performance and resource controls | The unsigned 0.4.4 Windows executable starts in 171.96 ms, reaches 380.71 MiB during the recorded 60-second warmup, and peaks at 103.96 MiB during the required 300-second idle interval against a 350 MiB budget; portable-state placement and cleanup pass, while OCR and LaMa workload measurements remain separate | Broader minimum-host and cross-platform measurement through 0.9 |
 | Local dictionaries and word lookup | Native E2E proves real MDict import, persistence, enable, lookup path, and removal | Human UX review and native platform validation in 0.5-0.8 |
 | Local or native speech | Native Windows E2E proves English, Japanese, and Simplified Chinese synthesis completion | Human audio review plus queue, accessibility, and native platform validation in 0.5-0.8 |
 | Scanned PDF and comic OCR | Local sidecar, task recovery, diagnostics, selectable text layer, desktop model-pack lifecycle, evidence-enforcing engine gate, ONNX adapter, and a concrete local Tesseract WASM path are delivered; exact `tessdata_fast` zh-CN/en/ja/vertical-ja imports pass the deterministic Windows worker matrix; no model weights are bundled | Representative legal manga/scanned-book quality matrix and exact installed-package workflow |
 | Comic translation and editable overlays | Workspace, desktop reader entry, explicit region translation bridge, correction/review, selectable OCR layer, stale-revision rules, non-flattening overlay, editable mask/layout sidecar, and application-facing editing facade delivered | Native page-canvas parity on future platforms |
 | Erasing, inpainting, typesetting, translated export | Deterministic bounded cleanup, strictly catalogued local LaMa model import, current-page preview, opt-in model cleanup, desktop mask/typeset controls, image-set/CBZ/ZIP/image-only PDF export, source protection, and measured high transient memory delivered | Representative manga quality and exact installed-package export on the minimum host remain open |
-| Windows production reliability | The final unsigned standard package passes preflight, build, 300-second performance, and source-complete SBOM gates; an isolated smoke flavor passes install, responsive launch, uninstall, cleanup, and data retention | Exact final-package clean-host workflow, signing, committed-source provenance, remote CI, and external/manual evidence |
+| Windows production reliability | The 0.4.4 unsigned standard package passes build, metadata preflight, 300-second performance, and strict artifact-bound SBOM gates; the isolated smoke identity passes install, responsive launch, uninstall, cleanup, and data retention; source, tag, remote checks, and published artifacts are bound by the release record | Exact signed-package clean-host workflow and external/manual evidence |
 | macOS | Shared source structure only | 0.5.0 |
 | Android | Generated platform structure only | 0.6.0 |
 | iOS/iPadOS | Generated platform structure only | 0.7.0 |
@@ -108,7 +108,8 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | 0.4.1.2 | OCR runtime adapter checkpoint | A model-agnostic local ONNX adapter and candidate registry are test-covered; no production engine or model is selected |
 | 0.4.1.3 | Multi-artifact OCR model-pack checkpoint | Version-2 manifests, per-artifact verification, aggregate inventory checksums, backward-compatible loading, and ONNX artifact routing are test-covered; no production engine or model is selected |
 | 0.4.2 | Image cleanup and typesetting | Text can be erased, repaired, typeset, and exported to a separate translated copy; editable state is sidecar-backed |
-| 0.4.3 | PC feature closure | The desktop reader exposes the comic workspace, local OCR sidecar/model workflow, selectable text, translation, cleanup, typesetting, and separate CBZ/PDF export. **Current gate: implementation and local automation pass; formal release acceptance is pending the external/user-owned gates in the final acceptance record.** |
+| 0.4.3 | PC feature closure | The desktop reader exposes the comic workspace, local OCR sidecar/model workflow, selectable text, translation, cleanup, typesetting, and separate CBZ/PDF export. The public tag is retained as historical evidence and is not moved. |
+| 0.4.4 | Traceable PC release closure | Preserve the 0.4 feature set while binding the post-0.4.3 acceptance fixes to one reviewed commit, exact package, checksums, SBOM, remote checks, immutable tag, and published release record. |
 | 0.5.0 | macOS and portable-core qualification | macOS ships natively and desktop assumptions are removed from the shared core |
 | 0.6.0 | Android | Android imports, reads, translates, looks up, speaks, and persists supported local content |
 | 0.7.0 | iOS/iPadOS | iOS and iPadOS meet equivalent native import, reading, translation, speech, and persistence requirements |
@@ -347,12 +348,49 @@ local model-pack lifecycle, sequential local-PDF page rasterization, concrete
 Tesseract WASM OCR, and explicit local LaMa cleanup. All user-independent local
 automated format, regression, native, build, performance, package-preflight,
 security-audit, and source-SBOM gates pass in the current working tree. The
-repository does not bundle or download model weights. Formal release acceptance
-remains pending representative legal-corpus quality review, credentialed
-provider lifecycles, exact final-package clean-host workflows, human TTS review,
-signing, legal review, committed-source provenance, and remote CI. The exact
-split verdict is in `PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md`; platform
-implementation is blocked until those external gates close.
+repository does not bundle or download model weights. The historical public
+`v0.4.3` tag predates later acceptance, native persistence, speech, installer,
+and CI corrections. That tag remains immutable; release provenance is closed
+under 0.4.4 instead of rewriting history. The 0.4.3 split verdict remains in
+`PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md`.
+
+## 0.4.4 - Traceable PC release closure
+
+### Scope
+
+- Preserve the completed 0.4 PC feature set without adding product scope.
+- Include every reviewed correction made after the historical `v0.4.3` tag,
+  including release CI, native settings persistence, and hosted-runner speech
+  acceptance stabilization.
+- Align JavaScript, Rust, Tauri, installer, documentation, and release metadata
+  on `0.4.4`.
+- Build one standard Windows x64 NSIS package from the reviewed source state and
+  bind it to SHA-256, SBOM, test evidence, commit identity, tag, and release URL.
+- Keep the package unsigned unless protected signing authority is supplied;
+  unsigned publication must be explicit and cannot satisfy the signing gate.
+
+### Acceptance
+
+- Applicable frontend, browser, production-build, Rust, native, security,
+  format, package, and installer gates pass against the release source state.
+- The exact standard installer passes preflight and the automated
+  install/launch/uninstall/data-retention lifecycle available on the release
+  host; any clean-host or human-only gap remains explicitly open.
+- The release record contains the source commit, artifact names, sizes,
+  SHA-256 values, SBOM identity, test ledger, and unresolved external gates.
+- `main`, the immutable `v0.4.4` tag, the GitHub release target, and all
+  published artifact evidence resolve to the same reviewed source identity.
+- Required remote checks pass before the release is marked published. The
+  historical `v0.4.3` tag and assets are not replaced or silently amended.
+
+### Current implementation status
+
+The 0.4.4 automated release closure passes its local gates and is published as
+an explicitly unsigned, source-bound PC release. The patch contains only
+version metadata, release and roadmap records, reproducibility corrections, and
+corrections required by release gates. Formal PC acceptance and 0.5 production
+implementation remain blocked by the external/user-owned gates listed in the
+0.4.4 release acceptance record.
 
 ## 0.5.0 - macOS and portable-core qualification
 
@@ -521,7 +559,7 @@ No work may be declared complete because a build command alone succeeded. Packag
 
 ## Roadmap governance
 
-- The next implementation target after the 0.4.3 closure is 0.5.0 macOS and
+- The next implementation target after the 0.4.4 closure is 0.5.0 macOS and
   portable-core qualification. Representative and exact-package OCR evidence,
   along with the other recorded PC acceptance blockers, remains required before
   that transition; unverified runtimes or weights cannot bypass the gate.
