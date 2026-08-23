@@ -38,7 +38,7 @@ human-audio, signing, and legal gates in this record remain external.
 | Production Tauri frontend build | PASS | Next static export plus translation and lookbehind output checks |
 | Production Web build and E2E | PASS | 23/23 Playwright tests |
 | Rust format and Clippy | PASS | `cargo fmt`; application Clippy with `-D warnings`; MSVC import-library linker messages are informational |
-| Rust unit tests | PASS | 50/50 |
+| Rust unit tests | PASS | 51/51, including malformed odd-byte UTF-16 BOM handling |
 | Tauri integration | PASS | 4 files; 110 passed, 1 skipped, executed outside the restricted GUI sandbox |
 | Native Windows WebDriverIO | PASS | 27/27; formats, MDict, zh-CN UI, viewport, WebGL, en/ja/zh speech completion, IPC, memory command, and traffic checks |
 | Local format matrix | PASS | 48 manifest entries; 39 generated local fixtures; `external-required=0` |

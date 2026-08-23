@@ -833,16 +833,17 @@ fn strip_xml_bom(bytes: &[u8]) -> Cow<'_, [u8]> {
         let little_endian = bytes[0] == 0xFF && bytes[1] == 0xFE;
         if big_endian || little_endian {
             let body = &bytes[2..];
-            // chunks_exact silently drops a trailing odd byte, which is what
-            // we want — a malformed UTF-16 stream still produces a best-
-            // effort UTF-8 transcoding rather than failing the whole import.
-            let units: Vec<u16> = body
-                .chunks_exact(2)
+            // Keep only complete UTF-16 code units. Dropping a trailing odd
+            // byte lets a malformed stream produce a best-effort UTF-8
+            // transcoding rather than failing the whole import.
+            let (chunks, _) = body.as_chunks::<2>();
+            let units: Vec<u16> = chunks
+                .iter()
                 .map(|c| {
                     if big_endian {
-                        u16::from_be_bytes([c[0], c[1]])
+                        u16::from_be_bytes(*c)
                     } else {
-                        u16::from_le_bytes([c[0], c[1]])
+                        u16::from_le_bytes(*c)
                     }
                 })
                 .collect();
@@ -1274,6 +1275,13 @@ mod tests {
         }
         let stripped = strip_xml_bom(&bytes);
         assert_eq!(stripped.as_ref(), b"<a/>");
+    }
+
+    #[test]
+    fn strip_xml_bom_ignores_trailing_utf16_byte() {
+        let bytes = [0xFF, 0xFE, b'a', 0x00, 0x42];
+        let stripped = strip_xml_bom(&bytes);
+        assert_eq!(stripped.as_ref(), b"a");
     }
 
     #[test]
