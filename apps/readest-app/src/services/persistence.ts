@@ -119,12 +119,31 @@ async function loadJSONUnlocked<T>(
 
 /**
  * Native files use temporary-file replacement; other adapters retain two-copy
- * recovery. The pair is not a single atomic transaction. Backup is written first.
+ * recovery. The pair is not a single atomic transaction. Preserve the previous
+ * readable main before replacement; never put an uncommitted update over it.
  */
 const writeJSONCopy = (fs: JSONFileSystem, filename: string, base: BaseDir, json: string) =>
   fs.writeFileAtomic
     ? fs.writeFileAtomic(filename, base, json)
     : fs.writeFile(filename, base, json);
+
+async function saveJSONUnlocked(
+  fs: JSONFileSystem,
+  filename: string,
+  base: BaseDir,
+  json: string,
+): Promise<void> {
+  const main = await loadJSONFile(fs, filename, base);
+  if (main.success) {
+    await writeJSONCopy(fs, `${filename}.bak`, base, JSON.stringify(main.data));
+  } else {
+    const backup = await loadJSONFile(fs, `${filename}.bak`, base);
+    // Bootstrap two-copy recovery only when neither copy is readable. A valid
+    // recovery copy must survive retries against a missing or damaged main.
+    if (!backup.success) await writeJSONCopy(fs, `${filename}.bak`, base, json);
+  }
+  await writeJSONCopy(fs, filename, base, json);
+}
 
 export async function updateJSON<T>(
   fs: JSONFileSystem,
@@ -136,8 +155,7 @@ export async function updateJSON<T>(
   await withJSONLock(fs, filename, base, async () => {
     const previous = await loadJSONUnlocked<unknown>(fs, filename, base, null, validate);
     const data = JSON.stringify(update(previous));
-    await writeJSONCopy(fs, `${filename}.bak`, base, data);
-    await writeJSONCopy(fs, filename, base, data);
+    await saveJSONUnlocked(fs, filename, base, data);
   });
 }
 
@@ -147,13 +165,11 @@ export async function safeSaveJSON(
   base: BaseDir,
   data: unknown,
 ): Promise<void> {
-  const backupFilename = `${filename}.bak`;
   const jsonData = JSON.stringify(data);
 
   await withJSONLock(fs, filename, base, async () => {
     try {
-      await writeJSONCopy(fs, backupFilename, base, jsonData);
-      await writeJSONCopy(fs, filename, base, jsonData);
+      await saveJSONUnlocked(fs, filename, base, jsonData);
     } catch (error) {
       console.error(`Failed to save ${filename}:`, error);
       throw new Error(`Failed to save ${filename}: ${error}`);

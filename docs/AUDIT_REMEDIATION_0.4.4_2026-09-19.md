@@ -55,6 +55,15 @@ Failing regressions were observed before fixes for script opt-in, out-of-order J
 5. Build isolated Windows candidate and execute install/start/uninstall/data-retention validation against that exact artifact. Regenerate artifact-bound SBOM/checksums and review all diffs.
 6. Commit and push a reviewable remediation branch as backup; merge main only when the applicable gates are satisfied. No release/acceptance declaration based solely on mocks or a successful compiler exit.
 
+## Continuation checkpoint: committed-copy recovery
+
+- Backup branch `codex/audit-044-remediation-20260919` was pushed to origin at `a86db0594106f1ced040797a2c2399dcd079db3f`; main and release tags were not changed.
+- Follow-up AUD-03/AUD-05 fix: before replacing a readable main JSON file, preserve that main in `.bak`, instead of writing the uncommitted new snapshot into both copies. A readable backup survives replacement of a corrupt/missing main. If neither copy is readable, the initial snapshot still bootstraps backup-first recovery. This supersedes the previous-committed-backup TODO above only for readable JSON snapshots, not schema guarantees, cross-process CAS or durable transaction semantics.
+- Regression probes for both `safeSaveJSON` and `updateJSON` failed before the fix: a failed main write left backup revision 2 instead of committed revision 1. Both pass after the fix, including retry and subsequent corrupt-main recovery. Additional tests cover backup write failure (main remains unchanged) and preservation of a readable backup with corrupt main.
+- Follow-up full unit run: 388 files, 4,802 passed, 1 skipped; TypeScript and Biome lint passed. GitHub Actions query returned no runs for the backup branch; remote CI is not yet verified. Earlier browser/native/build evidence predates this persistence follow-up and is not exact-candidate evidence for it.
+- Frozen install and source production build were already verified above; the remaining AUD-07 build gate concerns the exact installer candidate, not repeating dependency installation without cause.
+- Cross-WebView/process-kill tests, durable unsaved-reader recovery, representative resource measurements and exact installer lifecycle remain open. No release acceptance is claimed.
+
 ## External gates unchanged
 
 Real supplier credentials and explicit paid-call authorization; lawful representative OCR/comic corpus and human ground truth; exact standard installer lifecycle on an independent minimum-spec Windows system; EN/JA/zh-CN voice listening review; signing and signed-package validation; license/model/font/AGPL responsibility review. These remain outside automated local PASS claims.
