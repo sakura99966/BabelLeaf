@@ -9,6 +9,10 @@ export class PendingArtifactWrites {
   private pending = new Map<string, { writer: Writer; artifact: TranslationArtifact }>();
   hasUnsaved = false;
 
+  get hasPending(): boolean {
+    return this.pending.size > 0;
+  }
+
   constructor(private changed: (unsaved: boolean) => void) {}
 
   async save(writer: Writer, artifact: TranslationArtifact): Promise<void> {

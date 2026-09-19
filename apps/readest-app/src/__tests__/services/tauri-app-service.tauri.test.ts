@@ -3,6 +3,7 @@ import { join } from '@tauri-apps/api/path';
 import { invoke } from '@tauri-apps/api/core';
 import { mkdir, remove, writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { NativeAppService } from '@/services/nativeAppService';
+import { safeLoadJSON, updateJSON } from '@/services/persistence';
 import { fsTests } from './suites/fs-tests';
 import { libraryTests } from './suites/library-tests';
 import { bookTests } from './suites/book-tests';
@@ -82,6 +83,41 @@ describe('NativeAppService', () => {
     expect(
       (await service.readDirectory('', 'Data')).some((file) => file.path.endsWith('.tmp')),
     ).toBe(false);
+  });
+
+  it('serializes two native service instances and recovers the previous committed snapshot', async () => {
+    const other = new NativeAppService(tmpDir);
+    await other.init();
+    const validate = (value: unknown): { count: number } => {
+      if (
+        !value ||
+        typeof value !== 'object' ||
+        !('count' in value) ||
+        !Number.isSafeInteger(value.count)
+      )
+        throw new Error('Invalid counter');
+      return value as { count: number };
+    };
+    await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        updateJSON(
+          index % 2 ? service : other,
+          'concurrent.json',
+          'Data',
+          (previous) => ({
+            count: previous === null ? 1 : validate(previous).count + 1,
+          }),
+          validate,
+        ),
+      ),
+    );
+    expect(await safeLoadJSON(service, 'concurrent.json', 'Data', null, validate)).toEqual({
+      count: 20,
+    });
+    await service.writeFileAtomic('concurrent.json', 'Data', 'corrupt');
+    expect(await safeLoadJSON(other, 'concurrent.json', 'Data', null, validate)).toEqual({
+      count: 19,
+    });
   });
 
   fsTests(() => service);

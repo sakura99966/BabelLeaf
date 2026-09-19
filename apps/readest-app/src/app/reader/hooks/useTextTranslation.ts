@@ -22,6 +22,7 @@ import { getLocale } from '@/utils/misc';
 import { getDirFromLanguage } from '@/utils/rtl';
 import type { TranslationDisplayMode } from '@/types/book';
 import { PendingArtifactWrites } from '@/services/translators/pendingArtifactWrites';
+import { readerCloseGuard } from '@/services/translators/readerCloseGuard';
 
 const resolveTranslationDisplayMode = (
   settings:
@@ -133,6 +134,8 @@ export function useTextTranslation(
   const allTextNodes = useRef<HTMLElement[]>([]);
   const translationQueue = useRef<HTMLElement[]>([]);
   const activeTranslations = useRef(0);
+  // Unlike the viewport queue counter, this must survive provider/view resets.
+  const inFlightOperations = useRef(0);
   const MAX_CONCURRENT_TRANSLATIONS = 5;
   const pendingDOMUpdates = useRef<Array<() => void>>([]);
   const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -147,6 +150,18 @@ export function useTextTranslation(
   const artifactGeneration = useRef(0);
   const artifactProvider = provider || 'deepseek';
   const artifactTargetLang = targetLang || getLocale();
+
+  useEffect(
+    () =>
+      readerCloseGuard.register(bookKey, {
+        isBusy: () => inFlightOperations.current > 0,
+        hasPending: () => pendingWrites.current?.hasPending ?? false,
+        flush: async () => {
+          await pendingWrites.current?.retry();
+        },
+      }),
+    [bookKey],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -307,7 +322,9 @@ export function useTextTranslation(
       const el = translationQueue.current.shift()!;
       if (el.querySelector('.translation-target') || !enabled.current) continue;
       activeTranslations.current++;
+      inFlightOperations.current++;
       translateElement(el).finally(() => {
+        inFlightOperations.current--;
         activeTranslations.current--;
         drainTranslationQueue();
       });

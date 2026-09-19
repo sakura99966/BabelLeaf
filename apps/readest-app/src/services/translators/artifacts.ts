@@ -7,6 +7,9 @@ export const TRANSLATION_ARTIFACT_DIR = 'translation-artifacts';
 export const TRANSLATION_PROMPT_VERSION = 'translation-v1';
 export const TRANSLATION_ARTIFACT_BASE: BaseDir = 'Data';
 const LEGACY_TRANSLATION_ARTIFACT_BASE: BaseDir = 'Cache';
+export const MAX_TRANSLATION_SEGMENTS = 100_000;
+export const MAX_TRANSLATION_FIELD_CHARS = 1_048_576;
+export const MAX_TRANSLATION_TOTAL_CHARS = 32 * 1_048_576;
 
 export type TranslationSegmentStatus = 'pending' | 'translated' | 'reviewed' | 'failed';
 
@@ -65,6 +68,8 @@ const SEGMENT_STATUSES = new Set<TranslationSegmentStatus>([
 ]);
 
 const requiredString = (value: unknown, field: string): string => {
+  if (typeof value === 'string' && value.length > MAX_TRANSLATION_FIELD_CHARS)
+    throw new Error(`Translation artifact field exceeds resource limit: ${field}`);
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`Invalid translation artifact field: ${field}`);
   }
@@ -107,6 +112,8 @@ const parseSegment = (value: unknown): TranslationSegment => {
     if (fieldValue !== undefined) {
       if (typeof fieldValue !== 'string')
         throw new Error(`Invalid translation artifact field: ${field}`);
+      if (fieldValue.length > MAX_TRANSLATION_FIELD_CHARS)
+        throw new Error(`Translation artifact field exceeds resource limit: ${field}`);
       segment[field] = fieldValue;
     }
   }
@@ -157,6 +164,22 @@ export const parseTranslationArtifact = (value: unknown): TranslationArtifact =>
     throw new Error('Invalid translation artifact timestamp');
   }
   if (!Array.isArray(value['segments'])) throw new Error('Invalid translation artifact segments');
+  if (value['segments'].length > MAX_TRANSLATION_SEGMENTS)
+    throw new Error('Translation artifact segment count exceeds resource limit');
+  const ids = new Set<string>();
+  const segments: TranslationSegment[] = [];
+  let totalChars = 0;
+  for (const raw of value['segments']) {
+    const segment = parseSegment(raw);
+    if (ids.has(segment.id)) throw new Error(`Duplicate translation segment: ${segment.id}`);
+    ids.add(segment.id);
+    for (const field of Object.values(segment)) {
+      if (typeof field === 'string') totalChars += field.length;
+    }
+    if (totalChars > MAX_TRANSLATION_TOTAL_CHARS)
+      throw new Error('Translation artifact text exceeds resource limit');
+    segments.push(segment);
+  }
 
   return {
     schemaVersion: TRANSLATION_ARTIFACT_SCHEMA_VERSION,
@@ -182,7 +205,7 @@ export const parseTranslationArtifact = (value: unknown): TranslationArtifact =>
                 })(),
         }),
     updatedAt,
-    segments: value['segments'].map(parseSegment),
+    segments,
   };
 };
 
@@ -332,11 +355,11 @@ export class TranslationArtifactStore {
             throw new Error('Translation segment source changed');
           if (!existing || next.updatedAt >= existing.updatedAt) segments.set(next.id, next);
         }
-        return {
+        return parseTranslationArtifact({
           ...incoming,
           updatedAt: Math.max(previous.updatedAt, incoming.updatedAt),
           segments: [...segments.values()],
-        };
+        });
       },
       parseTranslationArtifact,
     );

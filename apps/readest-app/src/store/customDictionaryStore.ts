@@ -140,8 +140,8 @@ export const useCustomDictionaryStore = create<DictionaryStoreState>((set, get) 
     }
     const oldIdSet = new Set(oldIds);
     set((state) => {
-      // Drop all old entries because their disk bundles are gone, then append
-      // the replacement.
+      // Replace the live entries. Old bundle files remain available for
+      // recovery from the previous committed metadata snapshot.
       const dictionaries = state.dictionaries.filter((d) => !oldIdSet.has(d.id));
       dictionaries.push(newDict);
 

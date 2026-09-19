@@ -67,3 +67,46 @@ Failing regressions were observed before fixes for script opt-in, out-of-order J
 ## External gates unchanged
 
 Real supplier credentials and explicit paid-call authorization; lawful representative OCR/comic corpus and human ground truth; exact standard installer lifecycle on an independent minimum-spec Windows system; EN/JA/zh-CN voice listening review; signing and signed-package validation; license/model/font/AGPL responsibility review. These remain outside automated local PASS claims.
+
+## PC-only continuation with external verification deferred
+
+Owner instruction on 2026-09-19: temporarily skip external verification. Those
+gates are DEFERRED, not PASS; this does not authorize 0.5 implementation or any
+paid request. Current automation scope remains the 0.4 PC audit remediation.
+
+- Draft PR: https://github.com/sakura99966/BabelLeaf/pull/7. CI is now triggered
+  through the repository's existing pull-request workflow; branch pushes alone
+  do not trigger it. Do not infer the newest worktree passed from an older SHA.
+- Reader lifecycle: remove the fire-and-forget throttle from awaited close
+  paths, await configuration saves before destroying content, gate close on
+  actual in-flight translation operations and local pending saves, and retain
+  failed results for retry. Before-unload uses a synchronous protection check.
+  The guard survives viewport counter resets. It is not a crash journal or a
+  cross-window application-exit protocol; those remain open.
+- Text artifacts: cap at 100,000 segments, 1,048,576 characters per string field
+  and 32 Mi characters across direct segment fields; reject duplicate IDs and
+  revalidate the merged result. Three regressions failed before the fix. These
+  are object-validation budgets, not a bounded filesystem read/JSON decoder;
+  nested anchor and interchange-file byte budgets remain to be completed.
+- Native hostile-content corpus: locally authored XHTML and fixed-layout SVG
+  EPUBs exercise actual Foliate rendering in WebView2. XHTML deliberately
+  bypasses sanitization to exercise the sandbox; SVG exercises the sanitizer.
+  Parent marker stays unchanged, active SVG nodes are removed, drawing/text and
+  ordinary XHTML selection/link targets remain. The initial SVG probe selected
+  an empty facing-page frame; selecting the actual section index corrected the
+  harness. Final native run: 115 passed, 1 skipped, including two independent
+  native service instances performing 20 locked read-modify-write operations
+  and corrupt-main recovery to the previous committed snapshot. This is NOT
+  two separate WebViews or process-kill evidence.
+- Browser suite: 316 passed, 1 skipped before the subsequent dictionary change.
+- Dictionary import: copy into fresh UUID directories; reject an already
+  existing destination; retain all pre-existing bundles until a recovery-aware
+  metadata/garbage-collection protocol can prove they are unreferenced. On
+  preparation failure, remove only directories created by this import call.
+  Regression probes reproduced premature old-bundle deletion, leaked partial
+  imports and reuse of existing destinations before fixes. Old retained copies
+  are recovery data, not disposable cache. Metadata rollback in the UI and
+  recovery-aware garbage collection still require explicit verification.
+- Candidate packaging is in progress. The first smoke package predates final
+  in-flight accounting and dictionary changes and is superseded; it must not
+  be used as exact-candidate proof for this checkpoint.

@@ -43,6 +43,43 @@ const makeFileSystem = () => {
 };
 
 describe('translation artifacts', () => {
+  test('rejects oversized segment collections before parsing entries', () => {
+    expect(() =>
+      parseTranslationArtifact({ ...makeArtifact(), segments: new Array(100_001) }),
+    ).toThrow('limit');
+  });
+
+  test('rejects duplicate segment identifiers instead of silently dropping text during merge', () => {
+    const segment = {
+      id: 'same',
+      sourceText: 'first',
+      sourceLang: 'en',
+      targetLang: 'zh',
+      status: 'translated',
+      updatedAt: 1,
+    };
+    expect(() =>
+      parseTranslationArtifact({
+        ...makeArtifact(),
+        segments: [segment, { ...segment, sourceText: 'second' }],
+      }),
+    ).toThrow('Duplicate');
+  });
+
+  test('rejects oversized translation text', () => {
+    const segment = {
+      id: 'one',
+      sourceText: 'first',
+      translatedText: 'x'.repeat(1_048_577),
+      sourceLang: 'en',
+      targetLang: 'zh',
+      status: 'translated',
+      updatedAt: 1,
+    };
+    expect(() => parseTranslationArtifact({ ...makeArtifact(), segments: [segment] })).toThrow(
+      'limit',
+    );
+  });
   test('merges independent snapshots without losing newer segment corrections', async () => {
     const { fs } = makeFileSystem();
     const store = new TranslationArtifactStore(fs);
