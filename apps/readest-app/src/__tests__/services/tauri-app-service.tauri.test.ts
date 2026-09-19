@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { join } from '@tauri-apps/api/path';
+import { invoke } from '@tauri-apps/api/core';
 import { mkdir, remove, writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { NativeAppService } from '@/services/nativeAppService';
 import { fsTests } from './suites/fs-tests';
@@ -10,7 +11,8 @@ async function getBookFile(name: string): Promise<string> {
   return await join(process.env['CWD']!, 'src/__tests__/fixtures/data', name);
 }
 
-const SANDBOX_DIR = `${process.env['CWD']}/.readest-test-sandbox-tauri`;
+const SANDBOX_DIR = process.env['BABELLEAF_NATIVE_TEST_ROOT'];
+if (!SANDBOX_DIR) throw new Error('Native tests require an isolated test root');
 let tmpCounter = 0;
 
 describe('NativeAppService', () => {
@@ -61,6 +63,25 @@ describe('NativeAppService', () => {
     await writeTextFile(filePath, 'wrapper-write');
     const content = await readTextFile(filePath);
     expect(content).toBe('wrapper-write');
+  });
+
+  it('rejects an ungranted directory even when its name contains Readest', async () => {
+    await expect(
+      invoke('read_dir', {
+        path: await join(process.env['CWD']!, 'Readest-not-granted'),
+        recursive: true,
+        extensions: ['*'],
+      }),
+    ).rejects.toContain('Permission denied');
+  });
+
+  it('atomically replaces native JSON without leaving temporary files', async () => {
+    await service.writeFileAtomic('atomic.json', 'Data', '{"revision":1}');
+    await service.writeFileAtomic('atomic.json', 'Data', '{"revision":2}');
+    expect(await service.readFile('atomic.json', 'Data', 'text')).toBe('{"revision":2}');
+    expect(
+      (await service.readDirectory('', 'Data')).some((file) => file.path.endsWith('.tmp')),
+    ).toBe(false);
   });
 
   fsTests(() => service);

@@ -43,6 +43,40 @@ const makeFileSystem = () => {
 };
 
 describe('translation artifacts', () => {
+  test('merges independent snapshots without losing newer segment corrections', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = makeArtifact();
+    const segment = {
+      id: 'one',
+      sourceText: 'Hello',
+      sourceLang: 'en',
+      targetLang: 'zh-CN',
+      status: 'translated' as const,
+      translatedText: '你好',
+      updatedAt: 1,
+    };
+    await store.save(upsertTranslationSegments(artifact, [segment], 1));
+    await Promise.all([
+      store.save(
+        upsertTranslationSegments(
+          artifact,
+          [{ ...segment, translatedText: '您好', updatedAt: 3 }],
+          3,
+        ),
+      ),
+      store.save(
+        upsertTranslationSegments(
+          artifact,
+          [segment, { ...segment, id: 'two', sourceText: 'World' }],
+          2,
+        ),
+      ),
+    ]);
+    const saved = await store.load(artifact);
+    expect(saved?.segments).toHaveLength(2);
+    expect(saved?.segments.find((entry) => entry.id === 'one')?.translatedText).toBe('您好');
+  });
   test('serializes and validates a versioned artifact while ignoring unknown fields', () => {
     const artifact = makeArtifact();
     const parsed = parseTranslationArtifact({

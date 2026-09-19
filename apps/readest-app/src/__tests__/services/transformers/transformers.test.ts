@@ -625,13 +625,14 @@ describe('sanitizerTransformer', () => {
     expect(sanitizerTransformer.name).toBe('sanitizer');
   });
 
-  test('returns content unchanged when allowScript is true', async () => {
+  test('sanitizes legacy allowScript=true rather than trusting book code', async () => {
     const html = '<html><body><script>alert("xss")</script><p>Hello</p></body></html>';
     const settings = { allowScript: true } as ViewSettings;
     const result = await sanitizerTransformer.transform(
       makeCtx({ content: html, viewSettings: settings }),
     );
-    expect(result).toBe(html);
+    expect(result).not.toContain('<script>');
+    expect(result).toContain('Hello');
   });
 
   test('sanitizes content when allowScript is false', async () => {

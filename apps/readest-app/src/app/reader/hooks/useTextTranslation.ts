@@ -21,6 +21,7 @@ import { debounce } from '@/utils/debounce';
 import { getLocale } from '@/utils/misc';
 import { getDirFromLanguage } from '@/utils/rtl';
 import type { TranslationDisplayMode } from '@/types/book';
+import { PendingArtifactWrites } from '@/services/translators/pendingArtifactWrites';
 
 const resolveTranslationDisplayMode = (
   settings:
@@ -139,11 +140,17 @@ export function useTextTranslation(
   const artifactStoreRef = useRef<TranslationArtifactStore | null>(null);
   const artifactRef = useRef<Awaited<ReturnType<TranslationArtifactStore['load']>>>(null);
   const artifactReadyRef = useRef<Promise<void>>(Promise.resolve());
+  const [hasUnsavedTranslations, setHasUnsavedTranslations] = useState(false);
+  const pendingWrites = useRef<PendingArtifactWrites | null>(null);
+  if (!pendingWrites.current)
+    pendingWrites.current = new PendingArtifactWrites(setHasUnsavedTranslations);
+  const artifactGeneration = useRef(0);
   const artifactProvider = provider || 'deepseek';
   const artifactTargetLang = targetLang || getLocale();
 
   useEffect(() => {
     let cancelled = false;
+    artifactGeneration.current += 1;
     artifactRef.current = null;
     artifactStoreRef.current = null;
     if (!appService || !bookHash || !artifactProvider || !artifactTargetLang) {
@@ -183,6 +190,7 @@ export function useTextTranslation(
 
     return () => {
       cancelled = true;
+      artifactGeneration.current += 1;
     };
   }, [appService, artifactProvider, artifactTargetLang, bookHash]);
 
@@ -292,6 +300,7 @@ export function useTextTranslation(
 
   const drainTranslationQueue = () => {
     while (
+      !pendingWrites.current?.hasUnsaved &&
       activeTranslations.current < MAX_CONCURRENT_TRANSLATIONS &&
       translationQueue.current.length > 0
     ) {
@@ -407,6 +416,7 @@ export function useTextTranslation(
       ? `${sourceAnchor.sectionIndex}:${sourceAnchor.blockIndex}:${sourceAnchor.chunkIndex}:${hashAnchorText(text)}`
       : undefined;
 
+    const generation = artifactGeneration.current;
     const appendTranslation = (translatedText: string) => {
       if (!translatedText || text === translatedText) return;
       const wrapper = createTranslationTargetNode({
@@ -419,7 +429,12 @@ export function useTextTranslation(
 
       if (el.querySelector('.translation-target')) return;
       batchDOMUpdate(() => {
-        if (!enabled.current || el.querySelector('.translation-target')) return;
+        if (
+          generation !== artifactGeneration.current ||
+          !enabled.current ||
+          el.querySelector('.translation-target')
+        )
+          return;
         updateSourceNodes(el);
         el.appendChild(wrapper);
         translatedElements.current.push(el);
@@ -427,7 +442,10 @@ export function useTextTranslation(
     };
 
     try {
+      const store = artifactStoreRef.current;
       await artifactReadyRef.current;
+      if (generation !== artifactGeneration.current) return;
+      const startingArtifact = artifactRef.current;
       if (segmentId) {
         const persisted = artifactRef.current?.segments.find(
           (segment) => segment.id === segmentId && segment.sourceText === text,
@@ -442,9 +460,9 @@ export function useTextTranslation(
       const translatedText = translated[0];
       if (!translatedText || text === translatedText) return;
 
-      if (isReaderView && segmentId && sourceAnchor && artifactStoreRef.current) {
+      if (isReaderView && segmentId && sourceAnchor && store) {
         const artifact =
-          artifactRef.current ??
+          (generation === artifactGeneration.current ? artifactRef.current : startingArtifact) ??
           createTranslationArtifact({
             bookHash,
             provider: artifactProvider,
@@ -471,17 +489,16 @@ export function useTextTranslation(
           ],
           now,
         );
-        artifactRef.current = updated;
+        if (generation === artifactGeneration.current) artifactRef.current = updated;
         try {
-          await artifactStoreRef.current.save(updated);
+          await pendingWrites.current!.save(store, updated);
         } catch (error) {
-          // A storage failure must not hide a translation already returned by
-          // the provider. The next session can retry the sidecar write.
+          // Retained in this open reader; retry saves locally without another API call.
           console.warn('Failed to save local translation sidecar', error);
         }
       }
 
-      appendTranslation(translatedText);
+      if (generation === artifactGeneration.current) appendTranslation(translatedText);
     } catch {
       console.warn('Translation failed');
     }
@@ -612,4 +629,16 @@ export function useTextTranslation(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
+
+  return {
+    hasUnsavedTranslations,
+    retryTranslationSave: async () => {
+      try {
+        await pendingWrites.current!.retry();
+        drainTranslationQueue();
+      } catch {
+        // Persistent warning remains until local storage accepts the results.
+      }
+    },
+  };
 }

@@ -4,7 +4,7 @@ import { webdriverio } from '@vitest/browser-webdriverio';
 import { loadEnvFile } from './vitest.env.mts';
 
 // Load .env and .env.tauri so tauri tests have the same env as the desktop app.
-const env = { ...loadEnvFile('.env'), ...loadEnvFile('.env.tauri'), CWD: process.cwd() };
+const env = { ...loadEnvFile('.env'), ...loadEnvFile('.env.tauri'), CWD: process.cwd(), BABELLEAF_NATIVE_TEST_ROOT: process.env.BABELLEAF_NATIVE_TEST_ROOT };
 
 export default defineConfig({
   plugins: [tsconfigPaths()],

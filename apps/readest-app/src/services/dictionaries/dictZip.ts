@@ -13,9 +13,26 @@
  * `loadDictBody` factory probes the candidate `.dict.dz`; when chunk-mode is
  * viable it returns a `DictZipChunkedDict` that decompresses on demand. When
  * the FEXTRA is missing or the probe fails (or the file is plain `.dict`),
- * it falls back to whole-file gunzip / passthrough into a buffer.
+ * ordinary gzip uses bounded asynchronous decompression, while raw bodies
+ * remain Blob-backed and are read by range.
  */
-import { gunzipSync, Inflate } from 'fflate';
+import { Inflate } from 'fflate';
+
+export const MAX_DICTIONARY_OUTPUT_BYTES = 64 * 1024 * 1024;
+const MAX_DICTIONARY_INPUT_BYTES = 512 * 1024 * 1024;
+const MAX_DICTIONARY_READ_BYTES = 8 * 1024 * 1024;
+
+function validateRange(offset: number, size: number): void {
+  if (
+    !Number.isSafeInteger(offset) ||
+    !Number.isSafeInteger(size) ||
+    offset < 0 ||
+    size < 0 ||
+    size > MAX_DICTIONARY_READ_BYTES
+  ) {
+    throw new Error('Dictionary read limit exceeded');
+  }
+}
 
 const GZIP_MAGIC = [0x1f, 0x8b];
 
@@ -45,6 +62,7 @@ export function parseDictZipHeader(bytes: Uint8Array): DictZipMeta | null {
 
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const xlen = view.getUint16(10, true);
+  if (12 + xlen > bytes.length) return null;
   let chlen = 0;
   let chcnt = 0;
   const chunkSizes: number[] = [];
@@ -54,12 +72,15 @@ export function parseDictZipHeader(bytes: Uint8Array): DictZipMeta | null {
     const si1 = bytes[p]!;
     const si2 = bytes[p + 1]!;
     const slen = view.getUint16(p + 2, true);
+    if (p + 4 + slen > 12 + xlen) return null;
     if (si1 === 0x52 && si2 === 0x41) {
+      if (slen < 6) return null;
       // RA subfield: ver(2) + chlen(2) + chcnt(2) + chcnt × chunkSize(2).
       const ver = view.getUint16(p + 4, true);
       if (ver !== 1) return null;
       chlen = view.getUint16(p + 6, true);
       chcnt = view.getUint16(p + 8, true);
+      if (!chlen || slen < 6 + chcnt * 2) return null;
       for (let i = 0; i < chcnt; i++) {
         chunkSizes.push(view.getUint16(p + 10 + 2 * i, true));
       }
@@ -90,17 +111,28 @@ export function parseDictZipHeader(bytes: Uint8Array): DictZipMeta | null {
  * by `ondata`. Returns `null` on failure.
  */
 export function inflateChunkStreaming(chunkBytes: Uint8Array): Uint8Array | null {
-  let result: Uint8Array | null = null;
+  const parts: Uint8Array[] = [];
+  let total = 0;
   try {
     const inf = new Inflate();
     inf.ondata = (data, _final) => {
-      if (result === null) result = data;
+      total += data.length;
+      if (total > 65535) throw new Error('DictZip chunk output limit exceeded');
+      parts.push(data);
     };
-    inf.push(chunkBytes, false);
+    // A tiny input step bounds allocation before ondata can enforce output limits.
+    for (let start = 0; start < chunkBytes.length; start += 64)
+      inf.push(chunkBytes.subarray(start, start + 64), false);
   } catch {
     return null;
   }
-  if (!result || (result as Uint8Array).length === 0) return null;
+  if (!total) return null;
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
   return result;
 }
 
@@ -143,7 +175,16 @@ export interface DictBody {
 class BufferedDictBody implements DictBody {
   constructor(private readonly buf: Uint8Array) {}
   async read(offset: number, size: number): Promise<Uint8Array> {
+    validateRange(offset, size);
     return this.buf.subarray(offset, offset + size);
+  }
+}
+
+class BlobDictBody implements DictBody {
+  constructor(private readonly blob: Blob) {}
+  async read(offset: number, size: number): Promise<Uint8Array> {
+    validateRange(offset, size);
+    return new Uint8Array(await this.blob.slice(offset, offset + size).arrayBuffer());
   }
 }
 
@@ -167,9 +208,13 @@ class DictZipChunkedDict implements DictBody {
   }
 
   async read(offset: number, size: number): Promise<Uint8Array> {
+    validateRange(offset, size);
+    if (!size) return new Uint8Array();
     const chlen = this.meta.chlen;
     const startChunk = Math.floor(offset / chlen);
     const endChunk = Math.floor((offset + size - 1) / chlen);
+    if (endChunk >= this.meta.chunkSizes.length)
+      throw new Error('DictZip chunk range exceeds body');
 
     if (startChunk === endChunk) {
       const chunk = await this.getChunk(startChunk);
@@ -203,6 +248,12 @@ class DictZipChunkedDict implements DictBody {
     );
     const inflated = inflateChunkStreaming(compressed);
     if (!inflated) throw new Error(`Failed to inflate DictZip chunk ${i}`);
+    if (
+      inflated.length > this.meta.chlen ||
+      (i < this.meta.chunkSizes.length - 1 && inflated.length !== this.meta.chlen)
+    ) {
+      throw new Error(`Invalid DictZip chunk length: ${i}`);
+    }
     this.chunkCache.set(i, inflated);
     return inflated;
   }
@@ -210,6 +261,9 @@ class DictZipChunkedDict implements DictBody {
 
 async function probeChunkInflate(blob: Blob, meta: DictZipMeta): Promise<boolean> {
   if (meta.chunkSizes.length === 0) return false;
+  const compressedEnd =
+    meta.compressedDataOffset + meta.chunkSizes.reduce((sum, size) => sum + size, 0);
+  if (meta.chunkSizes.some((size) => size === 0) || compressedEnd > blob.size - 8) return false;
   const cs = meta.chunkSizes[0]!;
   const start = meta.compressedDataOffset;
   const compressed = new Uint8Array(await blob.slice(start, start + cs).arrayBuffer());
@@ -220,16 +274,25 @@ async function probeChunkInflate(blob: Blob, meta: DictZipMeta): Promise<boolean
 export interface LoadDictBodyOpts {
   /** LRU size for decompressed chunks in chunk mode. Defaults to 16. */
   chunkCacheSize?: number;
+  maxOutputBytes?: number;
+  signal?: AbortSignal;
 }
 
 /**
  * Open a `.dict[.dz]` body for random-access reads. Tries lazy DictZip chunk
- * mode first (header probe + chunk-0 inflate); falls back to whole-file
- * gunzip when the FEXTRA is missing or the probe fails. For raw `.dict`,
- * returns a passthrough buffer.
+ * mode first (header probe + chunk-0 inflate); ordinary gzip uses bounded
+ * streaming decompression. Raw `.dict` remains range-readable.
  */
 export async function loadDictBody(blob: Blob, opts: LoadDictBodyOpts = {}): Promise<DictBody> {
-  const cacheSize = opts.chunkCacheSize ?? 16;
+  opts.signal?.throwIfAborted();
+  if (blob.size > MAX_DICTIONARY_INPUT_BYTES) throw new Error('Dictionary input limit exceeded');
+  const cacheSize = Math.max(1, Math.min(32, opts.chunkCacheSize ?? 16));
+  const maxOutput = Math.min(
+    MAX_DICTIONARY_OUTPUT_BYTES,
+    opts.maxOutputBytes ?? MAX_DICTIONARY_OUTPUT_BYTES,
+  );
+  if (!Number.isSafeInteger(maxOutput) || maxOutput < 1)
+    throw new Error('Invalid dictionary output limit');
   // Read just the gzip header + FEXTRA region (much less than the whole
   // file). 64 KB is enormously generous — even thousands of chunks fit
   // in a few KB.
@@ -240,8 +303,44 @@ export async function loadDictBody(blob: Blob, opts: LoadDictBodyOpts = {}): Pro
     if (meta && (await probeChunkInflate(blob, meta))) {
       return new DictZipChunkedDict(blob, meta, cacheSize);
     }
-    const all = new Uint8Array(await blob.arrayBuffer());
-    return new BufferedDictBody(gunzipSync(all));
+    // Browser-native streaming decompression yields bounded output and does not
+    // synchronously inflate a complete hostile archive on the renderer thread.
+    const reader = blob.stream().pipeThrough(new DecompressionStream('gzip')).getReader();
+    const parts: Uint8Array[] = [];
+    let total = 0;
+    let timedOut = false;
+    const cancel = () => {
+      void reader.cancel().catch(() => {});
+    };
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      cancel();
+    }, 30_000);
+    opts.signal?.addEventListener('abort', cancel, { once: true });
+    try {
+      while (true) {
+        opts.signal?.throwIfAborted();
+        const { done, value } = await reader.read();
+        opts.signal?.throwIfAborted();
+        if (timedOut) throw new Error('Dictionary decompression time limit exceeded');
+        if (done) break;
+        total += value.byteLength;
+        if (total > maxOutput) throw new Error('Dictionary decompression output limit exceeded');
+        parts.push(value);
+      }
+    } finally {
+      clearTimeout(timeout);
+      opts.signal?.removeEventListener('abort', cancel);
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+    }
+    const output = new Uint8Array(total);
+    let offset = 0;
+    for (const part of parts) {
+      output.set(part, offset);
+      offset += part.byteLength;
+    }
+    return new BufferedDictBody(output);
   }
-  return new BufferedDictBody(new Uint8Array(await blob.arrayBuffer()));
+  return new BlobDictBody(blob);
 }

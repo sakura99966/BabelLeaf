@@ -5,7 +5,40 @@ import { FileSystem, BaseDir } from '@/types/system';
  * filesystem. Keeping this contract narrow lets local-first feature stores
  * reuse the AppService boundary without depending on native-only helpers.
  */
-export type JSONFileSystem = Pick<FileSystem, 'readFile' | 'writeFile'>;
+export type JSONFileSystem = Pick<FileSystem, 'readFile' | 'writeFile' | 'writeFileAtomic'>;
+
+const writes = new WeakMap<JSONFileSystem, Map<string, Promise<void>>>();
+
+/** Serialize a transaction, including cross-window access on the same origin. */
+export async function withJSONLock<T>(
+  fs: JSONFileSystem,
+  filename: string,
+  base: BaseDir,
+  action: () => Promise<T>,
+): Promise<T> {
+  const key = `${base}:${filename.replaceAll('\\', '/').toLowerCase()}`;
+  let paths = writes.get(fs);
+  if (!paths) {
+    paths = new Map();
+    writes.set(fs, paths);
+  }
+  const previous = paths.get(key) ?? Promise.resolve();
+  const run = previous.then(async () =>
+    typeof navigator !== 'undefined' && navigator.locks
+      ? await navigator.locks.request(`babelleaf-json:${key}`, action)
+      : await action(),
+  );
+  // A rejected write must not poison future writes. The caller still sees rejection.
+  const tail = run.then(
+    () => {},
+    () => {},
+  );
+  paths.set(key, tail);
+  void tail.then(() => {
+    if (paths.get(key) === tail) paths.delete(key);
+  });
+  return run;
+}
 
 async function loadJSONFile(
   fs: JSONFileSystem,
@@ -37,33 +70,77 @@ export async function safeLoadJSON<T>(
   filename: string,
   base: BaseDir,
   defaultValue: T,
+  validate?: (value: unknown) => unknown,
+): Promise<T> {
+  return withJSONLock(fs, filename, base, () =>
+    loadJSONUnlocked(fs, filename, base, defaultValue, validate),
+  );
+}
+
+async function loadJSONUnlocked<T>(
+  fs: JSONFileSystem,
+  filename: string,
+  base: BaseDir,
+  defaultValue: T,
+  validate?: (value: unknown) => unknown,
 ): Promise<T> {
   const backupFilename = `${filename}.bak`;
-
+  let validationError: unknown;
   const mainResult = await loadJSONFile(fs, filename, base);
   if (mainResult.success) {
-    return mainResult.data as T;
+    try {
+      return (validate ? validate(mainResult.data) : mainResult.data) as T;
+    } catch (error) {
+      validationError = error;
+    }
   }
 
   const backupResult = await loadJSONFile(fs, backupFilename, base);
   if (backupResult.success) {
+    let data: unknown;
     try {
-      const backupData = JSON.stringify(backupResult.data, null, 2);
-      await fs.writeFile(filename, base, backupData);
+      data = validate ? validate(backupResult.data) : backupResult.data;
+    } catch (error) {
+      throw new Error(`No schema-valid JSON copy: ${filename}`, { cause: error });
+    }
+    try {
+      const backupData = JSON.stringify(data, null, 2);
+      await writeJSONCopy(fs, filename, base, backupData);
     } catch (error) {
       console.info(`Failed to restore ${filename} from backup:`, error);
     }
-    return backupResult.data as T;
+    return data as T;
   }
 
+  if (validationError)
+    throw new Error(`No schema-valid JSON copy: ${filename}`, { cause: validationError });
   return defaultValue;
 }
 
 /**
- * Safely saves a JSON file with atomic write using backup strategy.
- * Strategy: write to backup first, then to main file.
- * This ensures at least one valid copy exists at all times.
+ * Native files use temporary-file replacement; other adapters retain two-copy
+ * recovery. The pair is not a single atomic transaction. Backup is written first.
  */
+const writeJSONCopy = (fs: JSONFileSystem, filename: string, base: BaseDir, json: string) =>
+  fs.writeFileAtomic
+    ? fs.writeFileAtomic(filename, base, json)
+    : fs.writeFile(filename, base, json);
+
+export async function updateJSON<T>(
+  fs: JSONFileSystem,
+  filename: string,
+  base: BaseDir,
+  update: (previous: unknown) => T,
+  validate?: (value: unknown) => unknown,
+): Promise<void> {
+  await withJSONLock(fs, filename, base, async () => {
+    const previous = await loadJSONUnlocked<unknown>(fs, filename, base, null, validate);
+    const data = JSON.stringify(update(previous));
+    await writeJSONCopy(fs, `${filename}.bak`, base, data);
+    await writeJSONCopy(fs, filename, base, data);
+  });
+}
+
 export async function safeSaveJSON(
   fs: JSONFileSystem,
   filename: string,
@@ -73,11 +150,13 @@ export async function safeSaveJSON(
   const backupFilename = `${filename}.bak`;
   const jsonData = JSON.stringify(data);
 
-  try {
-    await fs.writeFile(backupFilename, base, jsonData);
-    await fs.writeFile(filename, base, jsonData);
-  } catch (error) {
-    console.error(`Failed to save ${filename}:`, error);
-    throw new Error(`Failed to save ${filename}: ${error}`);
-  }
+  await withJSONLock(fs, filename, base, async () => {
+    try {
+      await writeJSONCopy(fs, backupFilename, base, jsonData);
+      await writeJSONCopy(fs, filename, base, jsonData);
+    } catch (error) {
+      console.error(`Failed to save ${filename}:`, error);
+      throw new Error(`Failed to save ${filename}: ${error}`);
+    }
+  });
 }

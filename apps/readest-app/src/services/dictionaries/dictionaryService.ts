@@ -486,19 +486,11 @@ async function importDictBundle(fs: FileSystem, group: DictGroup): Promise<Impor
       };
       const off = decode(m[1]!);
       const size = decode(m[2]!);
-      // Read the dict body. If gzipped we need the whole thing — but for
-      // the friendly-name read, that's still cheap (the freedict bundles
-      // are <300 KB compressed).
-      const buf = await dictFile.arrayBuffer();
-      const u8 = new Uint8Array(buf);
-      let body: Uint8Array;
-      if (u8[0] === 0x1f && u8[1] === 0x8b) {
-        const { gunzipSync } = await import('fflate');
-        body = gunzipSync(u8);
-      } else {
-        body = u8;
-      }
-      name = new TextDecoder('utf-8').decode(body.subarray(off, off + size)).trim() || group.stem;
+      const { loadDictBody } = await import('./dictZip');
+      const body = await loadDictBody(dictFile, { maxOutputBytes: 1024 * 1024 });
+      name =
+        new TextDecoder('utf-8').decode(await body.read(off, Math.min(size, 4096))).trim() ||
+        group.stem;
     }
   } catch {
     // Best-effort label; the bundle is still importable.

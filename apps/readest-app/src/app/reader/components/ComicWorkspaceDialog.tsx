@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { collectComicExportPages } from '@/services/translators/comicExport';
+import { exportComicArchive } from '@/services/translators/comicExportWorker';
 import { arch as osArch, platform as osPlatform } from '@tauri-apps/plugin-os';
 import Dialog from '@/components/Dialog';
 import { useEnv } from '@/context/EnvContext';
@@ -30,7 +32,6 @@ import {
   createManualComicRegion,
   createComicWorkspacePage,
   editComicRegion,
-  exportComicPages,
   getEffectiveComicRegion,
   mergeComicRegions,
   listOcrModelPacks,
@@ -458,6 +459,8 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
   const [ocrRunning, setOcrRunning] = useState(false);
   const [ocrProgress, setOcrProgress] = useState({ completed: 0, total: 0, pageId: '' });
   const ocrAbortRef = useRef<AbortController | null>(null);
+  const exportAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => () => exportAbortRef.current?.abort(), []);
   const pipelineId = `${bookHash}:translate:${providerName}:${targetLang}:${createComicPipelinePageSetSignature(
     assets.map(({ pageId, width, height, byteLength }) => ({
       pageId,
@@ -1652,6 +1655,8 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
     if (!workspace || assets.length === 0 || !appService) return;
     setBusy(true);
     setError(null);
+    const exportController = new AbortController();
+    exportAbortRef.current = exportController;
     let inpaintWorker: Awaited<ReturnType<typeof createInstalledLamaInpaintWorker>> | undefined;
     try {
       if (useLamaInpaint) {
@@ -1659,18 +1664,15 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
         setMessage(_('Loading local LaMa model...'));
         inpaintWorker = await createInstalledLamaInpaintWorker(inpaintModelStorage);
       }
-      const pages = [] as ComicRenderedPage[];
-      for (const currentPage of workspace.pages) {
-        const current = assets.find((candidate) => candidate.pageId === currentPage.pageId);
-        if (current) pages.push(await renderAsset(current, currentPage, inpaintWorker));
-      }
-      if (pages.length === 0) throw new Error(_('Re-import the source pages before exporting.'));
-      if (format === 'pdf') {
-        // Convert one page at a time so a PDF export never holds both the
-        // complete source-image set and a second complete JPEG set.
-        for (let index = 0; index < pages.length; index += 1) {
-          const page = pages[index]!;
-          if (page.mimeType === 'image/jpeg') continue;
+      const pages = await collectComicExportPages(
+        workspace.pages,
+        async (currentPage) => {
+          const current = assets.find((candidate) => candidate.pageId === currentPage.pageId);
+          if (!current) throw new Error(_('Re-import the source pages before exporting.'));
+          const page = await renderAsset(current, currentPage, inpaintWorker);
+          exportController.signal.throwIfAborted();
+          if (format !== 'pdf' || page.mimeType === 'image/jpeg') return page;
+          // Convert before collection so the budget covers the final JPEGs.
           const blob = new Blob([new Uint8Array(page.bytes).buffer], { type: page.mimeType });
           const canvas = document.createElement('canvas');
           const currentAsset = assets.find((candidate) => candidate.pageId === page.pageId);
@@ -1688,31 +1690,29 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
           );
           canvas.width = 0;
           canvas.height = 0;
-          pages[index] = {
+          return {
             ...page,
-            extension: 'jpg',
+            extension: 'jpg' as const,
             mimeType: 'image/jpeg',
             bytes: await jpeg.arrayBuffer(),
           };
-        }
-      }
-      const result = exportComicPages({
-        format,
-        outputName: `${bookData?.book?.title || 'translated-comic'}.${format}`,
-        pages,
-      });
-      const archiveBytes = result.archive!;
-      await appService.saveFile(
-        result.fileName,
-        archiveBytes.buffer.slice(
-          archiveBytes.byteOffset,
-          archiveBytes.byteOffset + archiveBytes.byteLength,
-        ) as ArrayBuffer,
-        {
-          mimeType: format === 'pdf' ? 'application/pdf' : 'application/vnd.comicbook+zip',
         },
+        exportController.signal,
       );
-      setMessage(_('Translated copy exported without changing the source.'));
+      const result = await exportComicArchive(
+        {
+          format,
+          outputName: `${bookData?.book?.title || 'translated-comic'}.${format}`,
+          pages,
+        },
+        exportController.signal,
+      );
+      const archiveBytes = result.archive!;
+      exportController.signal.throwIfAborted();
+      const saved = await appService.saveFile(result.fileName, archiveBytes.buffer, {
+        mimeType: format === 'pdf' ? 'application/pdf' : 'application/vnd.comicbook+zip',
+      });
+      if (saved) setMessage(_('Translated copy exported without changing the source.'));
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -1722,18 +1722,30 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
         setError(reason instanceof Error ? reason.message : String(reason));
       }
       setBusy(false);
+      exportAbortRef.current = null;
     }
   };
 
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => {
+        exportAbortRef.current?.abort();
+        onClose();
+      }}
       title={_('Comic workspace')}
       snapHeight={0.92}
       useOverlayScroll
     >
       <div className='space-y-3 pb-4'>
+        {busy && exportAbortRef.current && (
+          <button
+            className='btn btn-outline btn-sm'
+            onClick={() => exportAbortRef.current?.abort()}
+          >
+            {_('Cancel')}
+          </button>
+        )}
         <div className='flex flex-wrap items-center gap-2'>
           <button
             className='btn btn-primary btn-sm'

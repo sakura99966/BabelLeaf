@@ -8,6 +8,32 @@ export const MAX_COMIC_EXPORT_PAGES = 2_000;
 export const MAX_COMIC_EXPORT_PAGE_BYTES = 64 * 1024 * 1024;
 export const MAX_COMIC_EXPORT_BYTES = 256 * 1024 * 1024;
 
+/** Check before retaining the next page, rather than after rendering the whole book. */
+export async function collectComicExportPages<T>(
+  items: T[],
+  render: (item: T) => Promise<ComicRenderedPage>,
+  signal?: AbortSignal,
+  maxBytes = MAX_COMIC_EXPORT_BYTES,
+): Promise<ComicRenderedPage[]> {
+  if (!items.length || items.length > MAX_COMIC_EXPORT_PAGES)
+    throw new ComicExportError('Comic export page count exceeds resource limits');
+  const pages: ComicRenderedPage[] = [];
+  let bytes = 0;
+  for (const item of items) {
+    signal?.throwIfAborted();
+    const page = await render(item);
+    signal?.throwIfAborted();
+    bytes += page.bytes.byteLength;
+    if (
+      page.bytes.byteLength > MAX_COMIC_EXPORT_PAGE_BYTES ||
+      bytes > Math.min(maxBytes, MAX_COMIC_EXPORT_BYTES)
+    )
+      throw new ComicExportError('Comic export byte limit exceeded');
+    pages.push(page);
+  }
+  return pages;
+}
+
 export type ComicExportFormat = 'image-set' | 'cbz' | 'zip' | 'pdf';
 export type ComicImageExtension = 'png' | 'jpg' | 'jpeg' | 'webp';
 

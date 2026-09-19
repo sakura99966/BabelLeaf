@@ -163,6 +163,11 @@ export abstract class BaseAppService implements AppService {
     return await this.fs.writeFile(path, base, content);
   }
 
+  async writeFileAtomic(path: string, base: BaseDir, content: string) {
+    if (this.fs.writeFileAtomic) return this.fs.writeFileAtomic(path, base, content);
+    return this.fs.writeFile(path, base, content);
+  }
+
   async createDir(path: string, base: BaseDir, recursive: boolean = true): Promise<void> {
     return await this.fs.createDir(path, base, recursive);
   }

@@ -436,6 +436,18 @@ pub fn run() {
             {
                 use tauri::Manager;
                 app.add_capability(include_str!("../capabilities-extra/webdriver.json"))?;
+                // Only test builds accept this harness-provided, isolated root.
+                // Do not widen shipped filesystem scopes to make tests pass.
+                if let Ok(root) = std::env::var("BABELLEAF_NATIVE_TEST_ROOT") {
+                    let root = PathBuf::from(root);
+                    if !root.is_absolute()
+                        || root.file_name().and_then(|name| name.to_str())
+                            != Some(".readest-test-sandbox-tauri")
+                    {
+                        return Err("Invalid native test root".into());
+                    }
+                    allow_dir_in_scopes(app.handle(), &root);
+                }
                 start_webdriver_exit_watcher(app.handle().clone())?;
                 publish_webdriver_stage("capability-added")?;
             }

@@ -277,6 +277,9 @@ export class TranslationBatchController {
   private pendingJobSnapshot: TranslationJobSnapshot | undefined;
   private artifactCheckpointScheduled = false;
   private jobCheckpointScheduled = false;
+  private artifactSaveError: unknown;
+  private jobSaveError: unknown;
+  private readonly pendingMemoryWrites = new Map<string, () => Promise<void>>();
 
   constructor(input: TranslationBatchControllerInput) {
     this.artifact =
@@ -341,7 +344,15 @@ export class TranslationBatchController {
       const protectedText = protectGlossaryTerms(item.text, glossaryEntries);
       const translated = await input.translate({ ...item, text: protectedText.text }, signal);
       const restored = restoreGlossaryTerms(translated, protectedText.bindings);
-      await input.translationMemory?.remember(memoryQuery, restored);
+      if (input.translationMemory) {
+        const saveMemory = () => input.translationMemory!.remember(memoryQuery, restored);
+        try {
+          await saveMemory();
+        } catch {
+          this.pendingMemoryWrites.set(item.id, saveMemory);
+          this.queue.pause();
+        }
+      }
       return restored;
     };
     this.queue = new TranslationJobQueue(queueInput, translate);
@@ -377,6 +388,7 @@ export class TranslationBatchController {
   }
 
   async start(): Promise<TranslationJobSnapshot> {
+    await this.flush();
     await this.artifactStore?.save(this.artifact);
     const result = await this.queue.start();
     await this.flush();
@@ -388,18 +400,21 @@ export class TranslationBatchController {
   }
 
   async resume(): Promise<TranslationJobSnapshot> {
+    await this.flush();
     const result = await this.queue.resume();
     await this.flush();
     return result;
   }
 
   async retryFailed(): Promise<TranslationJobSnapshot> {
+    await this.flush();
     const result = await this.queue.retryFailed();
     await this.flush();
     return result;
   }
 
   async invalidateCompleted(): Promise<TranslationJobSnapshot> {
+    await this.flush();
     this.queue.invalidateCompleted();
     const result = await this.queue.start();
     await this.flush();
@@ -411,7 +426,18 @@ export class TranslationBatchController {
   }
 
   async flush(): Promise<void> {
+    for (const [id, save] of [...this.pendingMemoryWrites]) {
+      await save();
+      if (this.pendingMemoryWrites.get(id) === save) this.pendingMemoryWrites.delete(id);
+    }
+    // Explicit flush/resume retries retained dirty data, never paid requests.
+    if (!this.artifactCheckpointScheduled && this.pendingSegments.size)
+      this.scheduleCheckpoint(this.queue.getSnapshot());
+    if (!this.jobCheckpointScheduled && this.pendingJobSnapshot)
+      this.scheduleJobCheckpoint(this.pendingJobSnapshot);
     await Promise.all([this.checkpoint, this.jobCheckpoint]);
+    if (this.artifactSaveError) throw this.artifactSaveError;
+    if (this.jobSaveError) throw this.jobSaveError;
   }
 
   async reviewSegment(id: string, translatedText: string): Promise<TranslationArtifact> {
@@ -436,7 +462,7 @@ export class TranslationBatchController {
       this.persisted.set(item.id, state);
       return true;
     });
-    if (changedItems.length === 0) return;
+    if (changedItems.length === 0 && this.pendingSegments.size === 0) return;
 
     for (const item of changedItems) {
       this.pendingSegments.set(item.id, {
@@ -462,11 +488,19 @@ export class TranslationBatchController {
       .then(async () => {
         while (this.pendingSegments.size > 0) {
           const incoming = Array.from(this.pendingSegments.values());
-          this.pendingSegments.clear();
           const now = Date.now();
           this.artifact = upsertTranslationSegments(this.artifact, incoming, now);
           await this.artifactStore?.save(this.artifact);
+          for (const segment of incoming) {
+            if (this.pendingSegments.get(segment.id) === segment)
+              this.pendingSegments.delete(segment.id);
+          }
+          this.artifactSaveError = undefined;
         }
+      })
+      .catch((error: unknown) => {
+        this.artifactSaveError = error;
+        this.queue.pause();
       })
       .finally(() => {
         this.artifactCheckpointScheduled = false;
@@ -485,9 +519,14 @@ export class TranslationBatchController {
       .then(async () => {
         while (this.pendingJobSnapshot) {
           const next = this.pendingJobSnapshot;
-          this.pendingJobSnapshot = undefined;
           await this.jobStore!.save(next);
+          if (this.pendingJobSnapshot === next) this.pendingJobSnapshot = undefined;
+          this.jobSaveError = undefined;
         }
+      })
+      .catch((error: unknown) => {
+        this.jobSaveError = error;
+        this.queue.pause();
       })
       .finally(() => {
         this.jobCheckpointScheduled = false;

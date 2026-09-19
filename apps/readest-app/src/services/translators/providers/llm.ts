@@ -92,26 +92,33 @@ export const normalizeTranslationProviderError = (
   if (options.timedOut) return new Error('Translation request timed out');
   const status = getErrorStatus(error);
   const message = getSafeErrorMessage(error);
+  const retryAfter =
+    error && typeof error === 'object' && 'retryAfter' in error ? error.retryAfter : undefined;
+  const failure = (message: string) =>
+    Object.assign(new Error(message), {
+      ...(status === undefined ? {} : { status }),
+      ...(typeof retryAfter === 'string' && retryAfter.length <= 128 ? { retryAfter } : {}),
+    });
   if (
     status === 401 ||
     status === 403 ||
     /unauthori[sz]ed|invalid api key|forbidden/i.test(message)
   ) {
-    return new Error('Translation provider rejected the API key');
+    return failure('Translation provider rejected the API key');
   }
   if (status === 429 || /rate.?limit|too many requests/i.test(message)) {
-    return new Error('Translation provider rate limit reached; retry later');
+    return failure('Translation provider rate limit reached; retry later');
   }
   if ((status && status >= 300 && status < 400) || /redirect/i.test(message)) {
-    return new Error('Translation request was redirected and blocked');
+    return failure('Translation request was redirected and blocked');
   }
   if (status === 408 || status === 504 || /timeout|timed out/i.test(message)) {
-    return new Error('Translation request timed out');
+    return failure('Translation request timed out');
   }
   if (message === ErrorCodes.PROVIDER_NOT_CONFIGURED || message === ErrorCodes.EMPTY_RESPONSE) {
-    return new Error(message);
+    return failure(message);
   }
-  return new Error(
+  return failure(
     message
       ? `Translation provider request failed: ${message}`
       : 'Translation provider request failed',
@@ -152,18 +159,25 @@ const createLLMTranslator = (
       }, AI_TIMEOUTS.CHAT_STREAM);
       let output: string;
       try {
-        output = provider.generateText
-          ? await provider.generateText({ system, prompt: text, signal: requestController.signal })
-          : provider.getModel
-            ? (
-                await generateText({
-                  model: provider.getModel(),
-                  system,
-                  prompt: text,
-                  abortSignal: requestController.signal,
-                })
-              ).text
-            : '';
+        if (provider.generateText) {
+          // Native adapters validate completion before returning text.
+          output = await provider.generateText({
+            system,
+            prompt: text,
+            signal: requestController.signal,
+          });
+        } else if (provider.getModel) {
+          const result = await generateText({
+            model: provider.getModel(),
+            system,
+            prompt: text,
+            abortSignal: requestController.signal,
+          });
+          if (result.finishReason !== 'stop') {
+            throw new Error('Translation provider returned an incomplete response');
+          }
+          output = result.text;
+        } else output = '';
       } catch (error) {
         throw normalizeTranslationProviderError(error, {
           timedOut,

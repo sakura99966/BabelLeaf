@@ -32,6 +32,17 @@ const query = {
 };
 
 describe('translation memory', () => {
+  test('preserves independently remembered entries from two loaded instances', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationMemoryFileStore(fs);
+    const first = await TranslationMemory.load(store);
+    const second = await TranslationMemory.load(store);
+    await first.remember({ ...query, sourceText: 'First' }, '一');
+    await second.remember({ ...query, sourceText: 'Second' }, '二');
+    const loaded = await TranslationMemory.load(store);
+    expect(loaded.lookup({ ...query, sourceText: 'First' })).toBe('一');
+    expect(loaded.lookup({ ...query, sourceText: 'Second' })).toBe('二');
+  });
   test('isolates entries by language, provider, and glossary version', async () => {
     const memory = new TranslationMemory();
     await memory.remember(query, '你好');

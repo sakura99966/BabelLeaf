@@ -150,7 +150,7 @@ describe('translation-only AI providers', () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ content: [{ type: 'text', text: '译文' }] }),
+      json: async () => ({ content: [{ type: 'text', text: '译文' }], stop_reason: 'end_turn' }),
     });
 
     await expect(provider.generateText({ system: 'system', prompt: 'Hello' })).resolves.toBe(
@@ -166,6 +166,27 @@ describe('translation-only AI providers', () => {
         }),
         body: expect.stringContaining(ANTHROPIC_TRANSLATION_MODEL),
       }),
+    );
+  });
+
+  test.each([
+    'max_tokens',
+    'tool_use',
+    'stop_sequence',
+    undefined,
+  ])('rejects incomplete Anthropic output: %s', async (stop_reason) => {
+    const provider = new AnthropicProvider({
+      ...DEFAULT_AI_SETTINGS,
+      provider: 'anthropic',
+      anthropicApiKey: 'secret',
+    });
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ content: [{ type: 'text', text: 'partial' }], stop_reason }),
+    });
+    await expect(provider.generateText({ system: 'system', prompt: 'Hello' })).rejects.toThrow(
+      'incomplete',
     );
   });
 });

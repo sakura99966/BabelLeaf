@@ -1,5 +1,5 @@
 import type { AppService, BaseDir, FileSystem } from '@/types/system';
-import { safeLoadJSON, safeSaveJSON } from '@/services/persistence';
+import { safeLoadJSON, updateJSON } from '@/services/persistence';
 import { parseTranslationSourceAnchor, type TranslationSourceAnchor } from './anchors';
 
 export const TRANSLATION_ARTIFACT_SCHEMA_VERSION = 1 as const;
@@ -290,7 +290,13 @@ export class TranslationArtifactStore {
     base: BaseDir,
   ): Promise<TranslationArtifact | null> {
     const filename = getTranslationArtifactPath({ ...key });
-    const raw = await safeLoadJSON<unknown>(this.fs, filename, base, null);
+    const raw = await safeLoadJSON<unknown>(
+      this.fs,
+      filename,
+      base,
+      null,
+      parseTranslationArtifact,
+    );
     return raw === null ? null : parseTranslationArtifact(raw);
   }
 
@@ -309,11 +315,30 @@ export class TranslationArtifactStore {
 
   async save(artifact: TranslationArtifact): Promise<void> {
     await this.fs.createDir(TRANSLATION_ARTIFACT_DIR, TRANSLATION_ARTIFACT_BASE, true);
-    await safeSaveJSON(
+    await updateJSON(
       this.fs,
       getTranslationArtifactPath(artifact),
       TRANSLATION_ARTIFACT_BASE,
-      artifact,
+      (raw) => {
+        const incoming = parseTranslationArtifact(artifact);
+        if (!raw) return incoming;
+        const previous = parseTranslationArtifact(raw);
+        if (previous.model !== incoming.model || previous.promptVersion !== incoming.promptVersion)
+          return incoming;
+        const segments = new Map(previous.segments.map((segment) => [segment.id, segment]));
+        for (const next of incoming.segments) {
+          const existing = segments.get(next.id);
+          if (existing && existing.sourceText !== next.sourceText)
+            throw new Error('Translation segment source changed');
+          if (!existing || next.updatedAt >= existing.updatedAt) segments.set(next.id, next);
+        }
+        return {
+          ...incoming,
+          updatedAt: Math.max(previous.updatedAt, incoming.updatedAt),
+          segments: [...segments.values()],
+        };
+      },
+      parseTranslationArtifact,
     );
   }
 

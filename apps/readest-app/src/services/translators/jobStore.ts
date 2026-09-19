@@ -165,6 +165,7 @@ export class TranslationJobStore {
       getTranslationJobPath(jobId),
       TRANSLATION_JOB_STORE_BASE,
       null,
+      parseTranslationJob,
     );
     return raw === null ? null : parseTranslationJob(raw).snapshot;
   }
