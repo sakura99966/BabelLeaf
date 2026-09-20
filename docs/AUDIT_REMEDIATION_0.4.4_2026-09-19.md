@@ -296,3 +296,33 @@ Native integration after the initial job/anchor changes: 118 passed, 1 skipped
 The final full unit rerun is `unit-job-anchor-final-20260920.log`.
 TypeScript and Biome lint pass. These changes do not establish cross-WebView
 crash recovery, pre-read persisted-file budgets or an updated installer identity.
+
+## 2026-09-20 follow-up: write-boundary validation and truncated copies
+
+All remote checks for `342ff227d159321ae5020d88ea158e7505922a4f` passed,
+including required-checks, native/browser E2E, installer smoke and CodeQL.
+This is evidence for the preceding commit, not the changes below.
+
+Two additional independently reproduced defects were fixed:
+
+1. `TranslationJobStore.save` could persist a snapshot rejected by its own load
+   validator, and observed mutable caller state after its first filesystem await.
+   Parse and detach the snapshot before any filesystem operation. Invalid input
+   cannot replace either committed copy; later caller edits cannot alter the
+   captured payload or destination ID. Tests verify both behaviors.
+2. Successful reads yielding empty/whitespace content were classified as absent
+   data. When both typed recovery copies were truncated, read-modify-write could
+   silently initialize over them. Classify such reads as corrupt, retaining
+   schema-aware backup fallback and throwing when neither copy is readable.
+   Missing-file initialization and untyped legacy defaults remain unchanged.
+   This does not yet distinguish every native permission/I/O error from absence.
+
+Failing probes: `job-save-before-20260920.log` and
+`empty-store-before-20260920.log` under `target/audit-20260919`.
+Final full unit suite: **4,848 passed, 1 skipped**, 391 files
+(`unit-save-empty-final-20260920.log`). TypeScript/Biome lint and whitespace
+checks passed. A native regression creates zero-byte main and whitespace backup,
+verifies typed load/update fail, and verifies both files retain their contents;
+native suite log: `tauri-save-empty-20260920.log`.
+No main merge, release tag, external validation, source-book mutation or cleanup
+of recovery/evidence data was performed. Remaining audit gates stay open.

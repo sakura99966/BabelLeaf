@@ -53,6 +53,29 @@ const snapshot: TranslationJobSnapshot = {
 };
 
 describe('TranslationJobStore', () => {
+  test('rejects invalid writes without replacing either readable recovery copy', async () => {
+    const { files, fs } = makeFileSystem();
+    const store = new TranslationJobStore(fs);
+    await store.save(snapshot);
+    const before = new Map(files);
+    await expect(store.save({ ...snapshot, completed: 99 })).rejects.toThrow(/count/);
+    expect(files).toEqual(before);
+  });
+
+  test('captures a validated snapshot before asynchronous filesystem preparation', async () => {
+    const { fs } = makeFileSystem();
+    const input = { ...snapshot, items: snapshot.items.map((item) => ({ ...item })) };
+    const store = new TranslationJobStore({
+      ...fs,
+      createDir: async () => {
+        input.items[0]!.text = 'changed after save started';
+        input.completed = 99;
+      },
+    });
+    await store.save(input);
+    await expect(store.load(snapshot.id)).resolves.toEqual(snapshot);
+  });
+
   test.each([
     'total',
     'completed',

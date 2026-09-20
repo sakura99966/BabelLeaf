@@ -197,11 +197,19 @@ export class TranslationJobStore {
   }
 
   async save(snapshot: TranslationJobSnapshot): Promise<void> {
-    await this.fs.createDir(TRANSLATION_JOB_STORE_DIR, TRANSLATION_JOB_STORE_BASE, true);
-    await safeSaveJSON(this.fs, getTranslationJobPath(snapshot.id), TRANSLATION_JOB_STORE_BASE, {
+    // Validate and detach mutable caller state before the first filesystem await.
+    // A rejected write must not replace either committed recovery copy.
+    const validated = parseTranslationJob({
       schemaVersion: TRANSLATION_JOB_SCHEMA_VERSION,
       snapshot,
     });
+    await this.fs.createDir(TRANSLATION_JOB_STORE_DIR, TRANSLATION_JOB_STORE_BASE, true);
+    await safeSaveJSON(
+      this.fs,
+      getTranslationJobPath(validated.snapshot.id),
+      TRANSLATION_JOB_STORE_BASE,
+      validated,
+    );
   }
 
   async remove(jobId: string): Promise<void> {

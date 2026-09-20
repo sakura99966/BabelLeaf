@@ -48,7 +48,7 @@ async function loadJSONFile(
   try {
     const txt = await fs.readFile(path, base, 'text');
     if (!txt || typeof txt !== 'string' || txt.trim().length === 0) {
-      return { success: false, error: 'File is empty or invalid' };
+      return { success: false, corrupt: true, error: 'File is empty or invalid' };
     }
     try {
       const data = JSON.parse(txt as string);

@@ -89,6 +89,25 @@ describe('NativeAppService', () => {
     ).toBe(false);
   });
 
+  it('preserves truncated native recovery copies instead of initializing over them', async () => {
+    await service.writeFile('truncated.json', 'Data', '');
+    await service.writeFile('truncated.json.bak', 'Data', '   ');
+    await expect(
+      safeLoadJSON(service, 'truncated.json', 'Data', null, (value) => value),
+    ).rejects.toThrow('readable JSON');
+    await expect(
+      updateJSON(
+        service,
+        'truncated.json',
+        'Data',
+        () => ({ revision: 1 }),
+        (value) => value,
+      ),
+    ).rejects.toThrow('readable JSON');
+    expect(await service.readFile('truncated.json', 'Data', 'text')).toBe('');
+    expect(await service.readFile('truncated.json.bak', 'Data', 'text')).toBe('   ');
+  });
+
   it('reads bounded sidecar text through both native file adapters', async () => {
     await service.writeFile('sidecar.json', 'Data', '{"text":"日本語"}');
     const path = await service.resolveFilePath('sidecar.json', 'Data');

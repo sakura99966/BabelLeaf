@@ -1,6 +1,32 @@
 import { expect, it } from 'vitest';
 import { safeLoadJSON, safeSaveJSON, updateJSON } from '@/services/persistence';
 
+it.each([
+  '',
+  ' \r\n\t',
+])('does not treat truncated typed snapshots as absent files (%j)', async (content) => {
+  let writes = 0;
+  const fs = {
+    readFile: async () => content,
+    writeFile: async () => {
+      writes++;
+    },
+  };
+  await expect(safeLoadJSON(fs, 'state.json', 'Data', null, (value) => value)).rejects.toThrow(
+    'readable JSON',
+  );
+  await expect(
+    updateJSON(
+      fs,
+      'state.json',
+      'Data',
+      () => ({ revision: 1 }),
+      (value) => value,
+    ),
+  ).rejects.toThrow('readable JSON');
+  expect(writes).toBe(0);
+});
+
 it('does not interpret two corrupt typed snapshots as a new empty store', async () => {
   const fs = {
     readFile: async () => '{corrupt',
