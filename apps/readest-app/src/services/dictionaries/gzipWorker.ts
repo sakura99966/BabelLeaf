@@ -11,10 +11,14 @@ export function decompressDictionaryGzip(
     const worker = new Worker(new URL('../../workers/dictionary-gzip.worker.ts', import.meta.url), {
       type: 'module',
     });
-    // NativeFile/RemoteFile are lazy Blob subclasses with empty native backing
-    // storage. Transfer a stream, not the Blob's structured-clone representation.
+    // Lazy Files cannot be cloned; WebKit cannot transfer ReadableStreams.
+    // Supply one chunk per worker request, using portable ArrayBuffer transfers.
     let inputReader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>> | undefined;
+    let settled = false;
+    let reading = false;
     const dispose = () => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       signal?.removeEventListener('abort', abort);
       worker.terminate();
@@ -40,9 +44,34 @@ export function decompressDictionaryGzip(
       dispose();
       reject(new Error('Dictionary decompression worker failed'));
     };
-    worker.onmessage = (
-      event: MessageEvent<{ bytes?: Uint8Array<ArrayBuffer>; error?: string }>,
+    worker.onmessage = async (
+      event: MessageEvent<{ pull?: boolean; bytes?: Uint8Array<ArrayBuffer>; error?: string }>,
     ) => {
+      if (settled) return;
+      if (event.data.pull) {
+        if (reading || !inputReader) {
+          dispose();
+          reject(new Error('Invalid dictionary worker read request'));
+          return;
+        }
+        reading = true;
+        try {
+          const next = await inputReader.read();
+          if (settled) return;
+          if (next.done) worker.postMessage({ done: true });
+          else {
+            // Do not detach buffers potentially retained by a file adapter cache.
+            const chunk = new Uint8Array(next.value);
+            worker.postMessage({ chunk }, [chunk.buffer]);
+          }
+        } catch (error) {
+          dispose();
+          reject(error);
+        } finally {
+          reading = false;
+        }
+        return;
+      }
       dispose();
       if (event.data.error) reject(new Error(event.data.error));
       else if (!(event.data.bytes instanceof Uint8Array) || event.data.bytes.byteLength > maxOutput)
@@ -50,17 +79,8 @@ export function decompressDictionaryGzip(
       else resolve(event.data.bytes);
     };
     try {
-      const reader = blob.stream().getReader();
-      inputReader = reader;
-      const stream = new ReadableStream<Uint8Array<ArrayBuffer>>({
-        async pull(controller) {
-          const next = await reader.read();
-          if (next.done) controller.close();
-          else controller.enqueue(next.value);
-        },
-        cancel: (reason) => reader.cancel(reason),
-      });
-      worker.postMessage({ stream, inputSize: blob.size, maxOutput }, [stream]);
+      inputReader = blob.stream().getReader();
+      worker.postMessage({ inputSize: blob.size, maxOutput });
     } catch (error) {
       dispose();
       reject(error);

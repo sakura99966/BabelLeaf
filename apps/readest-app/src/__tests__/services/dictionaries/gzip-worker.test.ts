@@ -9,6 +9,35 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+test('cancels a pending input read without sending a late chunk to a terminated worker', async () => {
+  const cancel = vi.fn();
+  const stream = new ReadableStream<Uint8Array<ArrayBuffer>>({ cancel });
+  const file = { size: 1, stream: () => stream } as unknown as Blob;
+  const worker = {
+    onmessage: null as ((event: MessageEvent) => Promise<void>) | null,
+    onerror: null,
+    onmessageerror: null,
+    postMessage: vi.fn(),
+    terminate: vi.fn(),
+  };
+  vi.stubGlobal(
+    'Worker',
+    vi.fn(function () {
+      return worker;
+    }),
+  );
+  const abort = new AbortController();
+  const result = decompressDictionaryGzip(file, 1024, abort.signal);
+  const rejected = expect(result).rejects.toThrow('cancelled');
+  const read = worker.onmessage?.({ data: { pull: true } } as MessageEvent);
+  abort.abort();
+  await rejected;
+  await read;
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(worker.terminate).toHaveBeenCalledTimes(1);
+  expect(worker.postMessage).toHaveBeenCalledTimes(1);
+});
+
 test.each([
   'abort',
   'timeout',
@@ -69,4 +98,5 @@ test('ordinary gzip decompression uses and disposes an available worker', async 
   expect(new TextDecoder().decode(await body.read(0, 5))).toBe('hello');
   expect(createWorker).toHaveBeenCalledTimes(1);
   expect(worker.terminate).toHaveBeenCalledTimes(1);
+  expect(worker.postMessage.mock.calls[0]).toEqual([{ inputSize: blob.size, maxOutput: 67108864 }]);
 });

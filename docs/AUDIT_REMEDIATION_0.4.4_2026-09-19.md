@@ -244,3 +244,22 @@ passed. Updated package verification remains required before release acceptance.
   limits, job/count consistency, multi-window/crash recovery, and an updated
   artifact-bound installer/SBOM/performance run. External verification remains
   DEFERRED by owner instruction, not PASS. This checkpoint is not release approval.
+
+### WebKit CI follow-up: portable worker input protocol
+
+Remote run `35509852056`, job `106075747010` reproduced `DataCloneError` in
+Linux native WebKit when transferring ReadableStream. The job name is
+`build_tauri_app`, but the failure was in two native dictionary tests, not a
+TypeScript compilation error. Chromium/WebView2 success did not cover this
+runtime difference. Local production frontend build at `240c84362` passed.
+
+The worker protocol now requests one input chunk at a time through messages,
+transferring only ArrayBuffers. Lazy files remain on the originating side;
+the worker reconstructs a stream with backpressure for bounded decompression.
+Cached adapter buffers are not detached. No unsupported stream transfer or
+whole-input fallback is used. A failed protocol regression confirmed the old
+transfer, and cancellation testing checks that an outstanding read cannot send
+a late chunk after worker termination. Chromium security regressions pass;
+Windows native and full unit reruns are recorded in
+`tauri-gzip-portable-20260920.log` and `unit-gzip-portable-20260920.log`.
+The replacement Linux CI run must pass before treating this issue as closed.
