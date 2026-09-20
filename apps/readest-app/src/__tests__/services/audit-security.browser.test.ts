@@ -4,6 +4,26 @@ import { sanitizeSvgDocument } from '@/services/transformers/sanitizer';
 import { loadDictBody } from '@/services/dictionaries/dictZip';
 import { exportComicArchive } from '@/services/translators/comicExportWorker';
 
+test('dictionary workers read lazy file streams rather than cloning empty Blob backing storage', async () => {
+  class LazyBlob extends Blob {
+    constructor(private readonly content: Blob) {
+      super([]);
+    }
+    override get size() {
+      return this.content.size;
+    }
+    override slice(start?: number, end?: number, type?: string) {
+      return this.content.slice(start, end, type);
+    }
+    override stream() {
+      return this.content.stream();
+    }
+  }
+  const file = new LazyBlob(new Blob([gzipSync(new TextEncoder().encode('lazy dictionary'))]));
+  const body = await loadDictBody(file);
+  expect(new TextDecoder().decode(await body.read(0, 4))).toBe('lazy');
+});
+
 test('sanitizes active SVG content without removing ordinary drawing content', () => {
   const result = sanitizeSvgDocument(
     `<svg xmlns="http://www.w3.org/2000/svg" onload="parent.hacked=1"><script>parent.hacked=1</script><foreignObject><iframe srcdoc="bad"></iframe></foreignObject><rect width="10" height="10"/><text>Hello</text></svg>`,

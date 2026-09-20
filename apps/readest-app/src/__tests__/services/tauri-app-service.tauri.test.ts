@@ -4,6 +4,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { mkdir, remove, writeTextFile, readTextFile } from '@tauri-apps/plugin-fs';
 import { NativeAppService } from '@/services/nativeAppService';
 import { safeLoadJSON, updateJSON } from '@/services/persistence';
+import { gzipSync, strToU8 } from 'fflate';
+import { loadDictBody } from '@/services/dictionaries/dictZip';
+import { NativeFile } from '@/utils/file';
 import { fsTests } from './suites/fs-tests';
 import { libraryTests } from './suites/library-tests';
 import { bookTests } from './suites/book-tests';
@@ -83,6 +86,23 @@ describe('NativeAppService', () => {
     expect(
       (await service.readDirectory('', 'Data')).some((file) => file.path.endsWith('.tmp')),
     ).toBe(false);
+  });
+
+  it('streams a real lazy native gzip file through the dictionary worker', async () => {
+    const bytes = gzipSync(strToU8('native dictionary bytes'));
+    await service.writeFile('worker.dict.gz', 'Data', bytes.buffer as ArrayBuffer);
+    const file = await new NativeFile(
+      await service.resolveFilePath('worker.dict.gz', 'Data'),
+    ).open();
+    try {
+      const body = await loadDictBody(file);
+      expect(new TextDecoder().decode(await body.read(0, 6))).toBe('native');
+    } finally {
+      await file.close();
+    }
+    // Windows would reject deletion if a worker-owned file handle leaked.
+    await service.deleteFile('worker.dict.gz', 'Data');
+    expect(await service.exists('worker.dict.gz', 'Data')).toBe(false);
   });
 
   it('serializes two native service instances and recovers the previous committed snapshot', async () => {

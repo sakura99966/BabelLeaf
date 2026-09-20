@@ -178,7 +178,7 @@ implementation table and next-execution list; do not mark main/release accepted.
 - Browser/WebView ordinary gzip fallback now runs in a dedicated module worker;
   the bounded native DecompressionStream engine is shared with hosts lacking
   Worker support. The PC path uses a worker. No worker starts at module import.
-- The worker receives the Blob and output budget, enforces 512 MiB input and
+- The initial worker received the Blob and output budget, enforced 512 MiB input and
   64 MiB maximum actual output, and transfers its completed ArrayBuffer back.
   Client timeout/abort terminates the worker independently of stream progress.
   Success, malformed result, worker errors and postMessage failure also dispose
@@ -195,3 +195,26 @@ implementation table and next-execution list; do not mark main/release accepted.
   access or representative workload peak-memory qualification. Output remains
   bounded in memory. Updated exact production candidate validation is still
   required; older candidate hashes above do not cover this code.
+
+### Lazy native-file transport correction
+
+The first worker implementation had a reproduced compatibility defect:
+`NativeFile`/`RemoteFile` have empty backing Blobs and lazy overridden reads.
+Structured-cloning those objects into the worker transferred no compressed
+content (`Compressed input was truncated`). The corrected protocol transfers a
+ReadableStream with backpressure and declared input size, keeping lazy native
+range reads on the originating side. Worker completion, abort, timeout, and
+message failures cancel that input reader and release its lock. It does not
+materialize the full compressed file before starting the worker.
+
+Regression evidence: real Chromium lazy-Blob test failed before correction;
+all four browser security tests now pass. Native integration writes a synthetic
+gzip file, reads it through a real NativeFile and the worker, verifies decoded
+content, closes the file and deletes it. The complete native suite passes
+**117 tests, 1 skipped**. Full unit suite: **4,820 passed, 1 skipped** across
+390 files; TypeScript and Biome lint pass. Logs:
+`unit-gzip-stream-final-20260920.log` and
+`tauri-gzip-stream-final-20260920.log` in the audit target directory.
+The initial native regression run failed only in test cleanup because it used
+`removeFile` instead of the service's `deleteFile`; the corrected full rerun
+passed. Updated package verification remains required before release acceptance.

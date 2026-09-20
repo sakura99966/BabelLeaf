@@ -32,7 +32,11 @@ test.each([
     }),
   );
   const controller = new AbortController();
-  const pending = decompressDictionaryGzip(new Blob(), 1024, controller.signal);
+  const pending = decompressDictionaryGzip(
+    new File([], 'test.gz') as unknown as Blob,
+    1024,
+    controller.signal,
+  );
   const rejection = expect(pending).rejects.toThrow();
   if (failureMode === 'abort') controller.abort();
   if (failureMode === 'timeout') await vi.advanceTimersByTimeAsync(30_000);

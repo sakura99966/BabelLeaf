@@ -4,11 +4,21 @@ export async function inflateDictionaryGzip(
   maxOutput: number,
   signal?: AbortSignal,
 ): Promise<Uint8Array<ArrayBuffer>> {
+  return inflateDictionaryGzipStream(blob.stream(), blob.size, maxOutput, signal);
+}
+
+export async function inflateDictionaryGzipStream(
+  input: ReadableStream<Uint8Array<ArrayBuffer>>,
+  inputSize: number,
+  maxOutput: number,
+  signal?: AbortSignal,
+): Promise<Uint8Array<ArrayBuffer>> {
   signal?.throwIfAborted();
   if (!Number.isSafeInteger(maxOutput) || maxOutput < 1 || maxOutput > 64 * 1024 * 1024)
     throw new Error('Invalid dictionary output limit');
-  if (blob.size > 512 * 1024 * 1024) throw new Error('Dictionary input limit exceeded');
-  const reader = blob.stream().pipeThrough(new DecompressionStream('gzip')).getReader();
+  if (!Number.isSafeInteger(inputSize) || inputSize < 0 || inputSize > 512 * 1024 * 1024)
+    throw new Error('Dictionary input limit exceeded');
+  const reader = input.pipeThrough(new DecompressionStream('gzip')).getReader();
   const parts: Uint8Array[] = [];
   let total = 0;
   let timedOut = false;

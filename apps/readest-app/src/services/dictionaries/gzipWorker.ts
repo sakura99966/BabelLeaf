@@ -11,10 +11,21 @@ export function decompressDictionaryGzip(
     const worker = new Worker(new URL('../../workers/dictionary-gzip.worker.ts', import.meta.url), {
       type: 'module',
     });
+    // NativeFile/RemoteFile are lazy Blob subclasses with empty native backing
+    // storage. Transfer a stream, not the Blob's structured-clone representation.
+    let inputReader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>> | undefined;
     const dispose = () => {
       clearTimeout(timer);
       signal?.removeEventListener('abort', abort);
       worker.terminate();
+      if (inputReader) {
+        const reader = inputReader;
+        inputReader = undefined;
+        void reader
+          .cancel()
+          .catch(() => {})
+          .finally(() => reader.releaseLock());
+      }
     };
     const abort = () => {
       dispose();
@@ -39,7 +50,17 @@ export function decompressDictionaryGzip(
       else resolve(event.data.bytes);
     };
     try {
-      worker.postMessage({ blob, maxOutput });
+      const reader = blob.stream().getReader();
+      inputReader = reader;
+      const stream = new ReadableStream<Uint8Array<ArrayBuffer>>({
+        async pull(controller) {
+          const next = await reader.read();
+          if (next.done) controller.close();
+          else controller.enqueue(next.value);
+        },
+        cancel: (reason) => reader.cancel(reason),
+      });
+      worker.postMessage({ stream, inputSize: blob.size, maxOutput }, [stream]);
     } catch (error) {
       dispose();
       reject(error);
