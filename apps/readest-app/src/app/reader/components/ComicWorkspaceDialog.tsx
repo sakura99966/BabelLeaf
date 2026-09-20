@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { readSidecarInput } from '@/services/translators/sidecarInput';
 import { collectComicExportPages } from '@/services/translators/comicExport';
 import { exportComicArchive } from '@/services/translators/comicExportWorker';
 import { arch as osArch, platform as osPlatform } from '@tauri-apps/plugin-os';
@@ -963,7 +964,9 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
       const selected = selection.files[0];
       if (!selected) return;
       const loaded = await readSelected(selected, appService);
-      const sidecar = parseOcrSidecar(JSON.parse(await loaded.file.text()));
+      const sidecar = parseOcrSidecar(
+        JSON.parse(await readSidecarInput(loaded.file, !selected.file)),
+      );
       if (sidecar.bookHash !== bookHash) {
         throw new Error(_('The OCR sidecar belongs to a different book.'));
       }

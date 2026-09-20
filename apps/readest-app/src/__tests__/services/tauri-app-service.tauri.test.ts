@@ -7,6 +7,7 @@ import { safeLoadJSON, updateJSON } from '@/services/persistence';
 import { gzipSync, strToU8 } from 'fflate';
 import { loadDictBody } from '@/services/dictionaries/dictZip';
 import { NativeFile } from '@/utils/file';
+import { readSidecarInput } from '@/services/translators/sidecarInput';
 import { fsTests } from './suites/fs-tests';
 import { libraryTests } from './suites/library-tests';
 import { bookTests } from './suites/book-tests';
@@ -86,6 +87,17 @@ describe('NativeAppService', () => {
     expect(
       (await service.readDirectory('', 'Data')).some((file) => file.path.endsWith('.tmp')),
     ).toBe(false);
+  });
+
+  it('reads bounded sidecar text through both native file adapters', async () => {
+    await service.writeFile('sidecar.json', 'Data', '{"text":"日本語"}');
+    const path = await service.resolveFilePath('sidecar.json', 'Data');
+    const native = await new NativeFile(path).open();
+    expect(await readSidecarInput(native, true)).toBe('{"text":"日本語"}');
+    const routed = await service.openFile('sidecar.json', 'Data');
+    expect(await readSidecarInput(routed, true)).toBe('{"text":"日本語"}');
+    await service.deleteFile('sidecar.json', 'Data');
+    expect(await service.exists('sidecar.json', 'Data')).toBe(false);
   });
 
   it('streams a real lazy native gzip file through the dictionary worker', async () => {

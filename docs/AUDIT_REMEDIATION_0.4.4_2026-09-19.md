@@ -218,3 +218,29 @@ content, closes the file and deletes it. The complete native suite passes
 The initial native regression run failed only in test cleanup because it used
 `removeFile` instead of the service's `deleteFile`; the corrected full rerun
 passed. Updated package verification remains required before release acceptance.
+
+## 2026-09-20 follow-up: bounded sidecar file import
+
+- Reproduced the translation workbench reading an oversized selected native
+  file before any byte-budget check, without closing its owned file afterward.
+  The failing UI regression is retained in
+  `target/audit-20260919/sidecar-limit-before-20260920.log`.
+- Translation JSON/TSV/XLIFF and OCR JSON imports now share `readSidecarInput`:
+  reject invalid sizes or inputs over 64 MiB before reading, request only the
+  validated range, and close caller-opened native files on success or failure.
+  Picker-owned Files remain owned by the picker/caller. Schema validation still
+  follows reading; this does not replace entry/string/count consistency limits.
+- Tests cover oversized translation/OCR UI imports without persistence, invalid
+  sizes, bounded UTF-8 reads, ownership, failed range reads, and oversized slice
+  results. Real native integration reads a small Japanese JSON file through both
+  NativeFile and the application-selected file adapter, then deletes it.
+- Verification: full unit suite **4,828 passed, 1 skipped**, 391 files before the
+  final OCR UI assertion; that expanded OCR component suite subsequently passed
+  all five tests. Native integration **118 passed, 1 skipped**; TypeScript and
+  Biome lint passed. Evidence: `unit-sidecar-input-20260920.log` and
+  `tauri-sidecar-input-20260920.log` under the audit target directory. The Git
+  pre-push gate reruns the final full unit suite.
+- Remaining scope includes persisted-store byte budgets, nested metadata/string
+  limits, job/count consistency, multi-window/crash recovery, and an updated
+  artifact-bound installer/SBOM/performance run. External verification remains
+  DEFERRED by owner instruction, not PASS. This checkpoint is not release approval.
