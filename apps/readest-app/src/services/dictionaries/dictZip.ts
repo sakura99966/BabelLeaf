@@ -17,6 +17,7 @@
  * remain Blob-backed and are read by range.
  */
 import { Inflate } from 'fflate';
+import { decompressDictionaryGzip } from './gzipWorker';
 
 export const MAX_DICTIONARY_OUTPUT_BYTES = 64 * 1024 * 1024;
 const MAX_DICTIONARY_INPUT_BYTES = 512 * 1024 * 1024;
@@ -303,44 +304,7 @@ export async function loadDictBody(blob: Blob, opts: LoadDictBodyOpts = {}): Pro
     if (meta && (await probeChunkInflate(blob, meta))) {
       return new DictZipChunkedDict(blob, meta, cacheSize);
     }
-    // Browser-native streaming decompression yields bounded output and does not
-    // synchronously inflate a complete hostile archive on the renderer thread.
-    const reader = blob.stream().pipeThrough(new DecompressionStream('gzip')).getReader();
-    const parts: Uint8Array[] = [];
-    let total = 0;
-    let timedOut = false;
-    const cancel = () => {
-      void reader.cancel().catch(() => {});
-    };
-    const timeout = setTimeout(() => {
-      timedOut = true;
-      cancel();
-    }, 30_000);
-    opts.signal?.addEventListener('abort', cancel, { once: true });
-    try {
-      while (true) {
-        opts.signal?.throwIfAborted();
-        const { done, value } = await reader.read();
-        opts.signal?.throwIfAborted();
-        if (timedOut) throw new Error('Dictionary decompression time limit exceeded');
-        if (done) break;
-        total += value.byteLength;
-        if (total > maxOutput) throw new Error('Dictionary decompression output limit exceeded');
-        parts.push(value);
-      }
-    } finally {
-      clearTimeout(timeout);
-      opts.signal?.removeEventListener('abort', cancel);
-      await reader.cancel().catch(() => {});
-      reader.releaseLock();
-    }
-    const output = new Uint8Array(total);
-    let offset = 0;
-    for (const part of parts) {
-      output.set(part, offset);
-      offset += part.byteLength;
-    }
-    return new BufferedDictBody(output);
+    return new BufferedDictBody(await decompressDictionaryGzip(blob, maxOutput, opts.signal));
   }
   return new BlobDictBody(blob);
 }

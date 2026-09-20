@@ -172,3 +172,26 @@ final malformed-copy change. Logs: `coverage-recovery-final-20260920.log`,
 directory. The new follow-up is not covered by the older installer/performance
 hashes above. Full audit closure remains pending the unresolved items in the
 implementation table and next-execution list; do not mark main/release accepted.
+
+## 2026-09-20 follow-up: ordinary gzip worker isolation
+
+- Browser/WebView ordinary gzip fallback now runs in a dedicated module worker;
+  the bounded native DecompressionStream engine is shared with hosts lacking
+  Worker support. The PC path uses a worker. No worker starts at module import.
+- The worker receives the Blob and output budget, enforces 512 MiB input and
+  64 MiB maximum actual output, and transfers its completed ArrayBuffer back.
+  Client timeout/abort terminates the worker independently of stream progress.
+  Success, malformed result, worker errors and postMessage failure also dispose
+  the worker and timer. Lazy RA chunks and raw Blob range reads are unchanged.
+- A failing regression confirmed ordinary gzip previously did not create an
+  available worker. Worker lifecycle tests now cover success, cancel, timeout,
+  runtime failure and message-send failure. Real Chromium and native WebView2
+  tests validate decompression and rejection of actual output over budget.
+- Full unit/coverage: **4,820 passed, 1 skipped**, 390 files. Native integration:
+  **116 passed, 1 skipped**, five files. TypeScript/Biome lint passed. Evidence:
+  `coverage-gzip-worker-20260920.log`, `tauri-gzip-worker-20260920.log` under the
+  audit target directory. Real browser security suite: three tests passed.
+- This closes the missing worker termination boundary, not disk-backed random
+  access or representative workload peak-memory qualification. Output remains
+  bounded in memory. Updated exact production candidate validation is still
+  required; older candidate hashes above do not cover this code.

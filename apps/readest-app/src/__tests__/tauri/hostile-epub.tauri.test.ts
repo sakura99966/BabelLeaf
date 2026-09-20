@@ -1,8 +1,17 @@
 import { expect, test } from 'vitest';
-import { strToU8, zipSync } from 'fflate';
+import { gzipSync, strToU8, zipSync } from 'fflate';
 import { DocumentLoader } from '@/libs/document';
 import type { Renderer } from '@/types/view';
 import { sanitizeSvgDocument } from '@/services/transformers/sanitizer';
+import { loadDictBody } from '@/services/dictionaries/dictZip';
+
+test('native WebView dictionary worker enforces the actual output budget', async () => {
+  const bytes = gzipSync(strToU8('local dictionary text'));
+  const blob = new Blob([bytes.buffer as ArrayBuffer]);
+  await expect(loadDictBody(blob, { maxOutputBytes: 4 })).rejects.toThrow('limit');
+  const body = await loadDictBody(blob);
+  expect(new TextDecoder().decode(await body.read(0, 5))).toBe('local');
+});
 
 /** Locally authored adversarial corpus; no external book or network resource. */
 test.each([
