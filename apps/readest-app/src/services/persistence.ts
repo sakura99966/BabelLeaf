@@ -44,7 +44,7 @@ async function loadJSONFile(
   fs: JSONFileSystem,
   path: string,
   base: BaseDir,
-): Promise<{ success: boolean; data?: unknown; error?: unknown }> {
+): Promise<{ success: boolean; data?: unknown; error?: unknown; corrupt?: boolean }> {
   try {
     const txt = await fs.readFile(path, base, 'text');
     if (!txt || typeof txt !== 'string' || txt.trim().length === 0) {
@@ -54,7 +54,7 @@ async function loadJSONFile(
       const data = JSON.parse(txt as string);
       return { success: true, data };
     } catch (parseError) {
-      return { success: false, error: `JSON parse error: ${parseError}` };
+      return { success: false, corrupt: true, error: `JSON parse error: ${parseError}` };
     }
   } catch (error) {
     return { success: false, error };
@@ -114,6 +114,10 @@ async function loadJSONUnlocked<T>(
 
   if (validationError)
     throw new Error(`No schema-valid JSON copy: ${filename}`, { cause: validationError });
+  if (validate && (mainResult.corrupt || backupResult.corrupt))
+    throw new Error(`No readable JSON copy: ${filename}`, {
+      cause: mainResult.error ?? backupResult.error,
+    });
   return defaultValue;
 }
 

@@ -110,3 +110,65 @@ paid request. Current automation scope remains the 0.4 PC audit remediation.
 - Candidate packaging is in progress. The first smoke package predates final
   in-flight accounting and dictionary changes and is superseded; it must not
   be used as exact-candidate proof for this checkpoint.
+
+## 2026-09-20 verification of commit 02643f220
+
+Source: `02643f2207d112a79dcac7f16cd686aeff40a425`. The following evidence
+applies to this commit, not to later follow-up changes.
+
+- GitHub PR workflow run `35452135061`: SUCCESS, head SHA verified; all required
+  jobs passed, including Windows installer smoke, native E2E, browser tests,
+  Web E2E, coverage, Rust lint/tests, build and dependency/security audit.
+  CodeQL run `35452135070` also passed.
+- Local isolated NSIS lifecycle: PASS. The installed executable opened a
+  responding window; uninstall completed and preserved the data sentinel.
+  Evidence: `target/audit-20260919/installer-02643f220.log` and
+  `target/audit-20260919/installer-02643f220/success.txt`.
+- Strict installer-bound SBOM: 816 components, zero gaps, generated through
+  normal-host execution. The earlier restricted `--help` invocation was not a
+  supported help mode and produced an incomplete fallback source inventory
+  (593 components, 8 gaps); that fallback is not accepted evidence.
+- Installer SHA-256:
+  `0faeb4e6c27f2869c0672684d89581803cdcf0ebdec7c2574b8e8743b7f28a30`.
+- Executable SHA-256:
+  `a8abd306b84dd0d6b48d9614d16ffbf17e6feb4e6f948aaa5199bfe055de7499`.
+- SBOM SHA-256:
+  `76b30c29f23ac6b2abc311807f84a2a48b7cd4d3d546f681b100846caa615f18`.
+- This is the independent **BabelLeaf Smoke** identity, not a clean-host test
+  of the production product identity. External checks remain DEFERRED by the
+  owner. Main and historical release tags remain unchanged.
+- Exact executable performance: PASS; responding-window startup 154.57 ms,
+  60-second warmup peak working set 358.47 MiB, 300-second idle peak working set
+  118.41 MiB and peak private memory 189.49 MiB. Startup budget is 2,500 ms;
+  the 350 MiB budget applies to idle, not warmup. Portable placement and
+  temporary profile cleanup passed. Evidence:
+  `target/audit-20260919/performance-02643f220.json`. This measures window
+  response and idle, not book-open latency or OCR/export workload peaks.
+
+## 2026-09-20 follow-up: failed-save state consistency
+
+Three defects were independently reproduced before fixes:
+
+1. A failed older pending-artifact write arriving after a successful newer
+   merged save left `hasUnsaved=true` with an empty retry queue. The error flag
+   now reflects retained pending entries; a stale failure cannot permanently
+   pause the reader's translation queue after its data was committed.
+2. Dictionary settings were published to the global in-memory settings before
+   disk persistence. On failure the UI retained the uncommitted replacement.
+   Publish only after successful persistence, restore the committed dictionary
+   view on failure, and do not discard newer local edits during rollback.
+   Previously retained bundle files remain available to that restored view.
+3. Malformed JSON in both main and backup copies was treated as an absent typed
+   store. Schema-validated loads and read-modify-write transactions now reject
+   with a readable-copy error instead of silently returning the empty default.
+   Missing-file initialization and valid backup recovery remain supported.
+
+Verification: full unit/coverage 389 files, **4,815 passed, 1 skipped**;
+statements 52.38%, branches 45.42%, functions 50.45%, lines 53.67%; TypeScript,
+Biome lint and diff whitespace checks passed. Native integration **115 passed,
+1 skipped**. Native WDIO **27 passed** after the first two fixes but before the
+final malformed-copy change. Logs: `coverage-recovery-final-20260920.log`,
+`tauri-recovery-20260920.log`, `wdio-recovery-20260920.log` under the audit target
+directory. The new follow-up is not covered by the older installer/performance
+hashes above. Full audit closure remains pending the unresolved items in the
+implementation table and next-execution list; do not mark main/release accepted.

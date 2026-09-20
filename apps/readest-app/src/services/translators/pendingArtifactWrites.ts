@@ -31,7 +31,9 @@ export class PendingArtifactWrites {
       if (this.pending.get(key) === entry) this.pending.delete(key);
       if (this.pending.size === 0) this.hasUnsaved = false;
     } catch (error) {
-      this.hasUnsaved = true;
+      // A newer successful write may already have committed this entry's
+      // merged snapshot. A late failure must not poison an empty retry queue.
+      this.hasUnsaved = this.pending.size > 0;
       throw error;
     } finally {
       this.changed(this.hasUnsaved);

@@ -312,18 +312,28 @@ export const useCustomDictionaryStore = create<DictionaryStoreState>((set, get) 
   },
 
   saveCustomDictionaries: async (envConfig) => {
+    const snapshot = get();
     try {
       const { settings, setSettings, saveSettings } = useSettingsStore.getState();
-      const { dictionaries, settings: dictSettings } = get();
+      const { dictionaries, settings: dictSettings } = snapshot;
       // Build a new object so Zustand subscribers observe the update.
       const next = {
         ...settings,
         customDictionaries: dictionaries.map(toSettingsDict),
         dictionarySettings: dictSettings,
       };
-      setSettings(next);
       await saveSettings(envConfig, next);
+      setSettings(next);
     } catch (error) {
+      // A failed disk write is not a committed settings update. Restore the
+      // last committed view only if no newer local edit has superseded it.
+      if (get().dictionaries === snapshot.dictionaries && get().settings === snapshot.settings) {
+        const committed = useSettingsStore.getState().settings;
+        set({
+          dictionaries: (committed.customDictionaries ?? []).filter((dict) => !dict.deletedAt),
+          settings: committed.dictionarySettings ?? { ...DEFAULT_DICTIONARY_SETTINGS },
+        });
+      }
       console.error('Failed to save custom dictionaries settings:', error);
       throw error;
     }

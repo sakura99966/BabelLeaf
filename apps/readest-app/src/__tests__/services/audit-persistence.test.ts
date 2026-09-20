@@ -1,6 +1,25 @@
 import { expect, it } from 'vitest';
 import { safeLoadJSON, safeSaveJSON, updateJSON } from '@/services/persistence';
 
+it('does not interpret two corrupt typed snapshots as a new empty store', async () => {
+  const fs = {
+    readFile: async () => '{corrupt',
+    writeFile: async () => {},
+  };
+  await expect(safeLoadJSON(fs, 'state.json', 'Data', null, (value) => value)).rejects.toThrow(
+    'readable JSON',
+  );
+  await expect(
+    updateJSON(
+      fs,
+      'state.json',
+      'Data',
+      () => ({ revision: 1 }),
+      (value) => value,
+    ),
+  ).rejects.toThrow('readable JSON');
+});
+
 it('does not replace main when preserving its backup fails', async () => {
   const files = new Map([['state.json', '{"revision":1}']]);
   const fs = {
