@@ -173,7 +173,7 @@ export const parseTranslationArtifact = (value: unknown): TranslationArtifact =>
     const segment = parseSegment(raw);
     if (ids.has(segment.id)) throw new Error(`Duplicate translation segment: ${segment.id}`);
     ids.add(segment.id);
-    for (const field of Object.values(segment)) {
+    for (const field of [...Object.values(segment), ...Object.values(segment.sourceAnchor ?? {})]) {
       if (typeof field === 'string') totalChars += field.length;
     }
     if (totalChars > MAX_TRANSLATION_TOTAL_CHARS)

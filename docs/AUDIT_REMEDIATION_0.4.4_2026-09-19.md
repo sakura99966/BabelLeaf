@@ -263,3 +263,36 @@ a late chunk after worker termination. Chromium security regressions pass;
 Windows native and full unit reruns are recorded in
 `tauri-gzip-portable-20260920.log` and `unit-gzip-portable-20260920.log`.
 The replacement Linux CI run must pass before treating this issue as closed.
+
+## 2026-09-20 follow-up: verified CI and job recovery boundaries
+
+Remote CI for exact commit `539e8ec391fb6336694a7b15d79a8ef473987165`
+passed in workflow `35510387158`, including Linux native integration,
+Windows installer smoke, Windows browser/native E2E, web E2E, coverage,
+Rust lint, security audit and required-checks. CodeQL workflow `35510387168`
+also passed. This closes the previously reproduced WebKit stream-transfer
+failure for that revision, not the remaining audit or external acceptance gates.
+
+Further independent probes reproduced and now regress:
+
+- Job parsing accepted duplicate item identities, inconsistent total/completed/
+  failed/cancelled counts, unbounded item arrays and oversized fields. Enforce
+  100,000 items, 1 Mi-character fields, 32 Mi-character cumulative item text
+  including nested anchors, unique IDs, safe integers and counts derived from
+  actual item statuses. Invalid counts are rejected rather than silently repaired.
+- Nested anchor strings bypassed artifact cumulative budgets. Include them in
+  the aggregate; cap anchor prefix/suffix at the existing generated 96-character
+  limit, hash metadata at 64 characters, and locator at 1 Mi characters.
+- Dashboard listing did not pass the schema validator to backup recovery,
+  unlike direct job loading. A structurally invalid main file could hide a task
+  despite a valid backup. Listing now uses the same schema-aware recovery inside
+  its per-file error boundary; one unrecoverable file does not hide other jobs.
+
+Failing probe logs under `target/audit-20260919`:
+`job-limits-before-20260920.log`, `anchor-limits-before-20260920.log`,
+`nested-budget-before-20260920.log`, `job-list-backup-before-20260920.log`.
+Native integration after the initial job/anchor changes: 118 passed, 1 skipped
+(`tauri-job-anchor-limits-20260920.log`); this predates the final listing fix.
+The final full unit rerun is `unit-job-anchor-final-20260920.log`.
+TypeScript and Biome lint pass. These changes do not establish cross-WebView
+crash recovery, pre-read persisted-file budgets or an updated installer identity.

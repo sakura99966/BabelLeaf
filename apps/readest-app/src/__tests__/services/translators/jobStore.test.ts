@@ -53,6 +53,58 @@ const snapshot: TranslationJobSnapshot = {
 };
 
 describe('TranslationJobStore', () => {
+  test.each([
+    'total',
+    'completed',
+    'failed',
+    'cancelled',
+  ] as const)('rejects inconsistent persisted %s counts', (field) => {
+    expect(() =>
+      parseTranslationJob({
+        schemaVersion: 1,
+        snapshot: {
+          ...snapshot,
+          [field]: snapshot[field] + 1,
+        },
+      }),
+    ).toThrow(/count/);
+  });
+
+  test('rejects duplicate item identities before recovery', () => {
+    expect(() =>
+      parseTranslationJob({
+        schemaVersion: 1,
+        snapshot: {
+          ...snapshot,
+          total: 2,
+          items: [snapshot.items[0], snapshot.items[0]],
+        },
+      }),
+    ).toThrow(/Duplicate/);
+  });
+
+  test('rejects oversized job text and item arrays', () => {
+    expect(() =>
+      parseTranslationJob({
+        schemaVersion: 1,
+        snapshot: {
+          ...snapshot,
+          items: [{ ...snapshot.items[0], text: 'x'.repeat(1_048_577) }],
+        },
+      }),
+    ).toThrow(/limit/);
+    expect(() =>
+      parseTranslationJob({
+        schemaVersion: 1,
+        snapshot: {
+          ...snapshot,
+          total: 100_001,
+          items: new Array(100_001),
+        },
+      }),
+    ).toThrow(/limit/);
+  });
+
   test('saves and restores a durable job snapshot with a backup', async () => {
     const { files, fs } = makeFileSystem();
     const store = new TranslationJobStore(fs);
@@ -62,6 +114,64 @@ describe('TranslationJobStore', () => {
     expect(files.has(`Data/${getTranslationJobPath(snapshot.id)}`)).toBe(true);
     expect(files.has(`Data/${getTranslationJobPath(snapshot.id)}.bak`)).toBe(true);
     await expect(store.load(snapshot.id)).resolves.toEqual(snapshot);
+  });
+
+  test('recovers the valid backup when the main snapshot has inconsistent counts', async () => {
+    const { files, fs } = makeFileSystem();
+    const store = new TranslationJobStore(fs);
+    await store.save(snapshot);
+    files.set(
+      `Data/${getTranslationJobPath(snapshot.id)}`,
+      JSON.stringify({
+        schemaVersion: 1,
+        snapshot: { ...snapshot, completed: 99 },
+      }),
+    );
+    await expect(store.load(snapshot.id)).resolves.toEqual(snapshot);
+  });
+
+  test('dashboard listing also recovers schema-invalid main data from the backup', async () => {
+    const { files, fs } = makeFileSystem();
+    const store = new TranslationJobStore({
+      ...fs,
+      readDir: async () => [{ path: `${snapshot.id}.json`, size: 1 }],
+    });
+    await store.save(snapshot);
+    files.set(
+      `Data/${getTranslationJobPath(snapshot.id)}`,
+      JSON.stringify({
+        schemaVersion: 1,
+        snapshot: { ...snapshot, completed: 99 },
+      }),
+    );
+    await expect(store.list()).resolves.toEqual([snapshot]);
+  });
+
+  test('counts nested anchor strings in the job text budget', () => {
+    const locator = 'x'.repeat(1_048_576);
+    const items = Array.from({ length: 32 }, (_, index) => ({
+      ...snapshot.items[0],
+      id: `${index}`,
+      sourceAnchor: {
+        schemaVersion: 1,
+        sectionIndex: 0,
+        blockIndex: index,
+        chunkIndex: 0,
+        textHash: '12345678',
+        textLength: 5,
+        sourceLocator: locator,
+      },
+    }));
+    expect(() =>
+      parseTranslationJob({
+        schemaVersion: 1,
+        snapshot: {
+          ...snapshot,
+          total: items.length,
+          items,
+        },
+      }),
+    ).toThrow(/limit/);
   });
 
   test('rejects malformed or cross-version snapshots at the trust boundary', () => {

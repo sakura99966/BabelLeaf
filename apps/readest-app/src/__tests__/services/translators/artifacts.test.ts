@@ -43,6 +43,28 @@ const makeFileSystem = () => {
 };
 
 describe('translation artifacts', () => {
+  test('counts nested anchor text toward the cumulative resource budget', () => {
+    const locator = 'x'.repeat(1_048_576);
+    const segments = Array.from({ length: 32 }, (_, index) => ({
+      id: `${index}`,
+      sourceText: 'hello',
+      sourceLang: 'en',
+      targetLang: 'zh',
+      status: 'translated',
+      updatedAt: 1,
+      sourceAnchor: {
+        schemaVersion: 1,
+        sectionIndex: 0,
+        blockIndex: index,
+        chunkIndex: 0,
+        textHash: '12345678',
+        textLength: 5,
+        sourceLocator: locator,
+      },
+    }));
+    expect(() => parseTranslationArtifact({ ...makeArtifact(), segments })).toThrow(/limit/);
+  });
+
   test('rejects oversized segment collections before parsing entries', () => {
     expect(() =>
       parseTranslationArtifact({ ...makeArtifact(), segments: new Array(100_001) }),
