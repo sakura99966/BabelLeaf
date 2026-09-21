@@ -1,6 +1,30 @@
 import { expect, it } from 'vitest';
 import { safeLoadJSON, safeSaveJSON, updateJSON } from '@/services/persistence';
 
+it('rejects oversized persisted files before reading and closes the lazy file', async () => {
+  let reads = 0;
+  let closed = 0;
+  const fs = {
+    openFile: async () =>
+      ({
+        size: 64 * 1024 * 1024 + 1,
+        close: async () => {
+          closed++;
+        },
+      }) as unknown as File,
+    readFile: async () => {
+      reads++;
+      return '{"large":true}';
+    },
+    writeFile: async () => {},
+  };
+  await expect(safeLoadJSON(fs, 'large.json', 'Data', null, (value) => value)).rejects.toThrow(
+    /readable JSON/,
+  );
+  expect(reads).toBe(0);
+  expect(closed).toBe(2);
+});
+
 it('can return a readable backup without replacing an inaccessible main', async () => {
   let writes = 0;
   const fs = {

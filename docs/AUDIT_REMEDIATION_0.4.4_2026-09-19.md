@@ -353,3 +353,55 @@ Final unit and native logs: `unit-read-error-final-20260921.log` and
 Outstanding: cross-WebView/process-interruption evidence, persisted-file byte
 limits, remaining resource workloads and exact final installer qualification.
 External validation remains deferred; no release acceptance is asserted.
+
+## 2026-09-21 continued internal acceptance: real native windows
+
+- Exact preceding commit `a0cd28e3bdc5b602d50bcd4598910140c981089e` passed all
+  remote checks. The owner now explicitly requires continued work until every
+  internal 0.4 PC gate is closed; external gates remain deferred.
+- Added a real second-WebView persistence probe, not two objects in one realm.
+  It reproduced WebView2 creation failure `0x8007139F`: the primary window's
+  browser flags differed from auxiliary windows sharing its profile. Native
+  code now supplies the same flags, portable/test data directory and scrollbar
+  mode to auxiliary/recreated windows through a read-only command. Permissions
+  for remote test windows are confined to the existing test capability; shipped
+  app capability only exposes the command to existing local application windows.
+- The corrected native probe ran 20 read-modify-write increments in each of two
+  independent WebViews, observed count 40, stopped the writer after its committed
+  backup but before main replacement, destroyed that window, and recovered count
+  40 both before and after deliberate main corruption. Lock release and backup
+  preservation passed. This is context destruction, not whole-process power-loss
+  proof. Logs: `tauri-multiwindow-diagnostic-20260921.log` (creation failure),
+  `tauri-multiwindow-args-20260921.log` (test-only app ACL gap), and
+  `tauri-multiwindow-environment-20260921.log` (120 passed, 1 skipped).
+- Persisted JSON now uses the bounded lazy file reader when an adapter exposes
+  openFile, closing handles and rejecting inputs over 64 MiB before full read.
+  In-memory minimal adapters keep a bounded string fallback. A failing size
+  regression precedes the fix (`persisted-budget-before-20260921.log`).
+- Full unit suite: 4,856 passed, 1 skipped; lint passed. Rust library tests and
+  format checks passed; logs under the audit target directory. No release or
+  complete acceptance is declared by this checkpoint.
+
+### Same-day follow-up after approval-service interruption
+
+- Auxiliary window labels are reserved before asynchronous creation; concurrent
+  opens no longer reuse the same label. Failure reproduced in
+  `window-label-before-20260921.log` before correction.
+- Translation memory receives the same 100,000-entry, 1 Mi-character field and
+  32 Mi-character aggregate budgets as other text stores, with safe integer
+  validation. Failure evidence: `memory-budget-before-20260921.log`.
+- Artifact saves capture validated input before filesystem awaits. Local edits
+  advance their segment timestamp even if the clock repeats/moves backward;
+  divergent equal-timestamp translations/status/machine results now reject with
+  an explicit conflict instead of silently replacing the committed segment.
+  Failure evidence: `artifact-conflict-before-20260921.log`.
+- Full unit run after these changes: 4,861 passed, 1 skipped (391 files),
+  `unit-internal-next-20260921.log`. TypeScript/Biome lint, Rust format and Clippy
+  passed (`clippy-multiwindow-final-20260921.log`). The earlier Clippy run found
+  an unnecessary closure; it was simplified, then rechecked.
+- Automatic approval service briefly rejected escalation due to account usage;
+  this was not a test failure. It recovered after the indicated reset time;
+  normal-host testing resumed. No sandbox permission bypass was used.
+- A broad cargo-format invocation touched upstream formatting only; the one
+  semantic diff (import ordering) was reverted. Tauri/Turso submodule diffs are
+  empty; Foliate's previously documented tracked-preparation hardening remains.

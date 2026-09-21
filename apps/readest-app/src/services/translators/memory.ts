@@ -42,6 +42,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 const requiredString = (value: unknown, field: string): string => {
+  if (typeof value === 'string' && value.length > 1_048_576)
+    throw new Error(`Translation memory field exceeds resource limit: ${field}`);
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`Invalid translation memory field: ${field}`);
   }
@@ -49,7 +51,7 @@ const requiredString = (value: unknown, field: string): string => {
 };
 
 const finiteInteger = (value: unknown, field: string, minimum = 0): number => {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum) {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < minimum) {
     throw new Error(`Invalid translation memory field: ${field}`);
   }
   return value;
@@ -105,7 +107,17 @@ export const parseTranslationMemory = (value: unknown): TranslationMemoryData =>
     throw new Error('Invalid translation memory timestamp');
   }
   if (!Array.isArray(value['entries'])) throw new Error('Invalid translation memory entries');
-  const entries = value['entries'].map(parseEntry);
+  if (value['entries'].length > 100_000)
+    throw new Error('Translation memory entry count exceeds resource limit');
+  let totalChars = 0;
+  const entries = value['entries'].map((raw, index) => {
+    const entry = parseEntry(raw, index);
+    for (const field of Object.values(entry))
+      if (typeof field === 'string') totalChars += field.length;
+    if (totalChars > 32 * 1_048_576)
+      throw new Error('Translation memory text exceeds resource limit');
+    return entry;
+  });
   const keys = new Set<string>();
   for (const entry of entries) {
     if (keys.has(entry.key)) throw new Error(`Duplicate translation memory entry: ${entry.key}`);

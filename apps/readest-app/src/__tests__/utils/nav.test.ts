@@ -1,4 +1,6 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { invoke } from '@tauri-apps/api/core';
+vi.mock('@tauri-apps/api/core', () => ({ invoke: vi.fn() }));
 
 // ── Module mocks ─────────────────────────────────────────────────────
 vi.mock('next/navigation', () => ({
@@ -214,6 +216,30 @@ describe('redirectToLibrary', () => {
 });
 
 describe('showReaderWindow', () => {
+  test('reserves unique window labels before concurrent asynchronous creation', async () => {
+    vi.mocked(invoke).mockResolvedValue({});
+    const app = { ...makeAppService(), isWindowsApp: true };
+    await Promise.all([
+      showReaderWindow(app as never, ['a']),
+      showReaderWindow(app as never, ['b']),
+    ]);
+    const labels = vi.mocked(WebviewWindow).mock.calls.map(([label]) => label);
+    expect(new Set(labels).size).toBe(2);
+  });
+  test('inherits the native Windows browser environment for auxiliary windows', async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      additionalBrowserArgs: '--safe-test',
+      dataDirectory: 'X:/isolated/EBWebView',
+      scrollBarStyle: 'default',
+    });
+    await showReaderWindow({ ...makeAppService(), isWindowsApp: true } as never, ['book']);
+    expect(invoke).toHaveBeenCalledWith('get_webview_environment');
+    expect(vi.mocked(WebviewWindow).mock.calls[0]![1]).toMatchObject({
+      additionalBrowserArgs: '--safe-test',
+      dataDirectory: 'X:/isolated/EBWebView',
+      scrollBarStyle: 'default',
+    });
+  });
   test('creates a new WebviewWindow with correct URL', () => {
     const appService = makeAppService();
     showReaderWindow(appService as never, ['book1', 'book2']);

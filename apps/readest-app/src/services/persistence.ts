@@ -1,11 +1,13 @@
 import { FileSystem, BaseDir } from '@/types/system';
+import { MAX_SIDECAR_INPUT_BYTES, readSidecarInput } from './translators/sidecarInput';
 
 /**
  * JSON persistence only needs the text read/write portion of the platform
  * filesystem. Keeping this contract narrow lets local-first feature stores
  * reuse the AppService boundary without depending on native-only helpers.
  */
-export type JSONFileSystem = Pick<FileSystem, 'readFile' | 'writeFile' | 'writeFileAtomic'>;
+export type JSONFileSystem = Pick<FileSystem, 'readFile' | 'writeFile' | 'writeFileAtomic'> &
+  Partial<Pick<FileSystem, 'openFile'>>;
 
 const writes = new WeakMap<JSONFileSystem, Map<string, Promise<void>>>();
 
@@ -63,7 +65,11 @@ async function loadJSONFile(
   readFailed?: boolean;
 }> {
   try {
-    const txt = await fs.readFile(path, base, 'text');
+    const txt = fs.openFile
+      ? await readSidecarInput(await fs.openFile(path, base), true)
+      : await fs.readFile(path, base, 'text');
+    if (typeof txt === 'string' && txt.length > MAX_SIDECAR_INPUT_BYTES)
+      throw new Error('JSON input exceeds resource limit');
     if (!txt || typeof txt !== 'string' || txt.trim().length === 0) {
       return { success: false, corrupt: true, error: 'File is empty or invalid' };
     }

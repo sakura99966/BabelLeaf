@@ -43,6 +43,50 @@ const makeFileSystem = () => {
 };
 
 describe('translation artifacts', () => {
+  test('rejects divergent same-timestamp edits without overwriting the committed translation', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const first = upsertTranslationSegments(
+      makeArtifact(),
+      [
+        {
+          id: 'one',
+          sourceText: 'Hello',
+          translatedText: 'first',
+          sourceLang: 'en',
+          targetLang: 'zh-CN',
+          status: 'translated',
+          updatedAt: 10,
+        },
+      ],
+      10,
+    );
+    await store.save(first);
+    await expect(
+      store.save({ ...first, segments: [{ ...first.segments[0]!, translatedText: 'other' }] }),
+    ).rejects.toThrow(/conflict/i);
+    expect((await store.load(first))?.segments[0]?.translatedText).toBe('first');
+  });
+
+  test('uses a monotonic edit timestamp when the clock repeats or moves backward', () => {
+    const first = upsertTranslationSegments(
+      makeArtifact(),
+      [
+        {
+          id: 'one',
+          sourceText: 'Hello',
+          translatedText: 'first',
+          sourceLang: 'en',
+          targetLang: 'zh-CN',
+          status: 'translated',
+          updatedAt: 10,
+        },
+      ],
+      10,
+    );
+    const revised = reviewTranslationSegment(first, 'one', 'edited', 10);
+    expect(revised.segments[0]!.updatedAt).toBeGreaterThan(first.segments[0]!.updatedAt);
+  });
   test('counts nested anchor text toward the cumulative resource budget', () => {
     const locator = 'x'.repeat(1_048_576);
     const segments = Array.from({ length: 32 }, (_, index) => ({

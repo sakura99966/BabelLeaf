@@ -7,6 +7,7 @@ import { safeLoadJSON, updateJSON } from '@/services/persistence';
 import { gzipSync, strToU8 } from 'fflate';
 import { loadDictBody } from '@/services/dictionaries/dictZip';
 import { NativeFile } from '@/utils/file';
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { readSidecarInput } from '@/services/translators/sidecarInput';
 import { fsTests } from './suites/fs-tests';
 import { libraryTests } from './suites/library-tests';
@@ -169,6 +170,58 @@ describe('NativeAppService', () => {
     expect(await safeLoadJSON(other, 'concurrent.json', 'Data', null, validate)).toEqual({
       count: 19,
     });
+  });
+
+  it('coordinates distinct native WebViews and releases a lock after writer termination', async () => {
+    const channelId = `persistence-${crypto.randomUUID()}`;
+    const channel = new BroadcastChannel(channelId);
+    const stages = new Set<string>();
+    let failure: string | undefined;
+    channel.onmessage = (event: MessageEvent<{ stage?: string; error?: string }>) => {
+      if (event.data.stage) stages.add(event.data.stage);
+      if (event.data.error) failure = event.data.error;
+    };
+    const waitFor = async (stage: string) => {
+      const deadline = Date.now() + 15000;
+      while (!stages.has(stage)) {
+        if (failure) throw new Error(failure);
+        if (Date.now() > deadline) throw new Error(`Native probe timed out: ${stage}`);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+    };
+    const url = new URL('/src/__tests__/fixtures/native-persistence.html', location.href);
+    url.searchParams.set('root', tmpDir);
+    url.searchParams.set('channel', channelId);
+    const child = new WebviewWindow(`reader-audit-${Date.now()}`, {
+      url: url.href,
+      visible: false,
+      ...(await invoke<ConstructorParameters<typeof WebviewWindow>[1]>('get_webview_environment')),
+    });
+    await child.once('tauri://error', (event) => {
+      failure = JSON.stringify(event.payload);
+    });
+    let destroyed = false;
+    try {
+      await waitFor('ready');
+      channel.postMessage({ mode: 'increment' });
+      for (let index = 0; index < 20; index++) {
+        await updateJSON(service, 'multiwindow.json', 'Data', (value) => ({
+          count: value === null ? 1 : (value as { count: number }).count + 1,
+        }));
+      }
+      await waitFor('done');
+      expect(await safeLoadJSON(service, 'multiwindow.json', 'Data', null)).toEqual({ count: 40 });
+      channel.postMessage({ mode: 'interrupt' });
+      await waitFor('before-main');
+      await child.destroy();
+      destroyed = true;
+      expect(await safeLoadJSON(service, 'multiwindow.json', 'Data', null)).toEqual({ count: 40 });
+      await service.writeFileAtomic('multiwindow.json', 'Data', 'corrupt');
+      expect(await safeLoadJSON(service, 'multiwindow.json', 'Data', null)).toEqual({ count: 40 });
+    } finally {
+      channel.close();
+      if (!destroyed) await child.destroy().catch(() => {});
+    }
   });
 
   fsTests(() => service);

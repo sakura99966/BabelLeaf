@@ -233,7 +233,7 @@ export const upsertTranslationSegments = (
       ...(existing ?? {}),
       ...next,
       sourceText: existing?.sourceText ?? next.sourceText,
-      updatedAt: now,
+      updatedAt: Math.max(now, (existing?.updatedAt ?? -1) + 1),
     });
   }
 
@@ -337,13 +337,13 @@ export class TranslationArtifactStore {
   }
 
   async save(artifact: TranslationArtifact): Promise<void> {
+    const incoming = parseTranslationArtifact(artifact);
     await this.fs.createDir(TRANSLATION_ARTIFACT_DIR, TRANSLATION_ARTIFACT_BASE, true);
     await updateJSON(
       this.fs,
-      getTranslationArtifactPath(artifact),
+      getTranslationArtifactPath(incoming),
       TRANSLATION_ARTIFACT_BASE,
       (raw) => {
-        const incoming = parseTranslationArtifact(artifact);
         if (!raw) return incoming;
         const previous = parseTranslationArtifact(raw);
         if (previous.model !== incoming.model || previous.promptVersion !== incoming.promptVersion)
@@ -353,6 +353,16 @@ export class TranslationArtifactStore {
           const existing = segments.get(next.id);
           if (existing && existing.sourceText !== next.sourceText)
             throw new Error('Translation segment source changed');
+          if (
+            existing &&
+            next.updatedAt === existing.updatedAt &&
+            (existing.translatedText !== next.translatedText ||
+              existing.status !== next.status ||
+              existing.machineTranslatedText !== next.machineTranslatedText)
+          )
+            throw new Error(
+              'Translation edit conflict; reload the committed result before retrying',
+            );
           if (!existing || next.updatedAt >= existing.updatedAt) segments.set(next.id, next);
         }
         return parseTranslationArtifact({

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import type { BaseDir, FileSystem } from '@/types/system';
 import {
   getTranslationMemoryKey,
+  parseTranslationMemory,
   TranslationMemory,
   TranslationMemoryFileStore,
 } from '@/services/translators/memory';
@@ -32,6 +33,31 @@ const query = {
 };
 
 describe('translation memory', () => {
+  test('rejects excessive persisted entry arrays before mapping', () => {
+    expect(() =>
+      parseTranslationMemory({ schemaVersion: 1, updatedAt: 1, entries: new Array(100_001) }),
+    ).toThrow(/limit/);
+  });
+  test('rejects oversized fields and aggregate text at the trust boundary', () => {
+    const entry = {
+      ...query,
+      key: 'key',
+      translatedText: 'x'.repeat(1_048_577),
+      updatedAt: 1,
+      hits: 0,
+    };
+    expect(() =>
+      parseTranslationMemory({ schemaVersion: 1, updatedAt: 1, entries: [entry] }),
+    ).toThrow(/limit/);
+    const entries = Array.from({ length: 32 }, (_, i) => ({
+      ...entry,
+      key: `${i}`,
+      translatedText: 'x'.repeat(1_048_576),
+    }));
+    expect(() => parseTranslationMemory({ schemaVersion: 1, updatedAt: 1, entries })).toThrow(
+      /limit/,
+    );
+  });
   test('preserves independently remembered entries from two loaded instances', async () => {
     const { fs } = makeFileSystem();
     const store = new TranslationMemoryFileStore(fs);

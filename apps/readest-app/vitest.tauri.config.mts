@@ -20,6 +20,7 @@ export default defineConfig({
       '@tauri-apps/plugin-http',
       '@tauri-apps/api/path',
       '@tauri-apps/api/core',
+      '@tauri-apps/api/webviewWindow',
       '@zip.js/zip.js',
       'franc-min',
       'iso-639-2',
