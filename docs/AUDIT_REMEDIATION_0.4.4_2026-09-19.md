@@ -326,3 +326,30 @@ verifies typed load/update fail, and verifies both files retain their contents;
 native suite log: `tauri-save-empty-20260920.log`.
 No main merge, release tag, external validation, source-book mutation or cleanup
 of recovery/evidence data was performed. Remaining audit gates stay open.
+
+## 2026-09-21 follow-up: read failures are not missing files
+
+Remote CI for `9337c4cbdd753ab91cd799ddc24cd9f63ed727a9` passed all checks,
+including required-checks, installer smoke, native/browser E2E and CodeQL.
+
+Independent fault injection reproduced read errors being treated as missing
+JSON copies. Typed load/update could return an empty default, and direct save
+could overwrite unreadable copies. Missing-file classification now recognizes
+ENOENT, native OS errors 2/3, and explicit adapter not-found messages. Unknown
+read failures remain failures: typed load/update rejects if no readable backup
+exists, and save refuses to overwrite a main/recovery copy it could not read.
+If a backup is readable but main fails with an I/O error, load may return the
+backup without automatically writing over the inaccessible main. Parsing damage
+retains the existing backup-restoration path. Untyped legacy load defaults are
+unchanged; this is not a complete redesign of all application error surfaces.
+
+Failing logs: `read-error-before-20260921.log` and
+`read-error-backup-before-20260921.log` under `target/audit-20260919`.
+The first full run exposed five test failures in three incomplete filesystem
+mocks (missing readFile or non-adapter "missing" messages); these mocks now use
+the explicit not-found contract. No production error gate was weakened.
+Final unit and native logs: `unit-read-error-final-20260921.log` and
+`tauri-read-error-20260921.log`. TypeScript/Biome lint passed.
+Outstanding: cross-WebView/process-interruption evidence, persisted-file byte
+limits, remaining resource workloads and exact final installer qualification.
+External validation remains deferred; no release acceptance is asserted.

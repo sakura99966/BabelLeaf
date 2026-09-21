@@ -9,6 +9,17 @@ export type JSONFileSystem = Pick<FileSystem, 'readFile' | 'writeFile' | 'writeF
 
 const writes = new WeakMap<JSONFileSystem, Map<string, Promise<void>>>();
 
+// Native adapters include stable OS error numbers even with localized messages.
+// Unknown I/O failures are not evidence that a file is absent.
+const isMissingFileError = (error: unknown): boolean => {
+  if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')
+    return true;
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  return /\bENOENT\b|\(os error [23]\)|\bno such file or directory\b|^(?:file )?not found(?:$|:)|^missing$/i.test(
+    message,
+  );
+};
+
 /** Serialize a transaction, including cross-window access on the same origin. */
 export async function withJSONLock<T>(
   fs: JSONFileSystem,
@@ -44,7 +55,13 @@ async function loadJSONFile(
   fs: JSONFileSystem,
   path: string,
   base: BaseDir,
-): Promise<{ success: boolean; data?: unknown; error?: unknown; corrupt?: boolean }> {
+): Promise<{
+  success: boolean;
+  data?: unknown;
+  error?: unknown;
+  corrupt?: boolean;
+  readFailed?: boolean;
+}> {
   try {
     const txt = await fs.readFile(path, base, 'text');
     if (!txt || typeof txt !== 'string' || txt.trim().length === 0) {
@@ -57,7 +74,7 @@ async function loadJSONFile(
       return { success: false, corrupt: true, error: `JSON parse error: ${parseError}` };
     }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error, readFailed: !isMissingFileError(error) };
   }
 }
 
@@ -105,7 +122,7 @@ async function loadJSONUnlocked<T>(
     }
     try {
       const backupData = JSON.stringify(data, null, 2);
-      await writeJSONCopy(fs, filename, base, backupData);
+      if (!mainResult.readFailed) await writeJSONCopy(fs, filename, base, backupData);
     } catch (error) {
       console.info(`Failed to restore ${filename} from backup:`, error);
     }
@@ -114,7 +131,10 @@ async function loadJSONUnlocked<T>(
 
   if (validationError)
     throw new Error(`No schema-valid JSON copy: ${filename}`, { cause: validationError });
-  if (validate && (mainResult.corrupt || backupResult.corrupt))
+  if (
+    validate &&
+    (mainResult.corrupt || backupResult.corrupt || mainResult.readFailed || backupResult.readFailed)
+  )
     throw new Error(`No readable JSON copy: ${filename}`, {
       cause: mainResult.error ?? backupResult.error,
     });
@@ -138,10 +158,14 @@ async function saveJSONUnlocked(
   json: string,
 ): Promise<void> {
   const main = await loadJSONFile(fs, filename, base);
+  if (main.readFailed)
+    throw new Error(`Cannot read existing JSON copy: ${filename}`, { cause: main.error });
   if (main.success) {
     await writeJSONCopy(fs, `${filename}.bak`, base, JSON.stringify(main.data));
   } else {
     const backup = await loadJSONFile(fs, `${filename}.bak`, base);
+    if (backup.readFailed)
+      throw new Error(`Cannot read existing JSON backup: ${filename}`, { cause: backup.error });
     // Bootstrap two-copy recovery only when neither copy is readable. A valid
     // recovery copy must survive retries against a missing or damaged main.
     if (!backup.success) await writeJSONCopy(fs, `${filename}.bak`, base, json);

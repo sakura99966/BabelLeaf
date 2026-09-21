@@ -1,6 +1,71 @@
 import { expect, it } from 'vitest';
 import { safeLoadJSON, safeSaveJSON, updateJSON } from '@/services/persistence';
 
+it('can return a readable backup without replacing an inaccessible main', async () => {
+  let writes = 0;
+  const fs = {
+    readFile: async (name: string) => {
+      if (!name.endsWith('.bak')) throw new Error('access denied');
+      return '{"revision":1}';
+    },
+    writeFile: async () => {
+      writes++;
+    },
+  };
+  await expect(safeLoadJSON(fs, 'state.json', 'Data', null, (value) => value)).resolves.toEqual({
+    revision: 1,
+  });
+  expect(writes).toBe(0);
+});
+
+it.each([
+  'access denied',
+  'device unavailable',
+])('never overwrites recovery copies after %s', async (message) => {
+  let writes = 0;
+  const fs = {
+    readFile: async () => {
+      throw new Error(message);
+    },
+    writeFile: async () => {
+      writes++;
+    },
+  };
+  await expect(safeLoadJSON(fs, 'state.json', 'Data', null, (value) => value)).rejects.toThrow(
+    /read/i,
+  );
+  await expect(
+    updateJSON(
+      fs,
+      'state.json',
+      'Data',
+      () => ({ revision: 1 }),
+      (value) => value,
+    ),
+  ).rejects.toThrow(/read/i);
+  await expect(safeSaveJSON(fs, 'state.json', 'Data', { revision: 1 })).rejects.toThrow();
+  expect(writes).toBe(0);
+});
+
+it.each([
+  'File not found: state.json',
+  'No such file or directory (os error 2)',
+  '系统找不到指定的路径。 (os error 3)',
+])('initializes genuinely absent files: %s', async (message) => {
+  let writes = 0;
+  const fs = {
+    readFile: async () => {
+      throw new Error(message);
+    },
+    writeFile: async () => {
+      writes++;
+    },
+  };
+  await expect(safeLoadJSON(fs, 'state.json', 'Data', null, (value) => value)).resolves.toBeNull();
+  await safeSaveJSON(fs, 'state.json', 'Data', { revision: 1 });
+  expect(writes).toBe(2);
+});
+
 it.each([
   '',
   ' \r\n\t',

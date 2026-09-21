@@ -278,7 +278,7 @@ describe('comic workspace', () => {
       createDir: async () => undefined,
       readFile: async (path) => {
         const value = files.get(path);
-        if (!value) throw new Error('missing file');
+        if (!value) throw new Error('File not found');
         return value;
       },
       writeFile: async (path, _base, content) => {
