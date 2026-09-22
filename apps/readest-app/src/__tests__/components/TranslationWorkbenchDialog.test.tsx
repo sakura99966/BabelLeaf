@@ -336,6 +336,21 @@ describe('TranslationWorkbenchDialog', () => {
     expect(mocks.onClose).toHaveBeenCalledTimes(1);
   });
 
+  test('rejects oversized native sidecars before reading and closes the owned file', async () => {
+    const text = vi.fn().mockResolvedValue('{}');
+    const close = vi.fn().mockResolvedValue(undefined);
+    mocks.selectFiles.mockResolvedValue({ files: [{ path: '/large.json' }] });
+    mocks.openFile.mockResolvedValue({ size: 64 * 1024 * 1024 + 1, text, close });
+    render(
+      <TranslationWorkbenchDialog bookKey='book-hash-window' isOpen onClose={mocks.onClose} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(screen.getByText(/Sidecar input exceeds/)).toBeTruthy());
+    expect(text).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(mocks.artifactSave).not.toHaveBeenCalled();
+  });
+
   test('reports file-picker and export failures in the workbench instead of rejecting silently', async () => {
     mocks.selectFiles.mockResolvedValue({ files: [], error: 'picker unavailable' });
     mocks.saveFile.mockRejectedValue(new Error('disk full'));

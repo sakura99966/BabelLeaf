@@ -45,13 +45,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 const finiteInteger = (value: unknown, field: string, minimum = 0): number => {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum) {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < minimum) {
     throw new Error(`Invalid translation anchor field: ${field}`);
   }
   return value;
 };
 
-const requiredString = (value: unknown, field: string): string => {
+const requiredString = (value: unknown, field: string, limit = 1_048_576): string => {
+  if (typeof value === 'string' && value.length > limit)
+    throw new Error(`Translation anchor field exceeds resource limit: ${field}`);
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`Invalid translation anchor field: ${field}`);
   }
@@ -118,13 +120,17 @@ export const parseTranslationSourceAnchor = (value: unknown): TranslationSourceA
     sectionIndex: finiteInteger(value['sectionIndex'], 'sectionIndex'),
     blockIndex: finiteInteger(value['blockIndex'], 'blockIndex'),
     chunkIndex: finiteInteger(value['chunkIndex'], 'chunkIndex'),
-    textHash: requiredString(value['textHash'], 'textHash'),
+    textHash: requiredString(value['textHash'], 'textHash', 64),
     textLength: finiteInteger(value['textLength'], 'textLength'),
     ...(sourceLocator === undefined
       ? {}
       : { sourceLocator: requiredString(sourceLocator, 'sourceLocator') }),
-    ...(prefix === undefined ? {} : { prefix: requiredString(prefix, 'prefix') }),
-    ...(suffix === undefined ? {} : { suffix: requiredString(suffix, 'suffix') }),
+    ...(prefix === undefined
+      ? {}
+      : { prefix: requiredString(prefix, 'prefix', MAX_ANCHOR_CONTEXT_CHARS) }),
+    ...(suffix === undefined
+      ? {}
+      : { suffix: requiredString(suffix, 'suffix', MAX_ANCHOR_CONTEXT_CHARS) }),
   };
 };
 

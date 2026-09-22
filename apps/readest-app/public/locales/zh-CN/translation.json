@@ -2049,5 +2049,6 @@
   "Loading local LaMa model...": "正在加载本地 LaMa 模型……",
   "Preview local LaMa cleanup": "预览本地 LaMa 修复",
   "Clear cleanup preview": "清除修复预览",
-  "Local LaMa cleanup preview rendered without changing the source.": "本地 LaMa 修复预览已生成，源文件未被修改。"
+  "Local LaMa cleanup preview rendered without changing the source.": "本地 LaMa 修复预览已生成，源文件未被修改。",
+  "Translation not saved. Keep this book open and retry saving.": "译文尚未保存。请保持本书打开，并重试保存。"
 }

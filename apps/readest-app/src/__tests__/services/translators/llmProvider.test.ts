@@ -22,6 +22,10 @@ import {
 import { normalizeTranslationProviderError } from '@/services/translators/providers/llm';
 
 describe('LLM translation providers', () => {
+  it('preserves HTTP retry metadata through safe error normalization', () => {
+    const error = normalizeTranslationProviderError({ status: 429, retryAfter: '30' });
+    expect(error).toMatchObject({ status: 429, retryAfter: '30' });
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     getSettings.mockReturnValue({
@@ -34,7 +38,9 @@ describe('LLM translation providers', () => {
     });
     getAIProvider.mockReturnValue({ getModel: () => ({ id: 'model' }) });
     getTranslationApiKey.mockReturnValue('secret');
-    generateText.mockResolvedValueOnce({ text: '你好' }).mockResolvedValueOnce({ text: '世界' });
+    generateText
+      .mockResolvedValueOnce({ text: '你好', finishReason: 'stop' })
+      .mockResolvedValueOnce({ text: '世界', finishReason: 'stop' });
   });
 
   it('exposes named cloud adapters and local Ollama', () => {
@@ -44,6 +50,13 @@ describe('LLM translation providers', () => {
       'anthropic',
       'ollama',
     ]);
+  });
+
+  it('rejects truncated SDK output instead of caching a partial translation', async () => {
+    generateText.mockReset().mockResolvedValue({ text: 'partial', finishReason: 'length' });
+    await expect(getTranslator('deepseek')!.translate(['Hello'], 'EN', 'ZH')).rejects.toThrow(
+      'incomplete',
+    );
   });
 
   it('translates with the selected DeepSeek V4 model while preserving blank inputs', async () => {

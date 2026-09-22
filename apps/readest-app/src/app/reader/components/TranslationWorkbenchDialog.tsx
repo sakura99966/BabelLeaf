@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { readSidecarInput } from '@/services/translators/sidecarInput';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useFileSelector } from '@/hooks/useFileSelector';
@@ -397,7 +398,7 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       const file =
         selected.file || (selected.path ? await appService.openFile(selected.path, 'None') : null);
       if (!file) throw new Error(_('Unable to open book'));
-      const payload = await file.text();
+      const payload = await readSidecarInput(file, !selected.file);
       const format = getTranslationInterchangeFormat(
         selected.path || selected.file?.name || 'translation.json',
       );

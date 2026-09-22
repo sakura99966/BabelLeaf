@@ -392,6 +392,19 @@ corrections required by release gates. Formal PC acceptance and 0.5 production
 implementation remain blocked by the external/user-owned gates listed in the
 0.4.4 release acceptance record.
 
+### 2026-09-19 PC audit revalidation scope
+
+The subsequent independent audit reopens the affected local 0.4.4 gates; the
+historical published release evidence must not be reused as proof for changed
+code. Follow `AUDIT_REMEDIATION_0.4.4_2026-09-19.md` for current evidence.
+The owner explicitly deferred external verification for this remediation run:
+credentialed paid calls, representative-corpus human quality review, independent
+minimum-spec host, human voice review, signing and owner/legal review remain
+**DEFERRED**, not PASS. Complete the current-host automated PC implementation
+and validation gates without entering 0.5. Deferral does not authorize uploading
+content, using credentials, paid requests, replacing historical release assets,
+or claiming complete externally verified acceptance.
+
 ## 0.5.0 - macOS and portable-core qualification
 
 ### Scope

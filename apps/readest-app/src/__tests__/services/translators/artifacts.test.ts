@@ -43,6 +43,190 @@ const makeFileSystem = () => {
 };
 
 describe('translation artifacts', () => {
+  test('rejects a stale model or prompt generation instead of replacing the committed document', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = { ...makeArtifact(), model: 'current-model' };
+    await store.save(artifact);
+    await expect(store.save({ ...artifact, model: 'old-model' })).rejects.toThrow(/context/i);
+    await expect(store.save({ ...artifact, promptVersion: 'old-prompt' })).rejects.toThrow(
+      /context/i,
+    );
+    expect((await store.load(artifact))?.model).toBe('current-model');
+  });
+
+  test('does not load an artifact belonging to a colliding sanitized book identifier', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = makeArtifact();
+    await store.save(artifact);
+    await expect(store.load({ ...artifact, bookHash: 'book_one' })).rejects.toThrow(/identity/i);
+  });
+  test('orders removal after an already-running save without resurrecting deleted copies', async () => {
+    const { fs, files } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = makeArtifact();
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(fs.writeFile).mockImplementation(async (filename, base, content) => {
+      if (filename === getTranslationArtifactPath(artifact)) {
+        entered();
+        await blocked;
+      }
+      files.set(`${base}/${filename}`, String(content));
+    });
+    const saving = store.save(artifact);
+    await started;
+    const removing = store.remove(artifact);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    release();
+    await Promise.all([saving, removing]);
+    expect([...files.keys()]).toEqual([]);
+  });
+  test('rejects divergent same-timestamp edits without overwriting the committed translation', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const first = upsertTranslationSegments(
+      makeArtifact(),
+      [
+        {
+          id: 'one',
+          sourceText: 'Hello',
+          translatedText: 'first',
+          sourceLang: 'en',
+          targetLang: 'zh-CN',
+          status: 'translated',
+          updatedAt: 10,
+        },
+      ],
+      10,
+    );
+    await store.save(first);
+    await expect(
+      store.save({ ...first, segments: [{ ...first.segments[0]!, translatedText: 'other' }] }),
+    ).rejects.toThrow(/conflict/i);
+    expect((await store.load(first))?.segments[0]?.translatedText).toBe('first');
+  });
+
+  test('uses a monotonic edit timestamp when the clock repeats or moves backward', () => {
+    const first = upsertTranslationSegments(
+      makeArtifact(),
+      [
+        {
+          id: 'one',
+          sourceText: 'Hello',
+          translatedText: 'first',
+          sourceLang: 'en',
+          targetLang: 'zh-CN',
+          status: 'translated',
+          updatedAt: 10,
+        },
+      ],
+      10,
+    );
+    const revised = reviewTranslationSegment(first, 'one', 'edited', 10);
+    expect(revised.segments[0]!.updatedAt).toBeGreaterThan(first.segments[0]!.updatedAt);
+    expect(revised.updatedAt).toBeGreaterThanOrEqual(revised.segments[0]!.updatedAt);
+  });
+  test('counts nested anchor text toward the cumulative resource budget', () => {
+    const locator = 'x'.repeat(1_048_576);
+    const segments = Array.from({ length: 32 }, (_, index) => ({
+      id: `${index}`,
+      sourceText: 'hello',
+      sourceLang: 'en',
+      targetLang: 'zh',
+      status: 'translated',
+      updatedAt: 1,
+      sourceAnchor: {
+        schemaVersion: 1,
+        sectionIndex: 0,
+        blockIndex: index,
+        chunkIndex: 0,
+        textHash: '12345678',
+        textLength: 5,
+        sourceLocator: locator,
+      },
+    }));
+    expect(() => parseTranslationArtifact({ ...makeArtifact(), segments })).toThrow(/limit/);
+  });
+
+  test('rejects oversized segment collections before parsing entries', () => {
+    expect(() =>
+      parseTranslationArtifact({ ...makeArtifact(), segments: new Array(100_001) }),
+    ).toThrow('limit');
+  });
+
+  test('rejects duplicate segment identifiers instead of silently dropping text during merge', () => {
+    const segment = {
+      id: 'same',
+      sourceText: 'first',
+      sourceLang: 'en',
+      targetLang: 'zh',
+      status: 'translated',
+      updatedAt: 1,
+    };
+    expect(() =>
+      parseTranslationArtifact({
+        ...makeArtifact(),
+        segments: [segment, { ...segment, sourceText: 'second' }],
+      }),
+    ).toThrow('Duplicate');
+  });
+
+  test('rejects oversized translation text', () => {
+    const segment = {
+      id: 'one',
+      sourceText: 'first',
+      translatedText: 'x'.repeat(1_048_577),
+      sourceLang: 'en',
+      targetLang: 'zh',
+      status: 'translated',
+      updatedAt: 1,
+    };
+    expect(() => parseTranslationArtifact({ ...makeArtifact(), segments: [segment] })).toThrow(
+      'limit',
+    );
+  });
+  test('merges independent snapshots without losing newer segment corrections', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = makeArtifact();
+    const segment = {
+      id: 'one',
+      sourceText: 'Hello',
+      sourceLang: 'en',
+      targetLang: 'zh-CN',
+      status: 'translated' as const,
+      translatedText: '你好',
+      updatedAt: 1,
+    };
+    await store.save(upsertTranslationSegments(artifact, [segment], 1));
+    await Promise.all([
+      store.save(
+        upsertTranslationSegments(
+          artifact,
+          [{ ...segment, translatedText: '您好', updatedAt: 3 }],
+          3,
+        ),
+      ),
+      store.save(
+        upsertTranslationSegments(
+          artifact,
+          [segment, { ...segment, id: 'two', sourceText: 'World' }],
+          2,
+        ),
+      ),
+    ]);
+    const saved = await store.load(artifact);
+    expect(saved?.segments).toHaveLength(2);
+    expect(saved?.segments.find((entry) => entry.id === 'one')?.translatedText).toBe('您好');
+  });
   test('serializes and validates a versioned artifact while ignoring unknown fields', () => {
     const artifact = makeArtifact();
     const parsed = parseTranslationArtifact({

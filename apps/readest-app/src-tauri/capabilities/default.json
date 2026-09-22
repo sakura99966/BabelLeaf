@@ -139,6 +139,7 @@
     "native-tts:default",
     "native-bridge:default",
     "allow-get-executable-dir",
+    "allow-get-webview-environment",
     "allow-allow-paths-in-scopes",
     "allow-set-webview-memory-usage",
     "allow-read-dir",

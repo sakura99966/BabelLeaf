@@ -6,10 +6,11 @@
   "remote": {
     "urls": ["http://localhost:*", "http://127.0.0.1:*"]
   },
-  "windows": ["main"],
+  "windows": ["main", "reader-*"],
   "permissions": [
     "process:allow-exit",
     "allow-get-executable-dir",
+    "allow-get-webview-environment",
     "allow-allow-paths-in-scopes",
     "allow-set-webview-memory-usage",
     "allow-read-dir",

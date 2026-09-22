@@ -62,6 +62,49 @@ const makeBook = (): BookDoc =>
   }) as BookDoc;
 
 describe('translation batch services', () => {
+  test('does not repeat a paid request when only translation-memory storage fails', async () => {
+    const memory = new TranslationMemory();
+    vi.spyOn(memory, 'remember').mockRejectedValueOnce(new Error('disk full'));
+    const translate = vi.fn(async () => '完成');
+    const controller = new TranslationBatchController({
+      artifact: createTranslationArtifact({
+        bookHash: 'memory-failure',
+        provider: 'deepseek',
+        sourceLang: 'en',
+        targetLang: 'zh',
+        promptVersion: 'v1',
+      }),
+      translationMemory: memory,
+      translate,
+      maxAttempts: 2,
+      items: [{ id: 'one', text: 'hello' }],
+    });
+    await controller.start();
+    expect(translate).toHaveBeenCalledTimes(1);
+    expect(controller.getArtifact().segments[0]?.translatedText).toBe('完成');
+  });
+  test('recovers a transient checkpoint failure without poisoning future saves', async () => {
+    const { fs } = makeFileSystem();
+    const jobStore = new TranslationJobStore(fs);
+    const save = vi.spyOn(jobStore, 'save').mockRejectedValueOnce(new Error('disk unavailable'));
+    const controller = new TranslationBatchController({
+      artifact: createTranslationArtifact({
+        bookHash: 'disk',
+        provider: 'deepseek',
+        sourceLang: 'en',
+        targetLang: 'zh',
+        promptVersion: 'v1',
+      }),
+      jobStore,
+      items: [{ id: 'one', text: 'hello' }],
+      translate: async () => '你好',
+    });
+    await controller.flush().catch(() => {});
+    await controller.flush();
+    await controller.start();
+    expect(save).toHaveBeenCalled();
+    expect((await jobStore.load(controller.getSnapshot().id))?.status).toBe('completed');
+  });
   test('keeps existing artifact segments in progress counts', async () => {
     const artifact = createTranslationArtifact({
       bookHash: 'progress-book',

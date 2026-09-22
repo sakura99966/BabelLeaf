@@ -58,6 +58,7 @@ export interface FileSystem {
   copyFile(srcPath: string, srcBase: BaseDir, dstPath: string, dstBase: BaseDir): Promise<void>;
   readFile(path: string, base: BaseDir, mode: 'text' | 'binary'): Promise<string | ArrayBuffer>;
   writeFile(path: string, base: BaseDir, content: string | ArrayBuffer | File): Promise<void>;
+  writeFileAtomic?(path: string, base: BaseDir, content: string): Promise<void>;
   removeFile(path: string, base: BaseDir): Promise<void>;
   readDir(path: string, base: BaseDir): Promise<FileItem[]>;
   createDir(path: string, base: BaseDir, recursive?: boolean): Promise<void>;

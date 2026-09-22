@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { gzipSync } from 'node:zlib';
+import { File as NodeFile } from 'node:buffer';
+const File = NodeFile as unknown as typeof globalThis.File;
 
 import { createDictProvider } from '@/services/dictionaries/providers/dictProvider';
 import { decodeDictBase64, parseDictIndex } from '@/services/dictionaries/dictReader';
@@ -163,7 +165,7 @@ describe('dictProvider — synthetic bundle', () => {
       signal: new AbortController().signal,
       container,
     });
-    expect(outcome.ok).toBe(true);
+    expect(outcome.ok, JSON.stringify(outcome)).toBe(true);
     if (outcome.ok) {
       expect(outcome.headword).toBe('banana');
       expect(outcome.sourceLabel).toBe('Test Dict');
