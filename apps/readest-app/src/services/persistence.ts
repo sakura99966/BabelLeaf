@@ -11,6 +11,27 @@ export type JSONFileSystem = Pick<FileSystem, 'readFile' | 'writeFile' | 'writeF
 
 const writes = new WeakMap<JSONFileSystem, Map<string, Promise<void>>>();
 
+// Count UTF-8 bytes without allocating a second payload-sized byte buffer.
+// Match TextEncoder's replacement behavior for unpaired UTF-16 surrogates.
+const assertJSONBudget = (json: string): void => {
+  let bytes = 0;
+  for (let index = 0; index < json.length; index++) {
+    const code = json.charCodeAt(index);
+    if (code < 0x80) bytes++;
+    else if (code < 0x800) bytes += 2;
+    else if (
+      code >= 0xd800 &&
+      code <= 0xdbff &&
+      json.charCodeAt(index + 1) >= 0xdc00 &&
+      json.charCodeAt(index + 1) <= 0xdfff
+    ) {
+      bytes += 4;
+      index++;
+    } else bytes += 3;
+    if (bytes > MAX_SIDECAR_INPUT_BYTES) throw new Error('JSON exceeds resource limit');
+  }
+};
+
 // Native adapters include stable OS error numbers even with localized messages.
 // Unknown I/O failures are not evidence that a file is absent.
 const isMissingFileError = (error: unknown): boolean => {
@@ -68,8 +89,7 @@ async function loadJSONFile(
     const txt = fs.openFile
       ? await readSidecarInput(await fs.openFile(path, base), true)
       : await fs.readFile(path, base, 'text');
-    if (typeof txt === 'string' && txt.length > MAX_SIDECAR_INPUT_BYTES)
-      throw new Error('JSON input exceeds resource limit');
+    if (typeof txt === 'string') assertJSONBudget(txt);
     if (!txt || typeof txt !== 'string' || txt.trim().length === 0) {
       return { success: false, corrupt: true, error: 'File is empty or invalid' };
     }
@@ -152,10 +172,12 @@ async function loadJSONUnlocked<T>(
  * recovery. The pair is not a single atomic transaction. Preserve the previous
  * readable main before replacement; never put an uncommitted update over it.
  */
-const writeJSONCopy = (fs: JSONFileSystem, filename: string, base: BaseDir, json: string) =>
-  fs.writeFileAtomic
+const writeJSONCopy = (fs: JSONFileSystem, filename: string, base: BaseDir, json: string) => {
+  assertJSONBudget(json);
+  return fs.writeFileAtomic
     ? fs.writeFileAtomic(filename, base, json)
     : fs.writeFile(filename, base, json);
+};
 
 async function saveJSONUnlocked(
   fs: JSONFileSystem,
@@ -163,6 +185,8 @@ async function saveJSONUnlocked(
   base: BaseDir,
   json: string,
 ): Promise<void> {
+  // Check the prospective main before rotating the last committed backup.
+  assertJSONBudget(json);
   const main = await loadJSONFile(fs, filename, base);
   if (main.readFailed)
     throw new Error(`Cannot read existing JSON copy: ${filename}`, { cause: main.error });

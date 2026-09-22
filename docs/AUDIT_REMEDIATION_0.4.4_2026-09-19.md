@@ -405,3 +405,51 @@ External validation remains deferred; no release acceptance is asserted.
 - A broad cargo-format invocation touched upstream formatting only; the one
   semantic diff (import ordering) was reverted. Tauri/Turso submodule diffs are
   empty; Foliate's previously documented tracked-preparation hardening remains.
+
+## 2026-09-21 process interruption and write-boundary continuation
+
+- All remote checks for `841a72bede5e870bbdb95af4ef470355aca27c03`
+  passed, including Windows installer lifecycle (job `106315136926`). Main and
+  historical release identities remain unchanged.
+- Added `test:windows-crash-recovery`, a Windows-only isolated native WebView
+  harness. It starts and forcibly kills only its own debug webdriver executable,
+  reuses the isolated profile/data across three processes, and uses the actual
+  NativeAppService/persistence implementation. Before-main interruption retained
+  count 42; after-main interruption retained count 43; deliberate main corruption
+  recovered backup 42; a subsequent write committed 44. Two independent runs
+  passed. This closes the process-kill probe, NOT power-loss/controller durability.
+  Logs: `process-crash-20260921.log`, `process-crash-final-20260921.log`.
+  The reusable command now writes `target/windows-crash-recovery/result.json` and
+  the Windows native CI lane runs it after building the webdriver executable.
+- Reproduced a CJK UTF-8 budget mismatch: a payload below the character ceiling
+  could be written above the 64 MiB native read limit. Persistence now counts
+  UTF-8 bytes without allocating another payload-sized byte buffer. It rejects
+  oversized new snapshots BEFORE changing either recovery copy. Both save and
+  update regression cases passed after failing in `utf8-write-before-20260921.log`.
+- Artifact deletion now shares the file lock with saves; an already-running save
+  finishes before deletion, not afterward. This is ordered transaction semantics,
+  not a tombstone against a separate later user save. Artifact envelope timestamps
+  do not lag local segment edits. Failure evidence: `artifact-delete-before-20260921.log`.
+- Artifact model/prompt mismatch is fail-closed instead of whole-document
+  replacement. The caller must reload the committed context; this is deliberately
+  not an implicit cross-model migration protocol. Identity mismatches on load/save
+  are rejected, including sanitized book-key collisions. Failure evidence:
+  `artifact-context-before-20260921.log`; targeted artifact/batch tests passed.
+- Reproduced and fixed reader requests continuing after sidecar load failure.
+  The queue now stops, displays the storage error, and exposes explicit retry.
+  Persistent read failures issue zero model requests; a successful explicit retry
+  resumes queued work. Pending-save warnings remain independent and local-only
+  save retries are unchanged. React regression: `load-gate-before-20260921.log`
+  (failed before fix), `load-gate-after-20260921.log` (passed).
+- Native hostile EPUB/SVG probes now include a working positive-control native
+  file IPC target and a nested data-URL frame. The untrusted chapter cannot call
+  that target; the sentinel remains intact. The full native suite passed:
+  120 passed, 1 skipped (`tauri-ipc-sentinel-20260921.log`).
+- Full unit run after the reader load gate: 4,865 passed, 1 skipped (392 files),
+  `unit-load-gate-20260921.log`; production build and lint passed. Later artifact
+  context checks are separately logged. The subsequent full run passed 4,867
+  tests, 1 skipped (392 files), `unit-context-20260921.log`; lint also passed.
+- Still open before internal acceptance: request-cache/model-context review,
+  unsaved-result crash durability beyond committed-copy recovery, remaining
+  directory/dictionary/export resource workloads, and exact final candidate
+  qualification/SBOM/performance. External gates remain DEFERRED, not PASS.

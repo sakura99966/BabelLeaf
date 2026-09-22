@@ -43,6 +43,52 @@ const makeFileSystem = () => {
 };
 
 describe('translation artifacts', () => {
+  test('rejects a stale model or prompt generation instead of replacing the committed document', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = { ...makeArtifact(), model: 'current-model' };
+    await store.save(artifact);
+    await expect(store.save({ ...artifact, model: 'old-model' })).rejects.toThrow(/context/i);
+    await expect(store.save({ ...artifact, promptVersion: 'old-prompt' })).rejects.toThrow(
+      /context/i,
+    );
+    expect((await store.load(artifact))?.model).toBe('current-model');
+  });
+
+  test('does not load an artifact belonging to a colliding sanitized book identifier', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = makeArtifact();
+    await store.save(artifact);
+    await expect(store.load({ ...artifact, bookHash: 'book_one' })).rejects.toThrow(/identity/i);
+  });
+  test('orders removal after an already-running save without resurrecting deleted copies', async () => {
+    const { fs, files } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = makeArtifact();
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const blocked = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(fs.writeFile).mockImplementation(async (filename, base, content) => {
+      if (filename === getTranslationArtifactPath(artifact)) {
+        entered();
+        await blocked;
+      }
+      files.set(`${base}/${filename}`, String(content));
+    });
+    const saving = store.save(artifact);
+    await started;
+    const removing = store.remove(artifact);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    release();
+    await Promise.all([saving, removing]);
+    expect([...files.keys()]).toEqual([]);
+  });
   test('rejects divergent same-timestamp edits without overwriting the committed translation', async () => {
     const { fs } = makeFileSystem();
     const store = new TranslationArtifactStore(fs);
@@ -86,6 +132,7 @@ describe('translation artifacts', () => {
     );
     const revised = reviewTranslationSegment(first, 'one', 'edited', 10);
     expect(revised.segments[0]!.updatedAt).toBeGreaterThan(first.segments[0]!.updatedAt);
+    expect(revised.updatedAt).toBeGreaterThanOrEqual(revised.segments[0]!.updatedAt);
   });
   test('counts nested anchor text toward the cumulative resource budget', () => {
     const locator = 'x'.repeat(1_048_576);

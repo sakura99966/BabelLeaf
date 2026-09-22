@@ -143,6 +143,9 @@ export function useTextTranslation(
   const artifactStoreRef = useRef<TranslationArtifactStore | null>(null);
   const artifactRef = useRef<Awaited<ReturnType<TranslationArtifactStore['load']>>>(null);
   const artifactReadyRef = useRef<Promise<void>>(Promise.resolve());
+  const artifactLoadErrorRef = useRef<string | null>(null);
+  const reloadArtifactRef = useRef<(() => Promise<void>) | null>(null);
+  const [translationLoadError, setTranslationLoadError] = useState<string | null>(null);
   const [hasUnsavedTranslations, setHasUnsavedTranslations] = useState(false);
   const pendingWrites = useRef<PendingArtifactWrites | null>(null);
   if (!pendingWrites.current)
@@ -168,6 +171,9 @@ export function useTextTranslation(
     artifactGeneration.current += 1;
     artifactRef.current = null;
     artifactStoreRef.current = null;
+    artifactLoadErrorRef.current = null;
+    setTranslationLoadError(null);
+    reloadArtifactRef.current = null;
     if (!appService || !bookHash || !artifactProvider || !artifactTargetLang) {
       artifactReadyRef.current = Promise.resolve();
       return () => {
@@ -177,7 +183,7 @@ export function useTextTranslation(
 
     const store = new TranslationArtifactStore(appService);
     artifactStoreRef.current = store;
-    artifactReadyRef.current = (async () => {
+    const loadArtifact = async () => {
       try {
         const key = {
           bookHash,
@@ -186,6 +192,8 @@ export function useTextTranslation(
         };
         const loaded = await store.load(key);
         if (!cancelled) {
+          artifactLoadErrorRef.current = null;
+          setTranslationLoadError(null);
           artifactRef.current =
             loaded ??
             createTranslationArtifact({
@@ -198,10 +206,14 @@ export function useTextTranslation(
         }
       } catch (error) {
         if (!cancelled) {
+          artifactLoadErrorRef.current = error instanceof Error ? error.message : String(error);
+          setTranslationLoadError(artifactLoadErrorRef.current);
           console.warn('Failed to load local translation sidecar', error);
         }
       }
-    })();
+    };
+    reloadArtifactRef.current = loadArtifact;
+    artifactReadyRef.current = loadArtifact();
 
     return () => {
       cancelled = true;
@@ -315,6 +327,7 @@ export function useTextTranslation(
 
   const drainTranslationQueue = () => {
     while (
+      !artifactLoadErrorRef.current &&
       !pendingWrites.current?.hasUnsaved &&
       activeTranslations.current < MAX_CONCURRENT_TRANSLATIONS &&
       translationQueue.current.length > 0
@@ -462,6 +475,10 @@ export function useTextTranslation(
       const store = artifactStoreRef.current;
       await artifactReadyRef.current;
       if (generation !== artifactGeneration.current) return;
+      if (artifactLoadErrorRef.current) {
+        if (!translationQueue.current.includes(el)) translationQueue.current.push(el);
+        return;
+      }
       const startingArtifact = artifactRef.current;
       if (segmentId) {
         const persisted = artifactRef.current?.segments.find(
@@ -648,6 +665,13 @@ export function useTextTranslation(
   }, [view]);
 
   return {
+    translationLoadError,
+    retryTranslationLoad: async () => {
+      if (!reloadArtifactRef.current) return;
+      artifactReadyRef.current = reloadArtifactRef.current();
+      await artifactReadyRef.current;
+      if (!artifactLoadErrorRef.current) drainTranslationQueue();
+    },
     hasUnsavedTranslations,
     retryTranslationSave: async () => {
       try {

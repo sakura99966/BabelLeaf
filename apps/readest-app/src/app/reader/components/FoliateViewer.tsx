@@ -160,10 +160,12 @@ const FoliateViewer: React.FC<{
   useUICSS(bookKey);
   useProgressAutoSave(bookKey);
   useBookCoverAutoSave(bookKey);
-  const { hasUnsavedTranslations, retryTranslationSave } = useTextTranslation(
-    bookKey,
-    viewRef.current,
-  );
+  const {
+    hasUnsavedTranslations,
+    retryTranslationSave,
+    translationLoadError,
+    retryTranslationLoad,
+  } = useTextTranslation(bookKey, viewRef.current);
 
   // Coalesce setProgress writes within a single animation frame.
   //
@@ -935,15 +937,33 @@ const FoliateViewer: React.FC<{
 
   return (
     <>
-      {hasUnsavedTranslations && (
+      {(translationLoadError || hasUnsavedTranslations) && (
         <div
           role='alert'
           className='absolute left-2 right-2 top-2 z-50 border border-base-content bg-base-100 p-3 text-base-content'
         >
-          <p>{_('Translation not saved. Keep this book open and retry saving.')}</p>
-          <button className='btn btn-outline btn-sm' onClick={() => void retryTranslationSave()}>
-            {_('Save')}
-          </button>
+          {translationLoadError && (
+            <>
+              <p>{translationLoadError}</p>
+              <button
+                className='btn btn-outline btn-sm'
+                onClick={() => void retryTranslationLoad()}
+              >
+                {_('Retry')}
+              </button>
+            </>
+          )}
+          {hasUnsavedTranslations && (
+            <>
+              <p>{_('Translation not saved. Keep this book open and retry saving.')}</p>
+              <button
+                className='btn btn-outline btn-sm'
+                onClick={() => void retryTranslationSave()}
+              >
+                {_('Save')}
+              </button>
+            </>
+          )}
         </div>
       )}
       {selectedImage && (

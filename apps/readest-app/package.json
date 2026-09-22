@@ -19,6 +19,7 @@
     "test:format-fixtures": "pnpm -w verify:format-fixtures",
     "test:browser": "dotenv -e .env -e .env.test.local -- vitest run --config vitest.browser.config.mts",
     "test:tauri": "node scripts/test-tauri.mjs",
+    "test:windows-crash-recovery": "node scripts/test-windows-crash-recovery.mjs",
     "test:android": "bash scripts/test-android.sh",
     "test:all": "pnpm test -- --watch=false && pnpm test:browser && pnpm test:e2e:web && pnpm test:tauri && pnpm test:e2e",
     "test:e2e": "node scripts/test-wdio.mjs",

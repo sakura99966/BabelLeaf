@@ -1,6 +1,27 @@
 import { expect, it } from 'vitest';
 import { safeLoadJSON, safeSaveJSON, updateJSON } from '@/services/persistence';
 
+it.each([
+  'save',
+  'update',
+] as const)('rejects oversized UTF-8 %s payloads before changing either recovery copy', async (mode) => {
+  let writes = 0;
+  const fs = {
+    readFile: async () => '{"revision":1}',
+    writeFile: async () => {
+      writes++;
+    },
+  };
+  // Below the character limit, but over the native reader's 64 MiB byte limit.
+  const payload = { text: '汉'.repeat(Math.ceil((64 * 1024 * 1024) / 3)) };
+  await expect(
+    mode === 'save'
+      ? safeSaveJSON(fs, 'state.json', 'Data', payload)
+      : updateJSON(fs, 'state.json', 'Data', () => payload),
+  ).rejects.toThrow(/resource limit/);
+  expect(writes).toBe(0);
+});
+
 it('rejects oversized persisted files before reading and closes the lazy file', async () => {
   let reads = 0;
   let closed = 0;

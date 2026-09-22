@@ -4,6 +4,9 @@ import { DocumentLoader } from '@/libs/document';
 import type { Renderer } from '@/types/view';
 import { sanitizeSvgDocument } from '@/services/transformers/sanitizer';
 import { loadDictBody } from '@/services/dictionaries/dictZip';
+import { NativeAppService } from '@/services/nativeAppService';
+import { join } from '@tauri-apps/api/path';
+import { remove } from '@tauri-apps/plugin-fs';
 
 test('native WebView dictionary worker enforces the actual output budget', async () => {
   const bytes = gzipSync(strToU8('local dictionary text'));
@@ -19,11 +22,28 @@ test.each([
   'svg',
 ] as const)('native renderer isolates hostile %s spine content', async (kind) => {
   const marker = `nativeSpineProbe${kind}`;
-  const attack = `parent.document.documentElement.setAttribute('${marker}', 'executed')`;
+  const probeName = `ipcProbe${crypto.randomUUID().replaceAll('-', '')}`;
+  const root = await join(process.env['BABELLEAF_NATIVE_TEST_ROOT']!, probeName);
+  const service = new NativeAppService(root);
+  await service.init();
+  await service.createDir('', 'Data', true);
+  let ipcAttempts = 0;
+  const writeSentinel = async () => {
+    ipcAttempts++;
+    await service.writeFile('sentinel.txt', 'Data', 'modified');
+  };
+  // Positive control: the injected target really can reach native file IPC.
+  await writeSentinel();
+  expect(await service.readFile('sentinel.txt', 'Data', 'text')).toBe('modified');
+  await service.writeFile('sentinel.txt', 'Data', 'intact');
+  ipcAttempts = 0;
+  Object.defineProperty(window, probeName, { configurable: true, value: writeSentinel });
+  const attack = `parent['${probeName}']();parent.document.documentElement.setAttribute('${marker}', 'executed')`;
+  const nested = `data:text/html,${encodeURIComponent(`<script>parent.parent['${probeName}']()</script>`)}`;
   const content =
     kind === 'svg'
       ? `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" onload="${attack}"><script>${attack}</script><text x="20" y="40">Safe reading text</text><rect width="10" height="10"/></svg>`
-      : `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Probe</title></head><body onload="${attack}"><script>${attack}</script><p id="text">Safe reading text</p><a href="#text">Local link</a></body></html>`;
+      : `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Probe</title></head><body onload="${attack}"><script>${attack}</script><iframe src="${nested}"></iframe><p id="text">Safe reading text</p><a href="#text">Local link</a></body></html>`;
   const mime = kind === 'svg' ? 'image/svg+xml' : 'application/xhtml+xml';
   const entries = {
     mimetype: strToU8('application/epub+zip'),
@@ -65,6 +85,9 @@ test.each([
     expect(frame?.sandbox.contains('allow-same-origin')).toBe(true);
     expect(frame?.sandbox.contains('allow-scripts')).toBe(false);
     expect(document.documentElement.getAttribute(marker)).toBeNull();
+    await expect.poll(() => doc.readyState).toBe('complete');
+    expect(ipcAttempts).toBe(0);
+    expect(await service.readFile('sentinel.txt', 'Data', 'text')).toBe('intact');
     if (kind === 'svg') expect(doc.querySelector('script, [onload]')).toBeNull();
     else {
       const range = doc.createRange();
@@ -76,5 +99,7 @@ test.each([
     renderer.destroy();
     renderer.remove();
     document.documentElement.removeAttribute(marker);
+    Reflect.deleteProperty(window, probeName);
+    await remove(root, { recursive: true });
   }
 });

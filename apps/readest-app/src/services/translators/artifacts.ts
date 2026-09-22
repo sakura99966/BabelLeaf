@@ -1,5 +1,5 @@
 import type { AppService, BaseDir, FileSystem } from '@/types/system';
-import { safeLoadJSON, updateJSON } from '@/services/persistence';
+import { safeLoadJSON, updateJSON, withJSONLock } from '@/services/persistence';
 import { parseTranslationSourceAnchor, type TranslationSourceAnchor } from './anchors';
 
 export const TRANSLATION_ARTIFACT_SCHEMA_VERSION = 1 as const;
@@ -239,7 +239,10 @@ export const upsertTranslationSegments = (
 
   return {
     ...artifact,
-    updatedAt: now,
+    updatedAt: Array.from(byId.values()).reduce(
+      (latest, segment) => Math.max(latest, segment.updatedAt),
+      Math.max(now, artifact.updatedAt),
+    ),
     segments: Array.from(byId.values()),
   };
 };
@@ -320,7 +323,15 @@ export class TranslationArtifactStore {
       null,
       parseTranslationArtifact,
     );
-    return raw === null ? null : parseTranslationArtifact(raw);
+    if (raw === null) return null;
+    const artifact = parseTranslationArtifact(raw);
+    if (
+      artifact.bookHash !== key.bookHash ||
+      artifact.provider !== key.provider ||
+      artifact.targetLang !== key.targetLang
+    )
+      throw new Error('Translation artifact identity does not match the requested book');
+    return artifact;
   }
 
   async load(key: TranslationArtifactKey): Promise<TranslationArtifact | null> {
@@ -346,8 +357,16 @@ export class TranslationArtifactStore {
       (raw) => {
         if (!raw) return incoming;
         const previous = parseTranslationArtifact(raw);
+        if (
+          previous.bookHash !== incoming.bookHash ||
+          previous.provider !== incoming.provider ||
+          previous.targetLang !== incoming.targetLang
+        )
+          throw new Error('Translation artifact identity conflict');
         if (previous.model !== incoming.model || previous.promptVersion !== incoming.promptVersion)
-          return incoming;
+          throw new Error(
+            'Translation context conflict; reload the committed artifact before retrying',
+          );
         const segments = new Map(previous.segments.map((segment) => [segment.id, segment]));
         for (const next of incoming.segments) {
           const existing = segments.get(next.id);
@@ -377,14 +396,16 @@ export class TranslationArtifactStore {
 
   private async removeFromBase(key: TranslationArtifactKey, base: BaseDir): Promise<void> {
     const filename = getTranslationArtifactPath({ ...key });
-    for (const candidate of [filename, `${filename}.bak`]) {
-      if (!(await this.fs.exists(candidate, base))) continue;
-      if (this.fs.removeFile) {
-        await this.fs.removeFile(candidate, base);
-      } else if (this.fs.deleteFile) {
-        await this.fs.deleteFile(candidate, base);
+    await withJSONLock(this.fs, filename, base, async () => {
+      for (const candidate of [filename, `${filename}.bak`]) {
+        if (!(await this.fs.exists(candidate, base))) continue;
+        if (this.fs.removeFile) {
+          await this.fs.removeFile(candidate, base);
+        } else if (this.fs.deleteFile) {
+          await this.fs.deleteFile(candidate, base);
+        }
       }
-    }
+    });
   }
 
   async remove(key: TranslationArtifactKey): Promise<void> {
