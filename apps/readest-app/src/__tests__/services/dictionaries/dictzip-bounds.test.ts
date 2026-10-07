@@ -3,6 +3,16 @@ import { gzipSync, deflateSync } from 'fflate';
 import { expect, test } from 'vitest';
 import { loadDictBody } from '@/services/dictionaries/dictZip';
 
+test.each([
+  Number.NaN,
+  Number.POSITIVE_INFINITY,
+  -1,
+  1.5,
+])('rejects invalid chunk cache capacity %s', async (chunkCacheSize) => {
+  const blob = new NodeBlob(['local text']) as unknown as Blob;
+  await expect(loadDictBody(blob, { chunkCacheSize })).rejects.toThrow(/cache/i);
+});
+
 test('rejects a later RA chunk expanding beyond its declared chunk length', async () => {
   const chunks = [
     deflateSync(new TextEncoder().encode('a')),

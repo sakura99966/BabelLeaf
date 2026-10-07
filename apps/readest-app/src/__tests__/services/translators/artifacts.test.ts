@@ -43,6 +43,132 @@ const makeFileSystem = () => {
 };
 
 describe('translation artifacts', () => {
+  test.each([
+    'journal-backup',
+    'journal-main',
+    'primary-backup',
+    'primary-main',
+    'cleanup-backup',
+    'cleanup-main',
+  ])('preserves recoverable data after a %s failure', async (stage) => {
+    const { fs, files } = makeFileSystem();
+    const artifact = makeArtifact();
+    const store = new TranslationArtifactStore(fs);
+    await store.save(artifact);
+    const filename = getTranslationArtifactPath(artifact);
+    const targets: Record<string, string> = {
+      'journal-backup': `${filename}.pending.bak`,
+      'journal-main': `${filename}.pending`,
+      'primary-backup': `${filename}.bak`,
+      'primary-main': filename,
+      'cleanup-backup': `${filename}.pending.bak`,
+      'cleanup-main': `${filename}.pending`,
+    };
+    let fail = true;
+    vi.mocked(fs.writeFile).mockImplementation(async (name, base, content) => {
+      if (fail && !stage.startsWith('cleanup') && name === targets[stage])
+        throw new Error('injected storage failure');
+      files.set(`${base}/${name}`, String(content));
+    });
+    vi.mocked(fs.removeFile!).mockImplementation(async (name, base) => {
+      if (fail && stage.startsWith('cleanup') && name === targets[stage])
+        throw new Error('injected cleanup failure');
+      files.delete(`${base}/${name}`);
+    });
+    const updated = upsertTranslationSegments(
+      artifact,
+      [
+        {
+          id: 'one',
+          sourceText: 'Hello',
+          translatedText: 'new result',
+          sourceLang: 'en',
+          targetLang: 'zh-CN',
+          status: 'translated',
+          updatedAt: 1,
+        },
+      ],
+      1,
+    );
+    await expect(store.save(updated)).rejects.toThrow();
+    fail = false;
+    const recovered = await new TranslationArtifactStore(fs).load(artifact);
+    expect(recovered?.segments).toHaveLength(stage === 'journal-backup' ? 0 : 1);
+    expect([...files.keys()].filter((key) => key.includes('.pending'))).toEqual([]);
+  });
+
+  test('merges independent results into the journal while primary writes keep failing', async () => {
+    const { fs, files } = makeFileSystem();
+    const artifact = makeArtifact();
+    const store = new TranslationArtifactStore(fs);
+    await store.save(artifact);
+    const filename = getTranslationArtifactPath(artifact);
+    let fail = true;
+    vi.mocked(fs.writeFile).mockImplementation(async (name, base, content) => {
+      if (fail && name === filename) throw new Error('primary denied');
+      files.set(`${base}/${name}`, String(content));
+    });
+    const results = await Promise.allSettled(
+      ['one', 'two'].map((id) =>
+        new TranslationArtifactStore(fs).save(
+          upsertTranslationSegments(
+            artifact,
+            [
+              {
+                id,
+                sourceText: id,
+                translatedText: `result-${id}`,
+                sourceLang: 'en',
+                targetLang: 'zh-CN',
+                status: 'translated',
+                updatedAt: 1,
+              },
+            ],
+            1,
+          ),
+        ),
+      ),
+    );
+    expect(results.every((result) => result.status === 'rejected')).toBe(true);
+    fail = false;
+    expect(
+      (await new TranslationArtifactStore(fs).load(artifact))?.segments
+        .map((segment) => segment.id)
+        .sort(),
+    ).toEqual(['one', 'two']);
+  });
+  test('recovers a durable pending translation in a fresh store after the primary save failed', async () => {
+    const { fs, files } = makeFileSystem();
+    const store = new TranslationArtifactStore(fs);
+    const artifact = makeArtifact();
+    await store.save(artifact);
+    const filename = getTranslationArtifactPath(artifact);
+    let fail = true;
+    vi.mocked(fs.writeFile).mockImplementation(async (name, base, content) => {
+      if (fail && name === filename) throw new Error('primary replacement failed');
+      files.set(`${base}/${name}`, String(content));
+    });
+    const updated = upsertTranslationSegments(
+      artifact,
+      [
+        {
+          id: 'recovered',
+          sourceText: 'Hello',
+          translatedText: 'paid result',
+          sourceLang: 'en',
+          targetLang: 'zh-CN',
+          status: 'translated',
+          updatedAt: 2,
+        },
+      ],
+      2,
+    );
+    await expect(store.save(updated)).rejects.toThrow();
+    fail = false;
+    const recovered = await new TranslationArtifactStore(fs).load(artifact);
+    expect(recovered?.segments[0]?.translatedText).toBe('paid result');
+    expect([...files.keys()].filter((key) => key.includes('.pending'))).toEqual([]);
+  });
   test('rejects a stale model or prompt generation instead of replacing the committed document', async () => {
     const { fs } = makeFileSystem();
     const store = new TranslationArtifactStore(fs);

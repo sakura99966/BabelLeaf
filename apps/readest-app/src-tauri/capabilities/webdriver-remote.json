@@ -8,6 +8,7 @@
   },
   "windows": ["main", "reader-*"],
   "permissions": [
+    "core:window:allow-close",
     "process:allow-exit",
     "allow-get-executable-dir",
     "allow-get-webview-environment",

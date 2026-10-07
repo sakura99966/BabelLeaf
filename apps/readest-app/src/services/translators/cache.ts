@@ -141,7 +141,10 @@ export const getCacheKey = (
   sourceLang: string,
   targetLang: string,
   provider: string,
+  context?: string,
 ): string => {
+  if (context !== undefined)
+    return `${provider}:${JSON.stringify([sourceLang, targetLang, context, text])}`;
   return `${provider}:${sourceLang}:${targetLang}:${text}`;
 };
 
@@ -150,10 +153,11 @@ export const getFromCache = async (
   sourceLang: string,
   targetLang: string,
   provider: string,
+  context?: string,
 ): Promise<string | null> => {
   if (!text?.trim()) return null;
 
-  const key = getCacheKey(text, sourceLang, targetLang, provider);
+  const key = getCacheKey(text, sourceLang, targetLang, provider, context);
 
   if (memoryCache[key]) {
     return memoryCache[key];
@@ -197,10 +201,11 @@ export const storeInCache = async (
   sourceLang: string,
   targetLang: string,
   provider: string,
+  context?: string,
 ): Promise<void> => {
   if (!text?.trim() || !translation) return;
 
-  const key = getCacheKey(text, sourceLang, targetLang, provider);
+  const key = getCacheKey(text, sourceLang, targetLang, provider, context);
   const timestamp = Date.now();
 
   memoryCache[key] = translation;

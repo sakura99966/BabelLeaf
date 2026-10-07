@@ -453,3 +453,43 @@ External validation remains deferred; no release acceptance is asserted.
   unsaved-result crash durability beyond committed-copy recovery, remaining
   directory/dictionary/export resource workloads, and exact final candidate
   qualification/SBOM/performance. External gates remain DEFERRED, not PASS.
+
+## 2026-10-07 continuation: journal, cache and multi-window close
+
+Status remains IN PROGRESS, not final internal acceptance. This checkpoint
+includes the previously uncommitted September 22 work and its fresh validation.
+
+- Translation artifacts now serialize whole main/journal transactions. A
+  two-copy `.pending` journal commits before the primary snapshot, merges later
+  completed results after persistent primary failure, and recovers on load.
+  Cleanup deletes journal backup first. Fault tests cover journal/primary writes
+  and both cleanup steps. This is process-kill recovery, not power-loss proof.
+- Translation cache keys include non-secret model/prompt/loopback context.
+  Explicit retranslations bypass both cache and translation memory. Cancelled
+  and incomplete responses do not publish cache entries. A fresh regression
+  additionally caught provider-filter cleanup missing the new context keys;
+  the key retains the provider prefix and the regression now passes.
+- Same-book close protection retains all registered owners. Text batch workbench
+  guards active/pending work, flushes before closing/cancelling, and retains the
+  controller after save failures. Global quit waits for other windows to really
+  close; a window veto prevents process exit.
+- The native quit probe initially failed because its HTTP-origin test capability
+  lacked `core:window:allow-close`, not because a veto was ignored. Added that
+  permission ONLY to the explicitly selected webdriver-remote capability; shipped
+  capability selection is unchanged. Pre-bundle probe dependencies to avoid Vite
+  reloading the fixture during execution; retain actual IPC errors in diagnostics.
+- Native seven-process probe PASSED, including cross-window veto, junction-scope
+  rejection, main/backup kill recovery, pending paid-result recovery without API
+  calls and journal cleanup. Evidence: `process-quit-fixed-20261007.log` and
+  `target/windows-crash-recovery/result.json`. Original reproduced ACL failure:
+  `process-quit-20261007.log`. Logs reside in `target/audit-20260919`.
+- Fresh full unit run: 393 files, 4,888 passed, 1 skipped (`unit-20261007.log`).
+  Subsequent cache regression suite: 24 passed (`cache-filter-after-20261007.log`).
+  Lint/type check passed (`lint-20261007.log`). Native integration: 120 passed,
+  1 skipped (`tauri-20261007.log`). Browser: 317 passed, 1 skipped
+  (`browser-20261007.log`). Native UI E2E: 27 passed (`wdio-20261007.log`).
+- Remaining: comic-workspace close/save lifecycle audit (not covered by text
+  workbench protection), bounded dictionary/export workload measurements, final
+  complete regression/coverage and exact frozen candidate qualification, SBOM,
+  performance and CI. Do not merge main or claim all PC acceptance yet. Existing
+  external gates remain DEFERRED and no paid requests are authorized.

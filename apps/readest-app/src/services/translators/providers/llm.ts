@@ -12,6 +12,10 @@ import type { ActiveAIProviderName, AISettings } from '@/services/ai/types';
 import { useSettingsStore } from '@/store/settingsStore';
 
 import { ErrorCodes, type TranslationProvider } from '../types';
+import { DEEPSEEK_TRANSLATION_MODEL } from '@/services/ai/providers/DeepSeekProvider';
+import { OPENAI_TRANSLATION_MODEL } from '@/services/ai/providers/OpenAIProvider';
+import { ANTHROPIC_TRANSLATION_MODEL } from '@/services/ai/providers/AnthropicProvider';
+import { TRANSLATION_PROMPT_VERSION } from '../artifacts';
 
 export type LLMTranslatorName = ActiveAIProviderName;
 
@@ -132,6 +136,23 @@ const createLLMTranslator = (
   name,
   label,
   isConfigured: () => isConfigured(name),
+  cacheContext: () => {
+    const settings = { ...DEFAULT_AI_SETTINGS, ...useSettingsStore.getState().settings.aiSettings };
+    const model =
+      name === 'deepseek'
+        ? DEEPSEEK_TRANSLATION_MODEL
+        : name === 'openai'
+          ? OPENAI_TRANSLATION_MODEL
+          : name === 'anthropic'
+            ? ANTHROPIC_TRANSLATION_MODEL
+            : settings.ollamaModel;
+    return JSON.stringify([
+      name,
+      model,
+      TRANSLATION_PROMPT_VERSION,
+      name === 'ollama' ? settings.ollamaBaseUrl : null,
+    ]);
+  },
   async translate(texts, sourceLang, targetLang, signal) {
     if (!isConfigured(name)) {
       throw new Error(ErrorCodes.PROVIDER_NOT_CONFIGURED);

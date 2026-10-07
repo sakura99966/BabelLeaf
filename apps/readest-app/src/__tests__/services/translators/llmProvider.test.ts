@@ -52,6 +52,20 @@ describe('LLM translation providers', () => {
     ]);
   });
 
+  it('uses non-secret model and prompt identities for cache isolation without credential access', () => {
+    const cloud = getTranslator('deepseek')!.cacheContext!();
+    expect(cloud).toContain('deepseek-v4-flash');
+    expect(cloud).toContain('translation-v1');
+    expect(cloud).not.toContain('secret');
+    expect(getTranslationApiKey).not.toHaveBeenCalled();
+    const local = getTranslator('ollama')!.cacheContext!();
+    getSettings.mockReturnValue({
+      aiSettings: { ollamaModel: 'different-local-model', ollamaBaseUrl: 'http://127.0.0.1:11434' },
+    });
+    expect(getTranslator('ollama')!.cacheContext!()).not.toBe(local);
+    expect(getTranslationApiKey).not.toHaveBeenCalled();
+  });
+
   it('rejects truncated SDK output instead of caching a partial translation', async () => {
     generateText.mockReset().mockResolvedValue({ text: 'partial', finishReason: 'length' });
     await expect(getTranslator('deepseek')!.translate(['Hello'], 'EN', 'ZH')).rejects.toThrow(

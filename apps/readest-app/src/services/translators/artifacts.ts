@@ -1,5 +1,5 @@
 import type { AppService, BaseDir, FileSystem } from '@/types/system';
-import { safeLoadJSON, updateJSON, withJSONLock } from '@/services/persistence';
+import { safeLoadJSON, safeSaveJSON, withJSONLock } from '@/services/persistence';
 import { parseTranslationSourceAnchor, type TranslationSourceAnchor } from './anchors';
 
 export const TRANSLATION_ARTIFACT_SCHEMA_VERSION = 1 as const;
@@ -307,6 +307,41 @@ const safePathPart = (value: string): string => {
 export const getTranslationArtifactPath = (key: TranslationArtifactKey): string =>
   `${TRANSLATION_ARTIFACT_DIR}/${safePathPart(key.bookHash)}.${safePathPart(key.provider)}.${safePathPart(key.targetLang)}.json`;
 
+const mergeArtifacts = (
+  previous: TranslationArtifact | null,
+  incoming: TranslationArtifact,
+): TranslationArtifact => {
+  if (!previous) return incoming;
+  if (
+    previous.bookHash !== incoming.bookHash ||
+    previous.provider !== incoming.provider ||
+    previous.targetLang !== incoming.targetLang
+  )
+    throw new Error('Translation artifact identity conflict');
+  if (previous.model !== incoming.model || previous.promptVersion !== incoming.promptVersion)
+    throw new Error('Translation context conflict; reload the committed artifact before retrying');
+  const segments = new Map(previous.segments.map((segment) => [segment.id, segment]));
+  for (const next of incoming.segments) {
+    const existing = segments.get(next.id);
+    if (existing && existing.sourceText !== next.sourceText)
+      throw new Error('Translation segment source changed');
+    if (
+      existing &&
+      next.updatedAt === existing.updatedAt &&
+      (existing.translatedText !== next.translatedText ||
+        existing.status !== next.status ||
+        existing.machineTranslatedText !== next.machineTranslatedText)
+    )
+      throw new Error('Translation edit conflict; reload the committed result before retrying');
+    if (!existing || next.updatedAt >= existing.updatedAt) segments.set(next.id, next);
+  }
+  return parseTranslationArtifact({
+    ...incoming,
+    updatedAt: Math.max(previous.updatedAt, incoming.updatedAt),
+    segments: [...segments.values()],
+  });
+};
+
 /** Persistent local-only store. Artifacts live in durable application data. */
 export class TranslationArtifactStore {
   constructor(private readonly fs: TranslationArtifactStorage) {}
@@ -316,22 +351,60 @@ export class TranslationArtifactStore {
     base: BaseDir,
   ): Promise<TranslationArtifact | null> {
     const filename = getTranslationArtifactPath({ ...key });
-    const raw = await safeLoadJSON<unknown>(
+    return withJSONLock(this.fs, `${filename}.transaction`, base, async () => {
+      const current = await this.readCopies(key, filename, base);
+      if (current.pending && current.artifact) {
+        await safeSaveJSON(this.fs, filename, base, current.artifact);
+        await this.clearPending(filename, base);
+      }
+      return current.artifact;
+    });
+  }
+
+  private async readCopies(key: TranslationArtifactKey, filename: string, base: BaseDir) {
+    const main = await safeLoadJSON<TranslationArtifact | null>(
       this.fs,
       filename,
       base,
       null,
       parseTranslationArtifact,
     );
-    if (raw === null) return null;
-    const artifact = parseTranslationArtifact(raw);
-    if (
-      artifact.bookHash !== key.bookHash ||
-      artifact.provider !== key.provider ||
-      artifact.targetLang !== key.targetLang
-    )
-      throw new Error('Translation artifact identity does not match the requested book');
-    return artifact;
+    const pending = await safeLoadJSON<TranslationArtifact | null>(
+      this.fs,
+      `${filename}.pending`,
+      base,
+      null,
+      (value) => (value === null ? null : parseTranslationArtifact(value)),
+    );
+    for (const artifact of [main, pending]) {
+      if (
+        artifact &&
+        (artifact.bookHash !== key.bookHash ||
+          artifact.provider !== key.provider ||
+          artifact.targetLang !== key.targetLang)
+      )
+        throw new Error('Translation artifact identity does not match the requested book');
+    }
+    return { artifact: pending ? mergeArtifacts(main, pending) : main, pending: pending !== null };
+  }
+
+  private async removeCopy(filename: string, base: BaseDir) {
+    if (!(await this.fs.exists(filename, base))) return;
+    if (this.fs.removeFile) await this.fs.removeFile(filename, base);
+    else if (this.fs.deleteFile) await this.fs.deleteFile(filename, base);
+    else throw new Error('Translation storage does not support removal');
+  }
+
+  private async clearPending(filename: string, base: BaseDir) {
+    if (!this.fs.removeFile && !this.fs.deleteFile) {
+      // Minimal adapters can acknowledge the journal with a validated tombstone.
+      await safeSaveJSON(this.fs, `${filename}.pending`, base, null);
+      return;
+    }
+    // Delete backup first: interruption must not reveal an obsolete backup after
+    // deleting the newest journal. A surviving newest journal is idempotent.
+    await this.removeCopy(`${filename}.pending.bak`, base);
+    await this.removeCopy(`${filename}.pending`, base);
   }
 
   async load(key: TranslationArtifactKey): Promise<TranslationArtifact | null> {
@@ -350,61 +423,29 @@ export class TranslationArtifactStore {
   async save(artifact: TranslationArtifact): Promise<void> {
     const incoming = parseTranslationArtifact(artifact);
     await this.fs.createDir(TRANSLATION_ARTIFACT_DIR, TRANSLATION_ARTIFACT_BASE, true);
-    await updateJSON(
-      this.fs,
-      getTranslationArtifactPath(incoming),
-      TRANSLATION_ARTIFACT_BASE,
-      (raw) => {
-        if (!raw) return incoming;
-        const previous = parseTranslationArtifact(raw);
-        if (
-          previous.bookHash !== incoming.bookHash ||
-          previous.provider !== incoming.provider ||
-          previous.targetLang !== incoming.targetLang
-        )
-          throw new Error('Translation artifact identity conflict');
-        if (previous.model !== incoming.model || previous.promptVersion !== incoming.promptVersion)
-          throw new Error(
-            'Translation context conflict; reload the committed artifact before retrying',
-          );
-        const segments = new Map(previous.segments.map((segment) => [segment.id, segment]));
-        for (const next of incoming.segments) {
-          const existing = segments.get(next.id);
-          if (existing && existing.sourceText !== next.sourceText)
-            throw new Error('Translation segment source changed');
-          if (
-            existing &&
-            next.updatedAt === existing.updatedAt &&
-            (existing.translatedText !== next.translatedText ||
-              existing.status !== next.status ||
-              existing.machineTranslatedText !== next.machineTranslatedText)
-          )
-            throw new Error(
-              'Translation edit conflict; reload the committed result before retrying',
-            );
-          if (!existing || next.updatedAt >= existing.updatedAt) segments.set(next.id, next);
-        }
-        return parseTranslationArtifact({
-          ...incoming,
-          updatedAt: Math.max(previous.updatedAt, incoming.updatedAt),
-          segments: [...segments.values()],
-        });
-      },
-      parseTranslationArtifact,
-    );
+    const filename = getTranslationArtifactPath(incoming);
+    const base = TRANSLATION_ARTIFACT_BASE;
+    await withJSONLock(this.fs, `${filename}.transaction`, base, async () => {
+      const current = await this.readCopies(incoming, filename, base);
+      const merged = mergeArtifacts(current.artifact, incoming);
+      // Durable write-ahead result, kept on primary/backup replacement failure.
+      // Subsequent failed saves merge here so concurrent completed results survive.
+      await safeSaveJSON(this.fs, `${filename}.pending`, base, merged);
+      await safeSaveJSON(this.fs, filename, base, merged);
+      await this.clearPending(filename, base);
+    });
   }
 
   private async removeFromBase(key: TranslationArtifactKey, base: BaseDir): Promise<void> {
     const filename = getTranslationArtifactPath({ ...key });
-    await withJSONLock(this.fs, filename, base, async () => {
-      for (const candidate of [filename, `${filename}.bak`]) {
-        if (!(await this.fs.exists(candidate, base))) continue;
-        if (this.fs.removeFile) {
-          await this.fs.removeFile(candidate, base);
-        } else if (this.fs.deleteFile) {
-          await this.fs.deleteFile(candidate, base);
-        }
-      }
+    await withJSONLock(this.fs, `${filename}.transaction`, base, async () => {
+      for (const candidate of [
+        `${filename}.pending.bak`,
+        `${filename}.pending`,
+        `${filename}.bak`,
+        filename,
+      ])
+        await this.removeCopy(candidate, base);
     });
   }
 

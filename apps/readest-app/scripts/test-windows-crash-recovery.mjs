@@ -2,7 +2,7 @@
 // This probe kills only its own spawned executable, never an existing reader.
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, writeFile, symlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
@@ -48,17 +48,22 @@ let passed = false;
 try {
   for (const directory of [root, profile, path.join(runtime, 'Roaming'), path.join(runtime, 'Local')])
     await mkdir(directory, { recursive: true });
+  const ungranted = path.join(runtime, 'ungranted-directory');
+  await mkdir(ungranted);
+  await writeFile(path.join(ungranted, 'must-not-enumerate.txt'), 'isolated out-of-scope sentinel');
+  await writeFile(path.join(root, 'allowed.txt'), 'isolated in-scope sentinel');
+  await symlink(ungranted, path.join(root, 'junction'), 'junction');
   server = await createServer({
     configFile: false,
     root: appRoot,
     plugins: [tsconfigPaths({ root: appRoot })],
     define: { 'process.env': JSON.stringify({ NEXT_PUBLIC_APP_PLATFORM: 'tauri' }) },
     resolve: { conditions: ['development'] },
-    optimizeDeps: { include: ['@tauri-apps/plugin-fs', '@tauri-apps/plugin-http', '@tauri-apps/api/path', '@tauri-apps/api/core', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-os', '@choochmeque/tauri-plugin-sharekit-api', '@zip.js/zip.js', 'franc-min', 'iso-639-2', 'iso-639-3', 'js-md5'], exclude: ['@pdfjs/pdf.min.mjs'] },
+    optimizeDeps: { include: ['@tauri-apps/api/window', '@tauri-apps/api/webviewWindow', '@tauri-apps/api/event', '@tauri-apps/plugin-process', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-http', '@tauri-apps/api/path', '@tauri-apps/api/core', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-os', '@choochmeque/tauri-plugin-sharekit-api', '@zip.js/zip.js', 'franc-min', 'iso-639-2', 'iso-639-3', 'js-md5'], exclude: ['@pdfjs/pdf.min.mjs'] },
     server: { port: 3000, strictPort: true, host: '127.0.0.1' },
   });
   await server.listen();
-  for (const [phase, expected] of [['before-main', 'before-main'], ['after-main', 'after-main'], ['recover', 'recovered']]) {
+  for (const [phase, expected] of [['quit-guard', 'quit-guard'], ['directory-scope', 'directory-scope'], ['before-main', 'before-main'], ['after-main', 'after-main'], ['recover', 'recovered'], ['artifact-journal', 'artifact-journal'], ['recover-artifact', 'recovered-artifact']]) {
     child = spawn(executable, [], {
       cwd: appRoot, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, APPDATA: path.join(runtime, 'Roaming'), LOCALAPPDATA: path.join(runtime, 'Local'),
@@ -72,7 +77,7 @@ try {
       if (child.exitCode !== null || Date.now() > deadline) throw new Error('Isolated WebDriver failed to start');
       await delay(200);
     }
-    const browser = await remote({ hostname: '127.0.0.1', port: 4445, capabilities: { browserName: 'chrome' }, logLevel: 'error', connectionRetryCount: 0 });
+    const browser = await remote({ hostname: '127.0.0.1', port: 4445, capabilities: { browserName: 'chrome' }, logLevel: 'error', connectionRetryCount: 0, connectionRetryTimeout: 20000 });
     await browser.url(`http://127.0.0.1:3000/src/__tests__/fixtures/native-crash.html?${new URLSearchParams({ root, phase })}`);
     let result;
     await browser.waitUntil(async () => {

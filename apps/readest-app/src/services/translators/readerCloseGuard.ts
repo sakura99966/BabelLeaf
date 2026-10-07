@@ -6,27 +6,28 @@ interface ReaderSaveState {
 
 /** Window-local lifecycle gate. No requests are issued while retrying saves. */
 export class ReaderCloseGuard {
-  private readers = new Map<string, ReaderSaveState>();
+  private readers = new Map<string, Set<ReaderSaveState>>();
 
   register(bookKey: string, state: ReaderSaveState): () => void {
-    this.readers.set(bookKey, state);
+    const owners = this.readers.get(bookKey) ?? new Set<ReaderSaveState>();
+    owners.add(state);
+    this.readers.set(bookKey, owners);
     return () => {
-      if (this.readers.get(bookKey) === state) this.readers.delete(bookKey);
+      owners.delete(state);
+      if (owners.size === 0 && this.readers.get(bookKey) === owners) this.readers.delete(bookKey);
     };
   }
 
   needsProtection(bookKeys: string[]): boolean {
     return bookKeys.some((key) => {
-      const state = this.readers.get(key);
-      return state && (state.isBusy() || state.hasPending());
+      return [...(this.readers.get(key) ?? [])].some(
+        (state) => state.isBusy() || state.hasPending(),
+      );
     });
   }
 
   async prepare(bookKeys: string[]): Promise<void> {
-    const states = bookKeys.flatMap((key) => {
-      const state = this.readers.get(key);
-      return state ? [state] : [];
-    });
+    const states = [...new Set(bookKeys.flatMap((key) => [...(this.readers.get(key) ?? [])]))];
     if (states.some((state) => state.isBusy())) throw new Error('Translation is still running');
     await Promise.all(states.map((state) => state.flush()));
     if (states.some((state) => state.isBusy() || state.hasPending()))

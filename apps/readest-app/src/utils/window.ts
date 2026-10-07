@@ -100,5 +100,18 @@ export const tauriHandleOnWindowFocus = async (callback: () => void) => {
 
 export const tauriQuitApp = async () => {
   await eventDispatcher.dispatch('quit-app');
+  const currentLabel = getCurrentWindow().label;
+  const others = (await getAllWindows()).filter((window) => window.label !== currentLabel);
+  // close() requests the other WebView's normal guarded close path. It does not
+  // prove the window closed: that reader may veto to retain in-flight/dirty data.
+  await Promise.all(others.map((window) => window.close()));
+  const deadline = Date.now() + 5000;
+  while ((await getAllWindows()).some((window) => window.label !== currentLabel)) {
+    if (Date.now() >= deadline)
+      throw new Error(
+        'Another reader window is still open; finish or save its work before quitting',
+      );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
   await exit(0);
 };

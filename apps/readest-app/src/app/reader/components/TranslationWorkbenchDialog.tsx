@@ -42,6 +42,7 @@ import {
   type TranslatorName,
 } from '@/services/translators';
 import { useTranslator } from '@/hooks/useTranslator';
+import { readerCloseGuard } from '@/services/translators/readerCloseGuard';
 
 interface TranslationWorkbenchDialogProps {
   bookKey: string;
@@ -129,18 +130,36 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   }, []);
 
   const resetController = useCallback(() => {
+    if (controllerRef.current?.isBusy || controllerRef.current?.hasPendingWrites) return false;
     unsubscribeRef.current?.();
     unsubscribeRef.current = null;
     controllerRef.current = null;
     setSnapshot(null);
+    return true;
   }, []);
+
+  useEffect(
+    () =>
+      readerCloseGuard.register(bookKey, {
+        isBusy: () => controllerRef.current?.isBusy ?? false,
+        hasPending: () => controllerRef.current?.hasPendingWrites ?? false,
+        flush: async () => {
+          await controllerRef.current?.flush();
+        },
+      }),
+    [bookKey],
+  );
 
   useEffect(() => {
     if (!isOpen || !store || !bookHash) return;
     let active = true;
     setLoadingArtifact(true);
     setError(null);
-    resetController();
+    if (!resetController()) {
+      setLoadingArtifact(false);
+      setError(_('Another translation job is active. Pause or cancel it before switching jobs.'));
+      return;
+    }
     void store
       .load({ bookHash, provider, targetLang })
       .then((saved) => {
@@ -207,12 +226,24 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     action: 'start' | 'resume' | 'retry' | 'invalidate' = 'start',
   ) => {
     if (controllerRef.current && snapshot?.status === 'completed') {
+      if (controllerRef.current.isBusy || controllerRef.current.hasPendingWrites) {
+        setError(_('Translation not saved. Keep this book open and retry saving.'));
+        return;
+      }
       unsubscribeRef.current?.();
       unsubscribeRef.current = null;
       controllerRef.current = null;
       setSnapshot(null);
     }
     if (!artifact || !bookData?.bookDoc) return;
+    if (
+      artifact.bookHash !== bookHash ||
+      artifact.provider !== provider ||
+      artifact.targetLang !== targetLang
+    ) {
+      setError(_('Another translation job is active. Pause or cancel it before switching jobs.'));
+      return;
+    }
     if (controllerRef.current) {
       setError(_('Another translation job is active. Pause or cancel it before switching jobs.'));
       return;
@@ -240,11 +271,11 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
             maxAttempts: 3,
             concurrency: 2,
             items,
-            translate: async (item, signal) => {
+            translate: async (item, signal, requestOptions) => {
               const translated = await translate([item.text], {
                 source: artifact.sourceLang,
                 target: artifact.targetLang,
-                useCache: true,
+                useCache: requestOptions?.useCache ?? action !== 'invalidate',
                 signal,
               });
               return translated[0] || '';
@@ -261,11 +292,11 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
             maxAttempts: 3,
             concurrency: 2,
             items,
-            translate: async (item, signal) => {
+            translate: async (item, signal, requestOptions) => {
               const translated = await translate([item.text], {
                 source: artifact.sourceLang,
                 target: artifact.targetLang,
-                useCache: true,
+                useCache: requestOptions?.useCache ?? action !== 'invalidate',
                 signal,
               });
               return translated[0] || '';
@@ -328,10 +359,16 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     const controller = controllerRef.current;
     if (!controller) return;
     controller.cancel();
+    try {
+      await controller.flush();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+      return;
+    }
     const cancelled = controller.getSnapshot();
     setSnapshot(cancelled);
     setArtifact(controller.getArtifact());
@@ -381,6 +418,10 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
   };
 
   const handleImport = async () => {
+    if (controllerRef.current?.isBusy || controllerRef.current?.hasPendingWrites) {
+      setError(_('Another translation job is active. Pause or cancel it before switching jobs.'));
+      return;
+    }
     if (!appService) return;
     setError(null);
     try {
@@ -446,6 +487,13 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
 
   const handleDeleteJob = async (job: TranslationJobSnapshot) => {
     if (!jobStore) return;
+    if (
+      snapshot?.id === job.id &&
+      (controllerRef.current?.isBusy || controllerRef.current?.hasPendingWrites)
+    ) {
+      setError(_('Translation not saved. Keep this book open and retry saving.'));
+      return;
+    }
     if (!(await appService?.ask(_('Delete this translation job record?')))) return;
     try {
       await jobStore.remove(job.id);
@@ -570,10 +618,24 @@ const TranslationWorkbenchDialog: React.FC<TranslationWorkbenchDialogProps> = ({
       failed: _('Failed'),
     })[status];
 
+  const handleCloseWorkbench = async () => {
+    if (controllerRef.current?.isBusy) {
+      setError(_('Another translation job is active. Pause or cancel it before switching jobs.'));
+      return;
+    }
+    try {
+      await controllerRef.current?.flush();
+      if (controllerRef.current?.isBusy || controllerRef.current?.hasPendingWrites) return;
+      onClose();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    }
+  };
+
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => void handleCloseWorkbench()}
       title={_('Translation')}
       snapHeight={0.85}
       boxClassName='sm:!min-w-[680px]'

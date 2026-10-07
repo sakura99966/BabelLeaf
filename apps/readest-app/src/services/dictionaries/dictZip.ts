@@ -287,6 +287,11 @@ export interface LoadDictBodyOpts {
 export async function loadDictBody(blob: Blob, opts: LoadDictBodyOpts = {}): Promise<DictBody> {
   opts.signal?.throwIfAborted();
   if (blob.size > MAX_DICTIONARY_INPUT_BYTES) throw new Error('Dictionary input limit exceeded');
+  if (
+    opts.chunkCacheSize !== undefined &&
+    (!Number.isSafeInteger(opts.chunkCacheSize) || opts.chunkCacheSize < 1)
+  )
+    throw new Error('Invalid dictionary chunk cache capacity');
   const cacheSize = Math.max(1, Math.min(32, opts.chunkCacheSize ?? 16));
   const maxOutput = Math.min(
     MAX_DICTIONARY_OUTPUT_BYTES,

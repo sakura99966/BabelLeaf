@@ -1,6 +1,26 @@
 import { expect, test, vi } from 'vitest';
 import { ReaderCloseGuard } from '@/services/translators/readerCloseGuard';
 
+test('retains protection for multiple translation owners in the same book', async () => {
+  const guard = new ReaderCloseGuard();
+  const busy = guard.register('book', {
+    isBusy: () => true,
+    hasPending: () => false,
+    flush: async () => {},
+  });
+  const idle = guard.register('book', {
+    isBusy: () => false,
+    hasPending: () => false,
+    flush: async () => {},
+  });
+  expect(guard.needsProtection(['book'])).toBe(true);
+  await expect(guard.prepare(['book'])).rejects.toThrow('running');
+  idle();
+  expect(guard.needsProtection(['book'])).toBe(true);
+  busy();
+  expect(guard.needsProtection(['book'])).toBe(false);
+});
+
 test('blocks closing during translation and preserves a failed local flush for retry', async () => {
   const guard = new ReaderCloseGuard();
   let busy = true;

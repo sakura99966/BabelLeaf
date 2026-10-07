@@ -13,6 +13,37 @@ import { TranslationJobStore } from '@/services/translators/jobStore';
 import { createTranslationGlossary } from '@/services/translators/glossary';
 import { TranslationMemory } from '@/services/translators/memory';
 
+test('explicit rerun bypasses both translation memory and request-cache reuse', async () => {
+  const artifact = createTranslationArtifact({
+    bookHash: 'rerun',
+    provider: 'deepseek',
+    promptVersion: 'translation-v1',
+    sourceLang: 'en',
+    targetLang: 'zh-CN',
+  });
+  const memory = new TranslationMemory();
+  await memory.remember(
+    { sourceText: 'Hello', sourceLang: 'en', targetLang: 'zh-CN', provider: 'deepseek' },
+    'old',
+  );
+  const translate = vi.fn(async () => 'new');
+  const controller = new TranslationBatchController({
+    artifact,
+    translationMemory: memory,
+    items: [{ id: 'one', text: 'Hello' }],
+    translate,
+  });
+  await controller.start();
+  expect(translate).not.toHaveBeenCalled();
+  await controller.invalidateCompleted();
+  expect(translate).toHaveBeenCalledWith(
+    expect.objectContaining({ text: 'Hello' }),
+    expect.any(AbortSignal),
+    { useCache: false },
+  );
+  expect(controller.getArtifact().segments[0]?.translatedText).toBe('new');
+});
+
 const makeFileSystem = () => {
   const files = new Map<string, string>();
   const key = (path: string, base: string) => `${base}/${path}`;

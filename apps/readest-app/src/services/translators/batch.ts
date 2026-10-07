@@ -248,7 +248,11 @@ export interface TranslationBatchControllerInput {
     Pick<TranslationJobItem, 'id' | 'text'> &
       Partial<Pick<TranslationJobItem, 'chapterId' | 'sourceLocator' | 'sourceAnchor'>>
   >;
-  translate: TranslateJobItem;
+  translate: (
+    item: Parameters<TranslateJobItem>[0],
+    signal: Parameters<TranslateJobItem>[1],
+    options?: { useCache: boolean },
+  ) => ReturnType<TranslateJobItem>;
   artifactStore?: TranslationArtifactStore;
   jobStore?: TranslationJobStore;
   initialJobSnapshot?: TranslationJobSnapshot;
@@ -278,10 +282,12 @@ export class TranslationBatchController {
   private artifactCheckpointScheduled = false;
   private jobCheckpointScheduled = false;
   private artifactSaveError: unknown;
+  private bypassReuse = false;
   private jobSaveError: unknown;
   private readonly pendingMemoryWrites = new Map<string, () => Promise<void>>();
 
   constructor(input: TranslationBatchControllerInput) {
+    this.bypassReuse = input.invalidateCompleted ?? false;
     this.artifact =
       input.model && input.artifact.model !== input.model
         ? { ...input.artifact, model: input.model }
@@ -338,11 +344,13 @@ export class TranslationBatchController {
         ...(this.artifact.model ? { model: this.artifact.model } : {}),
         ...(input.glossary ? { glossaryVersion: input.glossary.updatedAt } : {}),
       };
-      const memoryHit = input.translationMemory?.lookup(memoryQuery);
+      const memoryHit = this.bypassReuse ? undefined : input.translationMemory?.lookup(memoryQuery);
       if (memoryHit) return memoryHit;
 
       const protectedText = protectGlossaryTerms(item.text, glossaryEntries);
-      const translated = await input.translate({ ...item, text: protectedText.text }, signal);
+      const translated = this.bypassReuse
+        ? await input.translate({ ...item, text: protectedText.text }, signal, { useCache: false })
+        : await input.translate({ ...item, text: protectedText.text }, signal);
       const restored = restoreGlossaryTerms(translated, protectedText.bindings);
       if (input.translationMemory) {
         const saveMemory = () => input.translationMemory!.remember(memoryQuery, restored);
@@ -374,6 +382,25 @@ export class TranslationBatchController {
 
   getSnapshot(): TranslationJobSnapshot {
     return this.queue.getSnapshot();
+  }
+
+  get isBusy(): boolean {
+    const snapshot = this.queue.getSnapshot();
+    return (
+      snapshot.status === 'running' || snapshot.items.some((item) => item.status === 'running')
+    );
+  }
+
+  get hasPendingWrites(): boolean {
+    return (
+      this.artifactCheckpointScheduled ||
+      this.jobCheckpointScheduled ||
+      this.pendingSegments.size > 0 ||
+      !!this.pendingJobSnapshot ||
+      this.pendingMemoryWrites.size > 0 ||
+      !!this.artifactSaveError ||
+      !!this.jobSaveError
+    );
   }
 
   getArtifact(): TranslationArtifact {
@@ -415,6 +442,7 @@ export class TranslationBatchController {
 
   async invalidateCompleted(): Promise<TranslationJobSnapshot> {
     await this.flush();
+    this.bypassReuse = true;
     this.queue.invalidateCompleted();
     const result = await this.queue.start();
     await this.flush();
