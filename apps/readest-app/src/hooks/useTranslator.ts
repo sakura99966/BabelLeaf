@@ -39,6 +39,11 @@ export function useTranslator({
       input: string[],
       options?: { source?: string; target?: string; useCache?: boolean; signal?: AbortSignal },
     ): Promise<string[]> => {
+      const checkCancelled = () => {
+        if (options?.signal?.aborted)
+          throw new DOMException('Translation request cancelled', 'AbortError');
+      };
+      checkCancelled();
       const sourceLanguage = options?.source || sourceLang;
       const targetLanguage = options?.target || targetLang || getLocale();
       const textsToTranslate = enablePreprocessing ? preprocess(input) : input;
@@ -49,49 +54,53 @@ export function useTranslator({
 
       const textsNeedingTranslation: string[] = [];
       const indicesNeedingTranslation: number[] = [];
+      const selectedTranslator = translators.find((t) => t.name === selectedProvider);
+      const context = selectedTranslator?.cacheContext?.();
+      const results = [...textsToTranslate];
 
-      await Promise.all(
-        textsToTranslate.map(async (text, index) => {
-          if (!text?.trim()) return;
-
-          const cachedTranslation = await getFromCache(
-            text,
-            sourceLanguage,
-            targetLanguage,
-            selectedProvider,
-          );
-          if (cachedTranslation) return;
-
+      const cached = await Promise.all(
+        textsToTranslate.map((text) =>
+          options?.useCache === false || !text?.trim()
+            ? Promise.resolve(null)
+            : getFromCache(text, sourceLanguage, targetLanguage, selectedProvider, context),
+        ),
+      );
+      checkCancelled();
+      textsToTranslate.forEach((text, index) => {
+        if (!text?.trim()) return;
+        if (cached[index]) results[index] = cached[index]!;
+        else {
           textsNeedingTranslation.push(text);
           indicesNeedingTranslation.push(index);
-        }),
-      );
+        }
+      });
 
       if (textsNeedingTranslation.length === 0) {
-        const results = await Promise.all(
-          textsToTranslate.map((text) =>
-            getFromCache(text, sourceLanguage, targetLanguage, selectedProvider).then(
-              (cached) => cached || text,
-            ),
-          ),
-        );
-
         return enablePolishing ? polish(results, targetLanguage) : results;
       }
 
       setLoading(true);
 
       try {
-        const translator = translators.find((t) => t.name === selectedProvider);
-        if (!translator) {
+        if (!selectedTranslator) {
           throw new Error(`No translator found for provider: ${selectedProvider}`);
         }
-        const translatedTexts = await translator.translate(
+        if (selectedTranslator.cacheContext?.() !== context)
+          throw new Error(
+            'Translation context changed before dispatch; retry with the current model',
+          );
+        const translatedTexts = await selectedTranslator.translate(
           textsNeedingTranslation,
           sourceLanguage,
           targetLanguage,
           options?.signal,
         );
+        checkCancelled();
+        if (
+          translatedTexts.length !== textsNeedingTranslation.length ||
+          translatedTexts.some((text) => !text?.trim())
+        )
+          throw new Error('Translation provider returned incomplete results');
 
         await Promise.all(
           textsNeedingTranslation.map(async (text, index) => {
@@ -101,34 +110,14 @@ export function useTranslator({
               sourceLanguage,
               targetLanguage,
               selectedProvider,
+              context,
             );
           }),
         );
 
-        const results = [...textsToTranslate];
         indicesNeedingTranslation.forEach((originalIndex, translationIndex) => {
           results[originalIndex] = translatedTexts[translationIndex] || '';
         });
-
-        await Promise.all(
-          results.map(async (_, index) => {
-            if (!indicesNeedingTranslation.includes(index)) {
-              const originalText = textsToTranslate[index];
-              if (!originalText?.trim()) return;
-
-              const cachedTranslation = await getFromCache(
-                originalText,
-                sourceLanguage,
-                targetLanguage,
-                selectedProvider,
-              );
-
-              if (cachedTranslation) {
-                results[index] = cachedTranslation;
-              }
-            }
-          }),
-        );
 
         setLoading(false);
         return enablePolishing ? polish(results, targetLanguage) : results;
@@ -138,7 +127,15 @@ export function useTranslator({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedProvider, sourceLang, targetLang, translator],
+    [
+      selectedProvider,
+      sourceLang,
+      targetLang,
+      translator,
+      translators,
+      enablePolishing,
+      enablePreprocessing,
+    ],
   );
 
   return {

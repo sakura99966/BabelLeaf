@@ -245,6 +245,22 @@ afterEach(() => {
 });
 
 describe('ComicWorkspaceDialog', () => {
+  test('rejects an oversized OCR sidecar before reading or saving it', async () => {
+    const text = vi.fn();
+    const close = vi.fn();
+    mocks.selectFiles.mockResolvedValue({
+      files: [{ file: { name: 'ocr.json', size: 64 * 1024 * 1024 + 1, text, close } }],
+    });
+    render(<ComicWorkspaceDialog bookKey='book-hash-window' isOpen onClose={mocks.onClose} />);
+    await waitFor(() => expect(mocks.workspaceLoad).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole('button', { name: 'Import OCR sidecar' }));
+    await waitFor(() => expect(screen.getByText(/Sidecar input exceeds/)).toBeTruthy());
+    expect(text).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    expect(mocks.workspaceSave).not.toHaveBeenCalled();
+    expect(mocks.editSave).not.toHaveBeenCalled();
+  });
+
   test('opens offline with an empty local workspace and surfaces picker failures', async () => {
     mocks.selectFiles.mockResolvedValue({ files: [], error: 'picker unavailable' });
     render(<ComicWorkspaceDialog bookKey='book-hash-window' isOpen onClose={mocks.onClose} />);

@@ -8,6 +8,7 @@ import {
   readDir,
   remove,
   copyFile,
+  rename,
   stat,
   BaseDirectory,
 } from '@tauri-apps/plugin-fs';
@@ -387,6 +388,21 @@ export const nativeFileSystem: FileSystem = {
       ? (readTextFile(fp, baseDir ? { baseDir } : undefined) as Promise<string>)
       : ((await readFile(fp, baseDir ? { baseDir } : undefined)).buffer as ArrayBuffer);
   },
+  async writeFileAtomic(path: string, base: BaseDir, content: string) {
+    const temporary = `${path}.${crypto.randomUUID()}.tmp`;
+    const { fp, baseDir } = this.resolvePath(path, base);
+    const { fp: temporaryFp } = this.resolvePath(temporary, base);
+    try {
+      await this.writeFile(temporary, base, content);
+      await rename(
+        temporaryFp,
+        fp,
+        baseDir ? { oldPathBaseDir: baseDir, newPathBaseDir: baseDir } : undefined,
+      );
+    } finally {
+      await remove(temporaryFp, baseDir ? { baseDir } : undefined).catch(() => {});
+    }
+  },
   async writeFile(path: string, base: BaseDir, content: string | ArrayBuffer | File) {
     // NOTE: this could be very slow for large files and might block the UI thread
     // so do not use this for large files
@@ -488,7 +504,8 @@ export const nativeFileSystem: FileSystem = {
           size: file.size,
         }));
       } catch (e) {
-        console.error('Rust read_dir failed, falling back to JS recursion', e);
+        // Do not bypass a native permission/budget failure by unbounded recursion.
+        throw e;
       }
     }
 

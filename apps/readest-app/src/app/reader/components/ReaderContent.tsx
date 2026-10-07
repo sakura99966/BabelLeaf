@@ -18,7 +18,7 @@ import { UnlistenFn } from '@tauri-apps/api/event';
 import { tauriHandleClose, tauriHandleOnCloseWindow } from '@/utils/window';
 import { isTauriAppPlatform } from '@/services/environment';
 import { uniqueId } from '@/utils/misc';
-import { throttle } from '@/utils/throttle';
+import { readerCloseGuard } from '@/services/translators/readerCloseGuard';
 import { eventDispatcher } from '@/utils/event';
 import {
   closeReaderWindowOrGoToLibrary,
@@ -120,12 +120,20 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
         return () => {};
       });
     }
-    window.addEventListener('beforeunload', handleCloseBooks);
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (readerCloseGuard.needsProtection(bookKeys)) {
+        event.preventDefault();
+        event.returnValue = '';
+        return;
+      }
+      void handleCloseBooks().catch((error) => console.error('Close failed:', error));
+    };
+    window.addEventListener('beforeunload', beforeUnload);
     eventDispatcher.on('beforereload', handleCloseBooks);
     eventDispatcher.on('close-reader', handleCloseReaderToLibrary);
     eventDispatcher.on('quit-app', handleCloseBooks);
     return () => {
-      window.removeEventListener('beforeunload', handleCloseBooks);
+      window.removeEventListener('beforeunload', beforeUnload);
       eventDispatcher.off('beforereload', handleCloseBooks);
       eventDispatcher.off('close-reader', handleCloseReaderToLibrary);
       eventDispatcher.off('quit-app', handleCloseBooks);
@@ -145,6 +153,8 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
   };
 
   const saveConfigAndCloseBook = async (bookKey: string, keepTTSAlive = false) => {
+    await prepareReaderClose([bookKey]);
+    await saveBookConfig(bookKey);
     console.log('Closing book', bookKey);
 
     try {
@@ -160,7 +170,6 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
     eventDispatcher.dispatch(keepTTSAlive ? 'tts-close-book' : 'tts-stop', {
       bookKey,
     });
-    await saveBookConfig(bookKey);
     clearViewState(bookKey);
   };
 
@@ -177,21 +186,34 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
     return handleCloseBooks(true);
   };
 
+  const prepareReaderClose = async (keys: string[]) => {
+    try {
+      await readerCloseGuard.prepare(keys);
+    } catch (error) {
+      void eventDispatcher.dispatch('toast', {
+        message: _('Translation not saved. Keep this book open and retry saving.'),
+        type: 'error',
+      });
+      throw error;
+    }
+  };
+
   // Also wired directly to beforeunload/quit-app/window-close, which pass an
   // event object: only a literal `true` keeps TTS alive.
-  const handleCloseBooks = throttle(async (keepTTSAlive?: unknown) => {
+  const handleCloseBooks = async (keepTTSAlive?: unknown) => {
+    await prepareReaderClose(bookKeys);
     const settings = useSettingsStore.getState().settings;
     await Promise.all(
       bookKeys.map(async (key) => await saveConfigAndCloseBook(key, keepTTSAlive === true)),
     );
     await saveSettings(envConfig, settings);
-  }, 200);
+  };
 
   const handleCloseBooksToLibrary = async () => {
     // SPA navigation in the main window (or on web) keeps the webview alive:
     // TTS may continue headless. Non-main Tauri windows close their webview
     // below, but their per-window TTS dies with the window either way.
-    handleCloseBooks(true);
+    await handleCloseBooks(true);
     if (isTauriAppPlatform()) {
       const currentWindow = getCurrentWindow();
       if (currentWindow.label === 'main') {
@@ -211,7 +233,7 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
     // Header X / pane close: an SPA-side close on web and the main window.
     // The Tauri reader-window branches below destroy their webview, which
     // takes the per-window TTS with it either way.
-    saveConfigAndCloseBook(bookKey, true);
+    await saveConfigAndCloseBook(bookKey, true);
     if (sideBarBookKey === bookKey) {
       setSideBarBookKey(getNextBookKey(sideBarBookKey));
     }

@@ -49,7 +49,7 @@ const createStorage = (failAfterWrite?: number): TestStorage => {
     createDir: async () => undefined,
     readFile: async (path, _base, mode) => {
       const value = files.get(path);
-      if (value === undefined) throw new Error(`missing: ${path}`);
+      if (value === undefined) throw new Error(`File not found: ${path}`);
       if (mode === 'text' && typeof value !== 'string') throw new Error('expected text');
       if (mode === 'binary' && typeof value === 'string') throw new Error('expected binary');
       return value;

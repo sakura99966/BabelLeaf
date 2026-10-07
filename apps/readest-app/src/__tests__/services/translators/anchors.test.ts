@@ -7,6 +7,23 @@ import {
 } from '@/services/translators';
 
 describe('translation source anchors', () => {
+  test.each([
+    ['prefix', 97],
+    ['suffix', 97],
+    ['textHash', 65],
+    ['sourceLocator', 1_048_577],
+  ] as const)('rejects oversized nested %s metadata', (field, size) => {
+    const anchor = createTranslationSourceAnchor({
+      sectionIndex: 0,
+      blockIndex: 0,
+      chunkIndex: 0,
+      sourceText: 'hello',
+    });
+    expect(() => parseTranslationSourceAnchor({ ...anchor, [field]: 'x'.repeat(size) })).toThrow(
+      /limit/,
+    );
+  });
+
   test('resolves independently of whitespace and layout changes', () => {
     const anchor = createTranslationSourceAnchor({
       sectionIndex: 3,

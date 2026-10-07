@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-get-webview-environment"
+description = "Enables the get_webview_environment command without any pre-configured scope."
+commands.allow = ["get_webview_environment"]
+
+[[permission]]
+identifier = "deny-get-webview-environment"
+description = "Denies the get_webview_environment command without any pre-configured scope."
+commands.deny = ["get_webview_environment"]

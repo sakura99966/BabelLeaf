@@ -22,6 +22,10 @@ import {
 import { normalizeTranslationProviderError } from '@/services/translators/providers/llm';
 
 describe('LLM translation providers', () => {
+  it('preserves HTTP retry metadata through safe error normalization', () => {
+    const error = normalizeTranslationProviderError({ status: 429, retryAfter: '30' });
+    expect(error).toMatchObject({ status: 429, retryAfter: '30' });
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     getSettings.mockReturnValue({
@@ -34,7 +38,9 @@ describe('LLM translation providers', () => {
     });
     getAIProvider.mockReturnValue({ getModel: () => ({ id: 'model' }) });
     getTranslationApiKey.mockReturnValue('secret');
-    generateText.mockResolvedValueOnce({ text: '你好' }).mockResolvedValueOnce({ text: '世界' });
+    generateText
+      .mockResolvedValueOnce({ text: '你好', finishReason: 'stop' })
+      .mockResolvedValueOnce({ text: '世界', finishReason: 'stop' });
   });
 
   it('exposes named cloud adapters and local Ollama', () => {
@@ -44,6 +50,27 @@ describe('LLM translation providers', () => {
       'anthropic',
       'ollama',
     ]);
+  });
+
+  it('uses non-secret model and prompt identities for cache isolation without credential access', () => {
+    const cloud = getTranslator('deepseek')!.cacheContext!();
+    expect(cloud).toContain('deepseek-v4-flash');
+    expect(cloud).toContain('translation-v1');
+    expect(cloud).not.toContain('secret');
+    expect(getTranslationApiKey).not.toHaveBeenCalled();
+    const local = getTranslator('ollama')!.cacheContext!();
+    getSettings.mockReturnValue({
+      aiSettings: { ollamaModel: 'different-local-model', ollamaBaseUrl: 'http://127.0.0.1:11434' },
+    });
+    expect(getTranslator('ollama')!.cacheContext!()).not.toBe(local);
+    expect(getTranslationApiKey).not.toHaveBeenCalled();
+  });
+
+  it('rejects truncated SDK output instead of caching a partial translation', async () => {
+    generateText.mockReset().mockResolvedValue({ text: 'partial', finishReason: 'length' });
+    await expect(getTranslator('deepseek')!.translate(['Hello'], 'EN', 'ZH')).rejects.toThrow(
+      'incomplete',
+    );
   });
 
   it('translates with the selected DeepSeek V4 model while preserving blank inputs', async () => {

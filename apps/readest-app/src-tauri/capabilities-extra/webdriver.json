@@ -27,6 +27,8 @@
     "os:default",
     "dialog:default",
     "core:window:default",
+    "core:webview:allow-create-webview-window",
+    "core:window:allow-destroy",
     "core:path:allow-resolve-directory",
     "log:default",
     "process:default",

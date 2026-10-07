@@ -209,6 +209,16 @@ describe('translation cache', () => {
       expect(resultA).toBeNull();
     });
 
+    test('provider filter also clears model-context entries without touching other providers', async () => {
+      await storeInCache('a', 'one', 'en', 'zh', 'ollama', 'model-a');
+      await storeInCache('a', 'two', 'en', 'zh', 'ollama', 'model-b');
+      await storeInCache('a', 'keep', 'en', 'zh', 'deepseek', 'model-a');
+      expect(await clearCache({ provider: 'ollama' })).toBe(2);
+      expect(await getFromCache('a', 'en', 'zh', 'ollama', 'model-a')).toBeNull();
+      expect(await getFromCache('a', 'en', 'zh', 'ollama', 'model-b')).toBeNull();
+      expect(await getFromCache('a', 'en', 'zh', 'deepseek', 'model-a')).toBe('keep');
+    });
+
     test('maxAge filter clears only old entries', async () => {
       // Seed two entries
       await storeInCache('old', 'alt', 'en', 'de', 'ollama');

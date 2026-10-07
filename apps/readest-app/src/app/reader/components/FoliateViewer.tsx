@@ -1,4 +1,5 @@
 import clsx from 'clsx';
+import { sanitizeSvgDocument } from '@/services/transformers/sanitizer';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { convertBlobUrlToDataUrl, BookDoc, getDirection } from '@/libs/document';
@@ -59,7 +60,6 @@ import {
 } from '../utils/iframeEventHandlers';
 import { getMaxInlineSize } from '@/utils/config';
 import { getDirFromUILanguage } from '@/utils/rtl';
-import { isTauriAppPlatform } from '@/services/environment';
 import { TransformContext } from '@/services/transformers/types';
 import { transformContent } from '@/services/transformService';
 import { lockScreenOrientation, setTextSelectionSuppressed } from '@/utils/bridge';
@@ -160,7 +160,12 @@ const FoliateViewer: React.FC<{
   useUICSS(bookKey);
   useProgressAutoSave(bookKey);
   useBookCoverAutoSave(bookKey);
-  useTextTranslation(bookKey, viewRef.current);
+  const {
+    hasUnsavedTranslations,
+    retryTranslationSave,
+    translationLoadError,
+    retryTranslationLoad,
+  } = useTextTranslation(bookKey, viewRef.current);
 
   // Coalesce setProgress writes within a single animation frame.
   //
@@ -257,6 +262,7 @@ const FoliateViewer: React.FC<{
         .then((data) => {
           const viewSettings = getViewSettings(bookKey);
           const bookData = getBookData(bookKey);
+          if (detail.type === 'image/svg+xml') return sanitizeSvgDocument(data);
           if (viewSettings && detail.type === 'text/css')
             return transformStylesheet(data, width, height, viewSettings.vertical);
           const isHtml = detail.type === 'application/xhtml+xml' || detail.type === 'text/html';
@@ -370,11 +376,6 @@ const FoliateViewer: React.FC<{
         skipToNextSectionLabel: _('End of this section. Continue to the next.'),
       });
 
-      // Inline scripts in tauri platforms are not executed by default
-      if (viewSettings.allowScript && isTauriAppPlatform()) {
-        evalInlineScripts(detail.doc);
-      }
-
       // only call on load if we have highlighting turned on.
       if (viewSettings.codeHighlighting) {
         manageSyntaxHighlighting(detail.doc, viewSettings);
@@ -430,22 +431,6 @@ const FoliateViewer: React.FC<{
         registerBrightnessListeners(detail.doc);
         registerSpeedListeners(detail.doc);
       }
-    }
-  };
-
-  const evalInlineScripts = (doc: Document) => {
-    if (doc.defaultView && doc.defaultView.frameElement) {
-      const iframe = doc.defaultView.frameElement as HTMLIFrameElement;
-      const scripts = doc.querySelectorAll('script:not([src])');
-      scripts.forEach((script, index) => {
-        const scriptContent = script.textContent || script.innerHTML;
-        try {
-          console.warn('Evaluating inline scripts in iframe');
-          iframe.contentWindow?.eval(scriptContent);
-        } catch (error) {
-          console.error(`Error executing iframe script ${index + 1}:`, error);
-        }
-      });
     }
   };
 
@@ -664,7 +649,7 @@ const FoliateViewer: React.FC<{
           allow?: boolean;
         }>;
         if (detail.isScript) {
-          detail.allow = viewSettings.allowScript ?? false;
+          detail.allow = false;
         }
         if (isFontType(detail.type) && detail.href?.startsWith('fonts/')) {
           const fontFileName = detail.href.split('/').pop()?.toLowerCase();
@@ -952,6 +937,35 @@ const FoliateViewer: React.FC<{
 
   return (
     <>
+      {(translationLoadError || hasUnsavedTranslations) && (
+        <div
+          role='alert'
+          className='absolute left-2 right-2 top-2 z-50 border border-base-content bg-base-100 p-3 text-base-content'
+        >
+          {translationLoadError && (
+            <>
+              <p>{translationLoadError}</p>
+              <button
+                className='btn btn-outline btn-sm'
+                onClick={() => void retryTranslationLoad()}
+              >
+                {_('Retry')}
+              </button>
+            </>
+          )}
+          {hasUnsavedTranslations && (
+            <>
+              <p>{_('Translation not saved. Keep this book open and retry saving.')}</p>
+              <button
+                className='btn btn-outline btn-sm'
+                onClick={() => void retryTranslationSave()}
+              >
+                {_('Save')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {selectedImage && (
         <ImageViewer
           gridInsets={gridInsets}

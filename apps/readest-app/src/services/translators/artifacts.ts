@@ -1,5 +1,5 @@
 import type { AppService, BaseDir, FileSystem } from '@/types/system';
-import { safeLoadJSON, safeSaveJSON } from '@/services/persistence';
+import { safeLoadJSON, safeSaveJSON, withJSONLock } from '@/services/persistence';
 import { parseTranslationSourceAnchor, type TranslationSourceAnchor } from './anchors';
 
 export const TRANSLATION_ARTIFACT_SCHEMA_VERSION = 1 as const;
@@ -7,6 +7,9 @@ export const TRANSLATION_ARTIFACT_DIR = 'translation-artifacts';
 export const TRANSLATION_PROMPT_VERSION = 'translation-v1';
 export const TRANSLATION_ARTIFACT_BASE: BaseDir = 'Data';
 const LEGACY_TRANSLATION_ARTIFACT_BASE: BaseDir = 'Cache';
+export const MAX_TRANSLATION_SEGMENTS = 100_000;
+export const MAX_TRANSLATION_FIELD_CHARS = 1_048_576;
+export const MAX_TRANSLATION_TOTAL_CHARS = 32 * 1_048_576;
 
 export type TranslationSegmentStatus = 'pending' | 'translated' | 'reviewed' | 'failed';
 
@@ -65,6 +68,8 @@ const SEGMENT_STATUSES = new Set<TranslationSegmentStatus>([
 ]);
 
 const requiredString = (value: unknown, field: string): string => {
+  if (typeof value === 'string' && value.length > MAX_TRANSLATION_FIELD_CHARS)
+    throw new Error(`Translation artifact field exceeds resource limit: ${field}`);
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`Invalid translation artifact field: ${field}`);
   }
@@ -107,6 +112,8 @@ const parseSegment = (value: unknown): TranslationSegment => {
     if (fieldValue !== undefined) {
       if (typeof fieldValue !== 'string')
         throw new Error(`Invalid translation artifact field: ${field}`);
+      if (fieldValue.length > MAX_TRANSLATION_FIELD_CHARS)
+        throw new Error(`Translation artifact field exceeds resource limit: ${field}`);
       segment[field] = fieldValue;
     }
   }
@@ -157,6 +164,22 @@ export const parseTranslationArtifact = (value: unknown): TranslationArtifact =>
     throw new Error('Invalid translation artifact timestamp');
   }
   if (!Array.isArray(value['segments'])) throw new Error('Invalid translation artifact segments');
+  if (value['segments'].length > MAX_TRANSLATION_SEGMENTS)
+    throw new Error('Translation artifact segment count exceeds resource limit');
+  const ids = new Set<string>();
+  const segments: TranslationSegment[] = [];
+  let totalChars = 0;
+  for (const raw of value['segments']) {
+    const segment = parseSegment(raw);
+    if (ids.has(segment.id)) throw new Error(`Duplicate translation segment: ${segment.id}`);
+    ids.add(segment.id);
+    for (const field of [...Object.values(segment), ...Object.values(segment.sourceAnchor ?? {})]) {
+      if (typeof field === 'string') totalChars += field.length;
+    }
+    if (totalChars > MAX_TRANSLATION_TOTAL_CHARS)
+      throw new Error('Translation artifact text exceeds resource limit');
+    segments.push(segment);
+  }
 
   return {
     schemaVersion: TRANSLATION_ARTIFACT_SCHEMA_VERSION,
@@ -182,7 +205,7 @@ export const parseTranslationArtifact = (value: unknown): TranslationArtifact =>
                 })(),
         }),
     updatedAt,
-    segments: value['segments'].map(parseSegment),
+    segments,
   };
 };
 
@@ -210,13 +233,16 @@ export const upsertTranslationSegments = (
       ...(existing ?? {}),
       ...next,
       sourceText: existing?.sourceText ?? next.sourceText,
-      updatedAt: now,
+      updatedAt: Math.max(now, (existing?.updatedAt ?? -1) + 1),
     });
   }
 
   return {
     ...artifact,
-    updatedAt: now,
+    updatedAt: Array.from(byId.values()).reduce(
+      (latest, segment) => Math.max(latest, segment.updatedAt),
+      Math.max(now, artifact.updatedAt),
+    ),
     segments: Array.from(byId.values()),
   };
 };
@@ -281,6 +307,41 @@ const safePathPart = (value: string): string => {
 export const getTranslationArtifactPath = (key: TranslationArtifactKey): string =>
   `${TRANSLATION_ARTIFACT_DIR}/${safePathPart(key.bookHash)}.${safePathPart(key.provider)}.${safePathPart(key.targetLang)}.json`;
 
+const mergeArtifacts = (
+  previous: TranslationArtifact | null,
+  incoming: TranslationArtifact,
+): TranslationArtifact => {
+  if (!previous) return incoming;
+  if (
+    previous.bookHash !== incoming.bookHash ||
+    previous.provider !== incoming.provider ||
+    previous.targetLang !== incoming.targetLang
+  )
+    throw new Error('Translation artifact identity conflict');
+  if (previous.model !== incoming.model || previous.promptVersion !== incoming.promptVersion)
+    throw new Error('Translation context conflict; reload the committed artifact before retrying');
+  const segments = new Map(previous.segments.map((segment) => [segment.id, segment]));
+  for (const next of incoming.segments) {
+    const existing = segments.get(next.id);
+    if (existing && existing.sourceText !== next.sourceText)
+      throw new Error('Translation segment source changed');
+    if (
+      existing &&
+      next.updatedAt === existing.updatedAt &&
+      (existing.translatedText !== next.translatedText ||
+        existing.status !== next.status ||
+        existing.machineTranslatedText !== next.machineTranslatedText)
+    )
+      throw new Error('Translation edit conflict; reload the committed result before retrying');
+    if (!existing || next.updatedAt >= existing.updatedAt) segments.set(next.id, next);
+  }
+  return parseTranslationArtifact({
+    ...incoming,
+    updatedAt: Math.max(previous.updatedAt, incoming.updatedAt),
+    segments: [...segments.values()],
+  });
+};
+
 /** Persistent local-only store. Artifacts live in durable application data. */
 export class TranslationArtifactStore {
   constructor(private readonly fs: TranslationArtifactStorage) {}
@@ -290,8 +351,60 @@ export class TranslationArtifactStore {
     base: BaseDir,
   ): Promise<TranslationArtifact | null> {
     const filename = getTranslationArtifactPath({ ...key });
-    const raw = await safeLoadJSON<unknown>(this.fs, filename, base, null);
-    return raw === null ? null : parseTranslationArtifact(raw);
+    return withJSONLock(this.fs, `${filename}.transaction`, base, async () => {
+      const current = await this.readCopies(key, filename, base);
+      if (current.pending && current.artifact) {
+        await safeSaveJSON(this.fs, filename, base, current.artifact);
+        await this.clearPending(filename, base);
+      }
+      return current.artifact;
+    });
+  }
+
+  private async readCopies(key: TranslationArtifactKey, filename: string, base: BaseDir) {
+    const main = await safeLoadJSON<TranslationArtifact | null>(
+      this.fs,
+      filename,
+      base,
+      null,
+      parseTranslationArtifact,
+    );
+    const pending = await safeLoadJSON<TranslationArtifact | null>(
+      this.fs,
+      `${filename}.pending`,
+      base,
+      null,
+      (value) => (value === null ? null : parseTranslationArtifact(value)),
+    );
+    for (const artifact of [main, pending]) {
+      if (
+        artifact &&
+        (artifact.bookHash !== key.bookHash ||
+          artifact.provider !== key.provider ||
+          artifact.targetLang !== key.targetLang)
+      )
+        throw new Error('Translation artifact identity does not match the requested book');
+    }
+    return { artifact: pending ? mergeArtifacts(main, pending) : main, pending: pending !== null };
+  }
+
+  private async removeCopy(filename: string, base: BaseDir) {
+    if (!(await this.fs.exists(filename, base))) return;
+    if (this.fs.removeFile) await this.fs.removeFile(filename, base);
+    else if (this.fs.deleteFile) await this.fs.deleteFile(filename, base);
+    else throw new Error('Translation storage does not support removal');
+  }
+
+  private async clearPending(filename: string, base: BaseDir) {
+    if (!this.fs.removeFile && !this.fs.deleteFile) {
+      // Minimal adapters can acknowledge the journal with a validated tombstone.
+      await safeSaveJSON(this.fs, `${filename}.pending`, base, null);
+      return;
+    }
+    // Delete backup first: interruption must not reveal an obsolete backup after
+    // deleting the newest journal. A surviving newest journal is idempotent.
+    await this.removeCopy(`${filename}.pending.bak`, base);
+    await this.removeCopy(`${filename}.pending`, base);
   }
 
   async load(key: TranslationArtifactKey): Promise<TranslationArtifact | null> {
@@ -308,25 +421,32 @@ export class TranslationArtifactStore {
   }
 
   async save(artifact: TranslationArtifact): Promise<void> {
+    const incoming = parseTranslationArtifact(artifact);
     await this.fs.createDir(TRANSLATION_ARTIFACT_DIR, TRANSLATION_ARTIFACT_BASE, true);
-    await safeSaveJSON(
-      this.fs,
-      getTranslationArtifactPath(artifact),
-      TRANSLATION_ARTIFACT_BASE,
-      artifact,
-    );
+    const filename = getTranslationArtifactPath(incoming);
+    const base = TRANSLATION_ARTIFACT_BASE;
+    await withJSONLock(this.fs, `${filename}.transaction`, base, async () => {
+      const current = await this.readCopies(incoming, filename, base);
+      const merged = mergeArtifacts(current.artifact, incoming);
+      // Durable write-ahead result, kept on primary/backup replacement failure.
+      // Subsequent failed saves merge here so concurrent completed results survive.
+      await safeSaveJSON(this.fs, `${filename}.pending`, base, merged);
+      await safeSaveJSON(this.fs, filename, base, merged);
+      await this.clearPending(filename, base);
+    });
   }
 
   private async removeFromBase(key: TranslationArtifactKey, base: BaseDir): Promise<void> {
     const filename = getTranslationArtifactPath({ ...key });
-    for (const candidate of [filename, `${filename}.bak`]) {
-      if (!(await this.fs.exists(candidate, base))) continue;
-      if (this.fs.removeFile) {
-        await this.fs.removeFile(candidate, base);
-      } else if (this.fs.deleteFile) {
-        await this.fs.deleteFile(candidate, base);
-      }
-    }
+    await withJSONLock(this.fs, `${filename}.transaction`, base, async () => {
+      for (const candidate of [
+        `${filename}.pending.bak`,
+        `${filename}.pending`,
+        `${filename}.bak`,
+        filename,
+      ])
+        await this.removeCopy(candidate, base);
+    });
   }
 
   async remove(key: TranslationArtifactKey): Promise<void> {

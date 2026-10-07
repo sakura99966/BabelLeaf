@@ -229,5 +229,6 @@
   "Loading local LaMa model...": "Loading local LaMa model...",
   "Preview local LaMa cleanup": "Preview local LaMa cleanup",
   "Clear cleanup preview": "Clear cleanup preview",
-  "Local LaMa cleanup preview rendered without changing the source.": "Local LaMa cleanup preview rendered without changing the source."
+  "Local LaMa cleanup preview rendered without changing the source.": "Local LaMa cleanup preview rendered without changing the source.",
+  "Translation not saved. Keep this book open and retry saving.": "Translation not saved. Keep this book open and retry saving."
 }

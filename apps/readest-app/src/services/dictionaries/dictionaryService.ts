@@ -11,7 +11,6 @@
  */
 import type { FileSystem } from '@/types/system';
 import type { SelectedFile } from '@/hooks/useFileSelector';
-import { uniqueId } from '@/utils/misc';
 import { getFilename } from '@/utils/path';
 import type { ImportedDictionary } from './types';
 import { scanEntryOffsets, serializeOffsetsSidecar } from './stardictReader';
@@ -239,7 +238,9 @@ async function writeBundleFile(
 
 /** Build a fresh bundle directory `'Dictionaries'/<id>/`. */
 async function createBundleDir(fs: FileSystem): Promise<string> {
-  const id = uniqueId();
+  const id = crypto.randomUUID();
+  if (await fs.exists(id, 'Dictionaries'))
+    throw new Error('Dictionary staging directory already exists');
   await fs.createDir(id, 'Dictionaries', true);
   return id;
 }
@@ -247,8 +248,8 @@ async function createBundleDir(fs: FileSystem): Promise<string> {
 async function importStarDictBundle(
   fs: FileSystem,
   group: StarDictGroup,
+  bundleDir: string,
 ): Promise<ImportedDictionary> {
-  const bundleDir = await createBundleDir(fs);
   const ifoFile = await readSource(fs, group.ifo.source);
   const idxFile = await readSource(fs, group.idx.source);
   const dictFile = await readSource(fs, group.dict.source);
@@ -384,8 +385,11 @@ async function readMdxHeader(file: File): Promise<{
   };
 }
 
-async function importMdictBundle(fs: FileSystem, group: MDictGroup): Promise<ImportedDictionary> {
-  const bundleDir = await createBundleDir(fs);
+async function importMdictBundle(
+  fs: FileSystem,
+  group: MDictGroup,
+  bundleDir: string,
+): Promise<ImportedDictionary> {
   const mdxFile = await readSource(fs, group.mdx.source);
   const mddFiles = await Promise.all(group.mdd.map((m) => readSource(fs, m.source)));
   const cssFiles = await Promise.all(group.css.map((c) => readSource(fs, c.source)));
@@ -458,8 +462,11 @@ async function importMdictBundle(fs: FileSystem, group: MDictGroup): Promise<Imp
   };
 }
 
-async function importDictBundle(fs: FileSystem, group: DictGroup): Promise<ImportedDictionary> {
-  const bundleDir = await createBundleDir(fs);
+async function importDictBundle(
+  fs: FileSystem,
+  group: DictGroup,
+  bundleDir: string,
+): Promise<ImportedDictionary> {
   const indexFile = await readSource(fs, group.index.source);
   const dictFile = await readSource(fs, group.dict.source);
   await writeBundleFile(fs, bundleDir, group.index.name, indexFile);
@@ -486,19 +493,11 @@ async function importDictBundle(fs: FileSystem, group: DictGroup): Promise<Impor
       };
       const off = decode(m[1]!);
       const size = decode(m[2]!);
-      // Read the dict body. If gzipped we need the whole thing — but for
-      // the friendly-name read, that's still cheap (the freedict bundles
-      // are <300 KB compressed).
-      const buf = await dictFile.arrayBuffer();
-      const u8 = new Uint8Array(buf);
-      let body: Uint8Array;
-      if (u8[0] === 0x1f && u8[1] === 0x8b) {
-        const { gunzipSync } = await import('fflate');
-        body = gunzipSync(u8);
-      } else {
-        body = u8;
-      }
-      name = new TextDecoder('utf-8').decode(body.subarray(off, off + size)).trim() || group.stem;
+      const { loadDictBody } = await import('./dictZip');
+      const body = await loadDictBody(dictFile, { maxOutputBytes: 1024 * 1024 });
+      name =
+        new TextDecoder('utf-8').decode(await body.read(off, Math.min(size, 4096))).trim() ||
+        group.stem;
     }
   } catch {
     // Best-effort label; the bundle is still importable.
@@ -522,8 +521,11 @@ async function importDictBundle(fs: FileSystem, group: DictGroup): Promise<Impor
   };
 }
 
-async function importSlobBundle(fs: FileSystem, group: SlobGroup): Promise<ImportedDictionary> {
-  const bundleDir = await createBundleDir(fs);
+async function importSlobBundle(
+  fs: FileSystem,
+  group: SlobGroup,
+  bundleDir: string,
+): Promise<ImportedDictionary> {
   const slobFile = await readSource(fs, group.slob.source);
   await writeBundleFile(fs, bundleDir, group.slob.name, slobFile);
 
@@ -569,8 +571,8 @@ export interface ImportDictionariesResult {
   imported: ImportedDictionary[];
   /**
    * Bundles whose name matched one or more existing dictionaries in the
-   * user's library. The duplicate's old bundle dir has been removed from
-   * disk; the caller still needs to update the store — drop `oldIds`,
+   * user's library. Old bundle files remain intact for metadata rollback;
+   * the caller still needs to update the store — drop `oldIds`,
    * insert `newDict` in the first old entry's `providerOrder` slot, and
    * inherit the first old entry's enabled flag.
    */
@@ -583,7 +585,7 @@ export interface ImportDictionariesResult {
  * Top-level import entry point. Groups the selected files into bundles and
  * imports each one. When a freshly-imported bundle's name matches an
  * existing (non-deleted) dictionary, the existing on-disk bundle dirs are
- * removed and the new dict is reported in `replacements` so the caller can
+ * retained and the new dict is reported in `replacements` so the caller can
  * swap the store entry in place (preserving the position in
  * `providerOrder` and the enabled flag).
  */
@@ -606,65 +608,75 @@ export async function importDictionaries(
   // intra-call duplicates.
   const seenContentIds = new Set<string>();
   const seenLegacyNames = new Set<string>();
-
-  for (const bundle of bundles) {
-    let dict: ImportedDictionary;
-    if (bundle.kind === 'stardict') {
-      dict = await importStarDictBundle(fs, bundle);
-    } else if (bundle.kind === 'mdict') {
-      dict = await importMdictBundle(fs, bundle);
-    } else if (bundle.kind === 'dict') {
-      dict = await importDictBundle(fs, bundle);
-    } else {
-      dict = await importSlobBundle(fs, bundle);
-    }
-
-    const intraCallKey = dict.contentId ?? `__name:${dict.name}`;
-    const isIntraCallDup = dict.contentId
-      ? seenContentIds.has(dict.contentId)
-      : seenLegacyNames.has(dict.name);
-    if (isIntraCallDup) {
-      try {
-        await fs.removeDir(dict.bundleDir, 'Dictionaries', true);
-      } catch (err) {
-        console.warn('Failed to clean up duplicate bundle dir', dict.bundleDir, err);
+  const stagedDirectories = new Set<string>();
+  try {
+    for (const bundle of bundles) {
+      const bundleDir = await createBundleDir(fs);
+      stagedDirectories.add(bundleDir);
+      let dict: ImportedDictionary;
+      if (bundle.kind === 'stardict') {
+        dict = await importStarDictBundle(fs, bundle, bundleDir);
+      } else if (bundle.kind === 'mdict') {
+        dict = await importMdictBundle(fs, bundle, bundleDir);
+      } else if (bundle.kind === 'dict') {
+        dict = await importDictBundle(fs, bundle, bundleDir);
+      } else {
+        dict = await importSlobBundle(fs, bundle, bundleDir);
       }
-      continue;
-    }
-    if (dict.contentId) seenContentIds.add(dict.contentId);
-    else seenLegacyNames.add(dict.name);
-    void intraCallKey;
 
-    const olds = findExistingDictionaryMatches(dict, existing);
-    if (olds.length > 0) {
-      for (const old of olds) {
+      const intraCallKey = dict.contentId ?? `__name:${dict.name}`;
+      const isIntraCallDup = dict.contentId
+        ? seenContentIds.has(dict.contentId)
+        : seenLegacyNames.has(dict.name);
+      if (isIntraCallDup) {
         try {
-          await fs.removeDir(old.bundleDir, 'Dictionaries', true);
+          await fs.removeDir(dict.bundleDir, 'Dictionaries', true);
+          stagedDirectories.delete(dict.bundleDir);
         } catch (err) {
-          console.warn('Failed to remove replaced bundle dir', old.bundleDir, err);
+          console.warn('Failed to clean up duplicate bundle dir', dict.bundleDir, err);
         }
+        continue;
       }
-      // Drop matched entries from `existing` so subsequent bundles in this
-      // call don't double-replace them.
-      const oldIdSet = new Set(olds.map((o) => o.id));
-      for (let i = existing.length - 1; i >= 0; i--) {
-        if (oldIdSet.has(existing[i]!.id)) existing.splice(i, 1);
+      if (dict.contentId) seenContentIds.add(dict.contentId);
+      else seenLegacyNames.add(dict.name);
+      void intraCallKey;
+
+      const olds = findExistingDictionaryMatches(dict, existing);
+      if (olds.length > 0) {
+        // Metadata is committed by the caller after this function returns.
+        // Its previous-committed backup may still refer to the old bundle.
+        // Never delete those recovery files during preparation.
+        // Drop matched entries from `existing` so subsequent bundles in this
+        // call don't double-replace them.
+        const oldIdSet = new Set(olds.map((o) => o.id));
+        for (let i = existing.length - 1; i >= 0; i--) {
+          if (oldIdSet.has(existing[i]!.id)) existing.splice(i, 1);
+        }
+        // Preserve durable live-entry state across re-import while keeping
+        // parsed/file-backed fields from the fresh bundle.
+        const newDict = preserveLiveDictionaryState(dict, olds);
+        replacements.push({ oldIds: olds.map((o) => o.id), newDict });
+        continue;
       }
-      // Preserve durable live-entry state across re-import while keeping
-      // parsed/file-backed fields from the fresh bundle.
-      const newDict = preserveLiveDictionaryState(dict, olds);
-      replacements.push({ oldIds: olds.map((o) => o.id), newDict });
-      continue;
+
+      imported.push(dict);
     }
 
-    imported.push(dict);
+    return {
+      imported,
+      replacements,
+      orphanFiles: orphans.map((o) => o.name),
+    };
+  } catch (error) {
+    for (const directory of stagedDirectories) {
+      try {
+        await fs.removeDir(directory, 'Dictionaries', true);
+      } catch (cleanupError) {
+        console.warn('Failed to clean dictionary import staging:', directory, cleanupError);
+      }
+    }
+    throw error;
   }
-
-  return {
-    imported,
-    replacements,
-    orphanFiles: orphans.map((o) => o.name),
-  };
 }
 
 /** Remove a dictionary's bundle directory. The metadata is dropped by the caller. */

@@ -29,6 +29,24 @@ mod macos;
 mod mobi_parser;
 mod parser_common;
 mod range_file;
+#[cfg(target_os = "windows")]
+const WINDOWS_BROWSER_ARGS: &str = "--disable-background-networking --disable-component-update --disable-domain-reliability --num-raster-threads=1 --js-flags=--optimize-for-size --disable-features=msWebOOUI,msPdfOOUI";
+
+#[derive(Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WebviewEnvironment {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    additional_browser_args: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data_directory: Option<PathBuf>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    scroll_bar_style: Option<String>,
+}
+
+#[command]
+fn get_webview_environment(state: tauri::State<'_, WebviewEnvironment>) -> WebviewEnvironment {
+    state.inner().clone()
+}
 #[cfg(all(desktop, not(feature = "webdriver")))]
 mod window_state;
 #[cfg(target_os = "android")]
@@ -289,7 +307,27 @@ pub fn run() {
     #[cfg(not(desktop))]
     let portable_runtime_directory: Option<PathBuf> = None;
     let is_portable_runtime = portable_runtime_directory.is_some();
-    let builder = tauri::Builder::default();
+    #[cfg(target_os = "windows")]
+    let environment = WebviewEnvironment {
+        additional_browser_args: Some(WINDOWS_BROWSER_ARGS.into()),
+        data_directory: portable_runtime_directory
+            .as_ref()
+            .map(|directory| directory.join("EBWebView"))
+            .or({
+                #[cfg(feature = "webdriver")]
+                {
+                    std::env::var_os("BABELLEAF_WEBDRIVER_WEBVIEW_DATA_DIR").map(PathBuf::from)
+                }
+                #[cfg(not(feature = "webdriver"))]
+                {
+                    None
+                }
+            }),
+        scroll_bar_style: Some("default".into()),
+    };
+    #[cfg(not(target_os = "windows"))]
+    let environment = WebviewEnvironment::default();
+    let builder = tauri::Builder::default().manage(environment);
 
     // The WebDriver build runs inside an isolated test profile. The log plugin
     // resolves its default target through the OS profile APIs, which are not
@@ -325,6 +363,7 @@ pub fn run() {
     let builder = builder
         .invoke_handler(tauri::generate_handler![
             get_executable_dir,
+            get_webview_environment,
             allow_paths_in_scopes,
             #[cfg(target_os = "windows")]
             windows::set_webview_memory_usage,
@@ -436,6 +475,18 @@ pub fn run() {
             {
                 use tauri::Manager;
                 app.add_capability(include_str!("../capabilities-extra/webdriver.json"))?;
+                // Only test builds accept this harness-provided, isolated root.
+                // Do not widen shipped filesystem scopes to make tests pass.
+                if let Ok(root) = std::env::var("BABELLEAF_NATIVE_TEST_ROOT") {
+                    let root = PathBuf::from(root);
+                    if !root.is_absolute()
+                        || root.file_name().and_then(|name| name.to_str())
+                            != Some(".readest-test-sandbox-tauri")
+                    {
+                        return Err("Invalid native test root".into());
+                    }
+                    allow_dir_in_scopes(app.handle(), &root);
+                }
                 start_webdriver_exit_watcher(app.handle().clone())?;
                 publish_webdriver_stage("capability-added")?;
             }
@@ -646,13 +697,7 @@ pub fn run() {
             // the page-curl renderer requires. Reader, translation and comic
             // workload gates cover the resulting execution path before release.
             #[cfg(target_os = "windows")]
-            let win_builder = win_builder.additional_browser_args(
-                "--disable-background-networking --disable-component-update \
-                 --disable-domain-reliability \
-                 --num-raster-threads=1 \
-                 --js-flags=--optimize-for-size \
-                 --disable-features=msWebOOUI,msPdfOOUI",
-            );
+            let win_builder = win_builder.additional_browser_args(WINDOWS_BROWSER_ARGS);
 
             #[cfg(target_os = "macos")]
             let win_builder = win_builder.inner_size(1280.0, 800.0).resizable(true);
