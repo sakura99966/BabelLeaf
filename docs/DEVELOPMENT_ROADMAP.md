@@ -3,9 +3,9 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `0.4.5` PC audit-remediation candidate. It retains the 0.4 feature boundary and adds security, recovery, lifecycle and resource corrections identified after the historical `v0.4.4` release. No platform-port feature or model weight is added.
-- Acceptance status: **0.4.5 INTERNAL VERIFICATION IN PROGRESS**. Do not reuse the historical 0.4.4 release verdict or package hashes for changed code. Follow `docs/AUDIT_REMEDIATION_0.4.4_2026-09-19.md` until the new frozen-source test, CI, package, SBOM and performance record closes. External provider, corpus-quality, independent minimum-host, voice, signing and legal gates remain **DEFERRED**, not PASS, by owner instruction. No 0.5 implementation is authorized by this deferral. Historical 0.4.4 traceability remains in `docs/PC_0.4.4_RELEASE_ACCEPTANCE_2026-08-23.md` and its immutable tag/release.
-- Roadmap revision: 14
+- Current implementation baseline: `0.4.5` PC audit remediation. It retains the 0.4 feature boundary and closes internal security, recovery, lifecycle and resource findings after the historical `v0.4.4` release. No platform-port feature or model weight is added.
+- Acceptance status: **0.4.5 INTERNAL IMPLEMENTATION PASS / EXTERNAL VALIDATION DEFERRED**. Current frozen-source tests, CI, package, SBOM and performance are recorded in `docs/PC_0.4.5_INTERNAL_ACCEPTANCE_2026-10-11.md`; final main/package identity is bound by PR 7 and post-commit release evidence. Do not reuse historical package hashes for changed code. External provider, corpus-quality, independent minimum-host, voice, signing and legal gates remain **DEFERRED**, not PASS, by owner instruction. No 0.5 implementation is authorized by this deferral. Historical 0.4.4 traceability remains in `docs/PC_0.4.4_RELEASE_ACCEPTANCE_2026-08-23.md` and its immutable tag/release.
+- Roadmap revision: 15
 - Approved scope date: 2026-08-23
 - Last closure update: 2026-08-23
 - Last remediation update: 2026-10-11
@@ -427,7 +427,9 @@ or claiming complete externally verified acceptance.
 - Carry every owner-deferred external gate forward explicitly. A new patch
   number, successful build or local automated verdict cannot close those gates.
 
-Current status: **IN PROGRESS**. See `RELEASE_0.4.5.md` and the remediation ledger.
+Current status: **INTERNAL IMPLEMENTATION PASS / EXTERNAL VALIDATION DEFERRED**.
+See `PC_0.4.5_INTERNAL_ACCEPTANCE_2026-10-11.md`, `RELEASE_0.4.5.md` and the
+post-commit provenance record. No 0.5 implementation has started.
 
 ## 0.5.0 - macOS and portable-core qualification
 

@@ -1,6 +1,10 @@
 # BabelLeaf 0.4.5 maintenance candidate
 
-Status: INTERNAL VERIFICATION IN PROGRESS; NOT A PUBLISHED RELEASE.
+Status: INTERNAL IMPLEMENTATION PASS; EXTERNAL VALIDATION DEFERRED.
+
+Unsigned maintenance qualification, not signed production acceptance. Published
+artifact availability and canonical source are established by the release page
+and post-commit `BabelLeaf_0.4.5_RELEASE_EVIDENCE.json`, not by this source note.
 
 This candidate retains the approved 0.4 PC feature scope. It closes the
 independent audit findings with reader-content isolation, scoped directory
@@ -20,9 +24,10 @@ remains local-first, without scraping, sync, telemetry, cloud speech, implicit
 model downloads, bundled model weights or automatic translation requests.
 
 The historical `v0.4.4` tag and assets stay immutable. Fresh Windows package
-hashes, exact-source checks, SBOM, isolated installer lifecycle, performance,
-remote CI and main merge must be recorded before declaring internal closure.
-Current evidence is in `AUDIT_REMEDIATION_0.4.4_2026-09-19.md`.
+hashes, exact-source checks, SBOM, isolated installer lifecycle, performance and
+remote CI are qualified in `PC_0.4.5_INTERNAL_ACCEPTANCE_2026-10-11.md`.
+Main merge and fresh canonical-main package identity must be bound by the
+post-commit provenance record; earlier candidate hashes must not be relabelled.
 
 Paid-provider validation, representative lawful corpus and human OCR/inpainting
 quality review, independent minimum-spec Windows testing, human voice review,

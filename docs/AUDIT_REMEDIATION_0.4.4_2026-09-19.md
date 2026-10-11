@@ -1,6 +1,11 @@
 # 0.4.4 audit remediation checkpoint — 2026-09-19
 
-Status: **IMPLEMENTATION AND VERIFICATION IN PROGRESS; NOT RELEASE ACCEPTANCE**.
+Status: **INTERNAL IMPLEMENTATION PASS / EXTERNAL VALIDATION DEFERRED**.
+
+Current qualification: `PC_0.4.5_INTERNAL_ACCEPTANCE_2026-10-11.md` supersedes
+the historical OPEN/TODO implementation states below. Keep these chronological
+checkpoints as evidence, not current blockers. Main/package closure uses PR 7
+and its post-commit release evidence; no formal external acceptance is claimed.
 
 Scope: `INDEPENDENT_AUDIT_0.4.4_2026-09-08.md`, AUD-01 through AUD-08. No 0.5 feature work, no release tag, no replacement of historical acceptance evidence. Baseline commit: `56048657b2cb9dc27492f19f002b352beb68d91f`.
 
