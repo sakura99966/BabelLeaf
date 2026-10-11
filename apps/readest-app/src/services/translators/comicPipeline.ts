@@ -456,6 +456,7 @@ export class ComicPipelineQueue {
   private runPromise: Promise<ComicPipelineSnapshot> | undefined;
   private checkpointChain: Promise<void> = Promise.resolve();
   private checkpointError: unknown;
+  private pendingCheckpoints = 0;
 
   constructor(input: ComicPipelineInput, processPage: ProcessComicPipelinePage) {
     if (
@@ -571,7 +572,19 @@ export class ComicPipelineQueue {
 
   async flushCheckpoint(): Promise<void> {
     await this.checkpointChain;
+    if (this.checkpointError) {
+      this.scheduleCheckpoint();
+      await this.checkpointChain;
+    }
     if (this.checkpointError) throw this.checkpointError;
+  }
+
+  get isBusy(): boolean {
+    return !!this.runPromise || this.snapshot.status === 'running';
+  }
+
+  get hasPendingWrites(): boolean {
+    return this.pendingCheckpoints > 0 || !!this.checkpointError;
   }
 
   start(): Promise<ComicPipelineSnapshot> {
@@ -714,10 +727,17 @@ export class ComicPipelineQueue {
   private scheduleCheckpoint(): void {
     if (!this.checkpoint) return;
     const snapshot = this.getSnapshot();
+    this.pendingCheckpoints += 1;
     this.checkpointChain = this.checkpointChain
-      .then(() => this.checkpoint!.save(snapshot))
+      .then(async () => {
+        await this.checkpoint!.save(snapshot);
+        this.checkpointError = undefined;
+      })
       .catch((error) => {
         this.checkpointError = error;
+      })
+      .finally(() => {
+        this.pendingCheckpoints -= 1;
       });
   }
 

@@ -292,5 +292,7 @@ describe('comic workspace', () => {
     const restored = await store.load(workspace.bookHash);
     expect(restored?.pages[0]?.regions[0]?.machine?.text).toBe('原文');
     expect(files.has('comic-workspaces/book-1.json')).toBe(true);
+    files.set('comic-workspaces/book-1.json', '{}');
+    expect((await store.load(workspace.bookHash))?.bookHash).toBe(workspace.bookHash);
   });
 });

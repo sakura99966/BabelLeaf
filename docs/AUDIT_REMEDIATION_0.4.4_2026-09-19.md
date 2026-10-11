@@ -493,3 +493,36 @@ includes the previously uncommitted September 22 work and its fresh validation.
   complete regression/coverage and exact frozen candidate qualification, SBOM,
   performance and CI. Do not merge main or claim all PC acceptance yet. Existing
   external gates remain DEFERRED and no paid requests are authorized.
+
+## 2026-10-11 continuation: comic write failures and dependency closure
+
+- Reproduced comic workspace closing with unsaved manual corrections, completed
+  translations being overwritten by a provider-failure record after a local
+  write failure, and a checkpoint error that could never be cleared by a local
+  flush. Logs: `comic-close-before-20261007.log`, `comic-paid-before-20261007.log`.
+  Failed writes now retain the latest workspace/edit sidecar, serialize writes,
+  register with the shared close guard and retry locally before closing or a
+  later translation request. Completed provider output is retained on disk
+  errors. Checkpoint flush retries the latest snapshot without rerunning pages.
+- Workspace, edit and pipeline stores validate both schema and identity during
+  backup selection. A schema-invalid main can recover a valid matching backup.
+  Three regressions failed in `comic-schema-before-20261007.log`, then passed.
+- PR checks for `ebdb912d7` passed every lane except security_audit and its
+  required-checks summary. New advisories affected dependencies after the
+  previous audit date. Next is now 16.3.8; DOMPurify 3.4.16, sharp 0.35.5,
+  source-map-js 1.2.2 and i18next-http-backend 4.0.2. Nunjucks' unused optional
+  chokidar peer is removed from its production resolution; note templates still
+  use the existing browser renderer. braces 3.0.4 was not published at the
+  registry, so no nonexistent version or audit suppression was introduced.
+- Frozen dependency installation passed (`install-security-20261011.log`).
+  Current production audit reports zero advisories at all severities
+  (`pnpm-audit-fixed-20261011.json`). This does not claim zero development-only
+  or all-platform dependency advisories.
+- Fresh full unit/coverage: 393 files, 4,893 passed, 1 skipped
+  (`coverage-20261011.log`). Browser: 317 passed, 1 skipped
+  (`browser-20261011.log`). Production static build on 16.3.8 passed
+  (`build-20261011.log`). Type/lint passed after the comic changes.
+- This is a saved remediation checkpoint. Remaining internal gates are native
+  representative resource workloads, final Windows UI/crash regression on the
+  frozen source, exact candidate installation/SBOM/performance and remote CI.
+  Main merge and final acceptance remain pending these gates.

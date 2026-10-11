@@ -25,18 +25,18 @@ export class ComicWorkspaceStore {
   constructor(private readonly fs: ComicWorkspaceStorage) {}
 
   async load(bookHash: string): Promise<ComicWorkspace | null> {
-    const raw = await safeLoadJSON<unknown>(
+    return safeLoadJSON<ComicWorkspace | null>(
       this.fs,
       getComicWorkspacePath(bookHash),
       COMIC_WORKSPACE_STORE_BASE,
       null,
+      (value) => {
+        const workspace = parseComicWorkspace(value);
+        if (workspace.bookHash !== bookHash)
+          throw new Error('Comic workspace book hash does not match the requested book.');
+        return workspace;
+      },
     );
-    if (raw === null) return null;
-    const workspace = parseComicWorkspace(raw);
-    if (workspace.bookHash !== bookHash) {
-      throw new Error('Comic workspace book hash does not match the requested book.');
-    }
-    return workspace;
   }
 
   async save(workspace: ComicWorkspace): Promise<void> {

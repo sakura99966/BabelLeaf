@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import ComicWorkspaceDialog from '@/app/reader/components/ComicWorkspaceDialog';
 import type { ComicWorkspace } from '@/services/translators';
+import { readerCloseGuard } from '@/services/translators/readerCloseGuard';
 
 const mocks = vi.hoisted(() => {
   const selectFiles = vi.fn();
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => {
   const getBlobURL = vi.fn();
   return {
     translate: (key: string) => key,
+    provider: { name: 'deepseek', translate: vi.fn() },
     selectFiles,
     workspaceLoad: vi.fn(),
     workspaceSave: vi.fn(),
@@ -75,7 +77,7 @@ vi.mock('@/store/readerStore', () => ({
 }));
 
 vi.mock('@/services/translators/providers', () => ({
-  getTranslator: () => undefined,
+  getTranslator: () => mocks.provider,
 }));
 
 vi.mock('@/components/Dialog', () => ({
@@ -201,6 +203,7 @@ const trustedOcrModel = {
 };
 
 beforeEach(() => {
+  mocks.provider.translate.mockReset();
   for (const mock of [
     mocks.selectFiles,
     mocks.workspaceLoad,
@@ -245,6 +248,52 @@ afterEach(() => {
 });
 
 describe('ComicWorkspaceDialog', () => {
+  test('does not overwrite a completed translation with a provider failure when its save fails', async () => {
+    mocks.workspaceLoad.mockResolvedValue(restoredWorkspace);
+    mocks.provider.translate.mockResolvedValue(['retained paid result']);
+    render(<ComicWorkspaceDialog bookKey='book-hash-window' isOpen onClose={mocks.onClose} />);
+    await waitFor(() => expect(screen.getByText('1. page-1')).toBeTruthy());
+    fireEvent.change(screen.getByRole('textbox', { name: 'New OCR region text' }), {
+      target: { value: 'source' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add region' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Translate selected region' })).toBeTruthy(),
+    );
+    mocks.workspaceSave.mockRejectedValue(new Error('disk unavailable'));
+    fireEvent.click(screen.getByRole('button', { name: 'Translate selected region' }));
+    await waitFor(() => expect(screen.getByText('disk unavailable')).toBeTruthy());
+    expect(JSON.stringify(mocks.workspaceSave.mock.lastCall![0])).toContain('retained paid result');
+    mocks.workspaceSave.mockResolvedValue(undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(mocks.onClose).toHaveBeenCalledTimes(1));
+    expect(JSON.stringify(mocks.workspaceSave.mock.lastCall![0])).toContain('retained paid result');
+    expect(mocks.provider.translate).toHaveBeenCalledTimes(1);
+  });
+
+  test('retains failed edits and blocks close until a local-only save retry succeeds', async () => {
+    mocks.workspaceLoad.mockResolvedValue(restoredWorkspace);
+    mocks.workspaceSave.mockRejectedValue(new Error('disk unavailable'));
+    render(<ComicWorkspaceDialog bookKey='book-hash-window' isOpen onClose={mocks.onClose} />);
+    await waitFor(() => expect(screen.getByText('1. page-1')).toBeTruthy());
+    fireEvent.change(screen.getByRole('textbox', { name: 'New OCR region text' }), {
+      target: { value: 'keep this correction' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add region' }));
+    await waitFor(() => expect(screen.getByText('disk unavailable')).toBeTruthy());
+    expect(readerCloseGuard.needsProtection(['book-hash-window'])).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(mocks.workspaceSave).toHaveBeenCalledTimes(2));
+    expect(mocks.onClose).not.toHaveBeenCalled();
+    mocks.workspaceSave.mockResolvedValue(undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(mocks.onClose).toHaveBeenCalledTimes(1));
+    expect(mocks.workspaceSave.mock.lastCall![0].pages[0].regions[0].manual.text).toBe(
+      'keep this correction',
+    );
+    expect(readerCloseGuard.needsProtection(['book-hash-window'])).toBe(false);
+  });
+
   test('rejects an oversized OCR sidecar before reading or saving it', async () => {
     const text = vi.fn();
     const close = vi.fn();

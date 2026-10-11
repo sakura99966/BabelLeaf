@@ -20,18 +20,18 @@ export class ComicPipelineStore {
   constructor(private readonly fs: ComicPipelineStorage) {}
 
   async load(pipelineId: string): Promise<ComicPipelineSnapshot | null> {
-    const raw = await safeLoadJSON<unknown>(
+    return safeLoadJSON<ComicPipelineSnapshot | null>(
       this.fs,
       getComicPipelinePath(pipelineId),
       COMIC_PIPELINE_STORE_BASE,
       null,
+      (value) => {
+        const snapshot = parseComicPipelineSnapshot(value);
+        if (snapshot.id !== pipelineId)
+          throw new Error('Comic pipeline id does not match the requested checkpoint.');
+        return snapshot;
+      },
     );
-    if (raw === null) return null;
-    const snapshot = parseComicPipelineSnapshot(raw);
-    if (snapshot.id !== pipelineId) {
-      throw new Error('Comic pipeline id does not match the requested checkpoint.');
-    }
-    return snapshot;
   }
 
   async save(snapshot: ComicPipelineSnapshot): Promise<void> {

@@ -28,6 +28,33 @@ const input = (overrides: Partial<ComicPipelineInput> = {}): ComicPipelineInput 
 });
 
 describe('comic pipeline queue', () => {
+  test('retries a failed checkpoint locally without rerunning completed pages', async () => {
+    let fail = true;
+    let calls = 0;
+    let savedRevision = 0;
+    const queue = new ComicPipelineQueue(
+      input({
+        checkpoint: {
+          save: async (snapshot) => {
+            if (fail) throw new Error('disk unavailable');
+            savedRevision = snapshot.revision;
+          },
+        },
+      }),
+      async (item) => {
+        calls += 1;
+        return { pageId: item.page.pageId, completedAt: 1 };
+      },
+    );
+    await queue.start();
+    await expect(queue.flushCheckpoint()).rejects.toThrow('disk unavailable');
+    const completedCalls = calls;
+    fail = false;
+    await expect(queue.flushCheckpoint()).resolves.toBeUndefined();
+    expect(savedRevision).toBe(queue.getSnapshot().revision);
+    expect(calls).toBe(completedCalls);
+  });
+
   test('changes the page-set identity when local page metadata changes', () => {
     const pages = [
       { pageId: 'page-0', width: 100, height: 200, byteLength: 1_024 },
@@ -69,6 +96,8 @@ describe('comic pipeline queue', () => {
       expect.arrayContaining(['comic-pipelines/job-1.json', 'comic-pipelines/job-1.json.bak']),
     );
     expect(JSON.stringify(restored)).not.toContain('apiKey');
+    files.set('comic-pipelines/job-1.json', '{}');
+    expect((await store.load(snapshot.id))?.id).toBe(snapshot.id);
   });
 
   test('processes pages, persists checkpoints, and supports selective rerun', async () => {
