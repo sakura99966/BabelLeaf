@@ -33,6 +33,9 @@ const runtime = await mkdtemp(path.join(os.tmpdir(), 'babelleaf-crash-'));
 const root = path.join(runtime, '.readest-test-sandbox-tauri');
 const profile = path.join(runtime, 'WebView2/EBWebView');
 const evidence = [];
+const output = path.join(repoRoot, 'target/windows-crash-recovery/result.json');
+let currentPhase;
+let lastPage;
 let server;
 let child;
 const stop = async () => {
@@ -53,17 +56,30 @@ try {
   await writeFile(path.join(ungranted, 'must-not-enumerate.txt'), 'isolated out-of-scope sentinel');
   await writeFile(path.join(root, 'allowed.txt'), 'isolated in-scope sentinel');
   await symlink(ungranted, path.join(root, 'junction'), 'junction');
+  const workloadRoot = path.join(root, 'workload');
+  await mkdir(workloadRoot);
+  for (let index = 0; index < 128; index++) {
+    const directory = path.join(workloadRoot, String(index));
+    await mkdir(directory);
+    await Promise.all(Array.from({ length: 32 }, (_, item) => writeFile(path.join(directory, `${item}.txt`), 'local workload fixture')));
+  }
   server = await createServer({
     configFile: false,
     root: appRoot,
+    cacheDir: path.join(runtime, 'vite-cache'),
     plugins: [tsconfigPaths({ root: appRoot })],
     define: { 'process.env': JSON.stringify({ NEXT_PUBLIC_APP_PLATFORM: 'tauri' }) },
     resolve: { conditions: ['development'] },
     optimizeDeps: { include: ['@tauri-apps/api/window', '@tauri-apps/api/webviewWindow', '@tauri-apps/api/event', '@tauri-apps/plugin-process', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-http', '@tauri-apps/api/path', '@tauri-apps/api/core', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-os', '@choochmeque/tauri-plugin-sharekit-api', '@zip.js/zip.js', 'franc-min', 'iso-639-2', 'iso-639-3', 'js-md5'], exclude: ['@pdfjs/pdf.min.mjs'] },
-    server: { port: 3000, strictPort: true, host: '127.0.0.1' },
+    // A native probe must not reload/re-execute an in-flight fixture when Vite
+    // discovers another dependency. HMR is not part of the tested application.
+    server: { port: 3000, strictPort: true, host: '127.0.0.1', hmr: false },
   });
   await server.listen();
-  for (const [phase, expected] of [['quit-guard', 'quit-guard'], ['directory-scope', 'directory-scope'], ['before-main', 'before-main'], ['after-main', 'after-main'], ['recover', 'recovered'], ['artifact-journal', 'artifact-journal'], ['recover-artifact', 'recovered-artifact']]) {
+  for (const [phase, expected] of [['quit-guard', 'quit-guard'], ['workload', 'workload'], ['directory-scope', 'directory-scope'], ['before-main', 'before-main'], ['after-main', 'after-main'], ['recover', 'recovered'], ['artifact-journal', 'artifact-journal'], ['recover-artifact', 'recovered-artifact']]) {
+    currentPhase = phase;
+    lastPage = undefined;
+    console.log(`Native probe phase: ${phase}`);
     child = spawn(executable, [], {
       cwd: appRoot, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, APPDATA: path.join(runtime, 'Roaming'), LOCALAPPDATA: path.join(runtime, 'Local'),
@@ -77,24 +93,46 @@ try {
       if (child.exitCode !== null || Date.now() > deadline) throw new Error('Isolated WebDriver failed to start');
       await delay(200);
     }
+    let sampler;
+    let samplingOutput = '';
+    let samplingError = '';
+    if (phase === 'workload') {
+      sampler = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(appRoot, 'scripts/sample-windows-process-tree.ps1'), '-RootProcessId', String(child.pid), '-ExpectedExecutable', executable], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      sampler.stdout.on('data', (data) => { samplingOutput += data; });
+      sampler.stderr.on('data', (data) => { samplingError += data; });
+      sampler.on('error', (error) => { samplingError += error.message; });
+    }
     const browser = await remote({ hostname: '127.0.0.1', port: 4445, capabilities: { browserName: 'chrome' }, logLevel: 'error', connectionRetryCount: 0, connectionRetryTimeout: 20000 });
     await browser.url(`http://127.0.0.1:3000/src/__tests__/fixtures/native-crash.html?${new URLSearchParams({ root, phase })}`);
     let result;
     await browser.waitUntil(async () => {
-      const text = await browser.execute(() => document.body?.textContent ?? '');
-      try { result = JSON.parse(text); } catch { return false; }
+      lastPage = await browser.execute(() => ({ url: location.href, body: document.body?.textContent ?? '' }));
+      try { result = JSON.parse(lastPage.body); } catch { return false; }
       if (result.error) throw new Error(result.error);
       return result.stage === expected;
     }, { timeout: 60000, interval: 200 });
     evidence.push({ phase, processId: child.pid, result });
     // Deliberately do not close the WebDriver session/window gracefully.
     await stop();
+    if (sampler) {
+      if (sampler.exitCode === null) await Promise.race([once(sampler, 'exit'), delay(10000).then(() => { throw new Error('Workload sampler did not finish'); })]);
+      if (sampler.exitCode !== 0) throw new Error(`Workload sampling failed: ${samplingError}`);
+      const memory = JSON.parse(samplingOutput);
+      const memoryBudgetBytes = 1024 * 1024 * 1024;
+      if (!memory.samples || memory.peakWorkingSetBytes > memoryBudgetBytes || memory.peakPrivateBytes > memoryBudgetBytes)
+        throw new Error(`Workload memory budget exceeded: ${samplingOutput}`);
+      evidence[evidence.length - 1].memory = { ...memory, memoryBudgetBytes };
+    }
   }
-  const output = path.join(repoRoot, 'target/windows-crash-recovery/result.json');
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, JSON.stringify({ passed: true, timestamp: new Date().toISOString(), sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true }).trim(), sourceDirty: execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true }).trim().length > 0, scope: 'process kill, not power loss or storage-controller failure', evidence }, null, 2));
   console.log(JSON.stringify(evidence));
   passed = true;
+} catch (error) {
+  await mkdir(path.dirname(output), { recursive: true });
+  await writeFile(output, JSON.stringify({ passed: false, timestamp: new Date().toISOString(), phase: currentPhase, lastPage, processExitCode: child?.exitCode, error: String(error), runtime, evidence }, null, 2));
+  console.error(`Failed native phase ${currentPhase}: ${JSON.stringify(lastPage)}`);
+  throw error;
 } finally {
   await stop();
   await server?.close();

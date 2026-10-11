@@ -526,3 +526,44 @@ includes the previously uncommitted September 22 work and its fresh validation.
   representative resource workloads, final Windows UI/crash regression on the
   frozen source, exact candidate installation/SBOM/performance and remote CI.
   Main merge and final acceptance remain pending these gates.
+
+## 2026-10-11 native workloads, bounded caches and maintenance identity
+
+- Fresh native cold-cache probe: all eight phases passed, with the cross-window
+  quit veto FIRST (not hidden behind workload prewarming), then 4,096-file scoped
+  scan, 32 MiB ordinary-gzip decoding, eight authored 1024-square PNG pages
+  archived twice, cancellation/worker disposal, junction rejection and process
+  kill/journal recovery. Evidence: `native-cold-before-20261011.log`.
+- Controlled workload sampled peak process-tree working set: 746,889,216 bytes;
+  private bytes: 531,947,520; 24 samples, 200 ms interval. Largest measured UI
+  heartbeat gap: 11.8 ms, against a 500 ms probe budget. No retained workers.
+  The 1 GiB workload limit is separate from the 350 MiB idle gate. Sampling is
+  not an instantaneous allocation proof; these fixtures do not measure real
+  OCR/LaMa model quality, representative corpus or the minimum hardware class.
+- Translation cache entry-count/string-payload budgets were independently
+  reproduced before fixes (`cache-budget-before-20261011.log`). Memory now has
+  512-row / 8 MiB estimated UTF-16 payload LRU limits. IndexedDB writes prune to
+  2,048 rows in the same transaction; new entries have a 64 KiB UTF-8 limit.
+  CJK byte-budget regression failed before the fix in
+  `cache-utf8-before-20261011.log`, then 3 real-browser tests passed in
+  `cache-utf8-after-20261011.log`. Authoritative sidecars are not pruned by cache
+  eviction. Removed unused whole-database hydration and timer-based pruning.
+- Remote `e95694d0998135a22620258140fb3141fc1449b4` checks: every individual
+  lane passed except windows_native_e2e's process-interruption step (the preceding
+  27 native UI tests passed); required-checks correctly failed. It timed out
+  without phase diagnostics. Cause is NOT yet established. The probe now uses
+  its own fresh Vite cache, disables irrelevant development HMR, reports phases
+  and saves failed-page/error evidence for CI upload. Remote rerun is mandatory;
+  the passing local probe cannot override a failing CI verdict.
+- New remediation package identity: 0.4.5, within the approved 0.4 scope.
+  JavaScript/crate/lock versions align; Tauri inherits the package version.
+  Historical v0.4.4 remains unchanged. Fresh final tests, packages, remote CI,
+  strict SBOM, exact-binary idle performance and main merge remain IN PROGRESS.
+- Fresh complete candidate regression: 393 files, 4,895 passed / 1 inherited
+  skipped; coverage statements 53.33%, branches 46.20%, functions 51.45%, lines
+  54.68%, thresholds passed (`coverage-candidate-045-20261011.log`). Browser:
+  26 files, 320 passed / 1 inherited skipped (`browser-candidate-045-20261011.log`).
+  Type/lint and final repository format passed. The skip is the inherited Turso
+  FTS UPDATE regression; production reader search does not call fts_match.
+  It remains visible, not reclassified as an external gate or silently deleted.
+  These runs do not supersede the pending native CI and exact-package gates.

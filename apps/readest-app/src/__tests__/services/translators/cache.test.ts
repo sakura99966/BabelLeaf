@@ -289,6 +289,22 @@ describe('translation cache', () => {
   // getCacheStats (memory only)
   // -----------------------------------------------------------------------
   describe('getCacheStats', () => {
+    test('evicts old in-memory entries instead of growing indefinitely', async () => {
+      for (let index = 0; index < 520; index += 1)
+        await storeInCache(`source-${index}`, `result-${index}`, 'en', 'zh', 'deepseek');
+      expect((await getCacheStats()).memoryCacheEntries).toBeLessThanOrEqual(512);
+      expect(await getFromCache('source-0', 'en', 'zh', 'deepseek')).toBeNull();
+      expect(await getFromCache('source-519', 'en', 'zh', 'deepseek')).toBe('result-519');
+    });
+
+    test('also bounds retained translation string bytes, independently of entry count', async () => {
+      for (let index = 0; index < 5; index += 1)
+        await storeInCache(`large-${index}`, '译'.repeat(1024 * 1024), 'en', 'zh', 'deepseek');
+      expect((await getCacheStats()).memoryCacheEntries).toBeLessThan(5);
+      expect((await getCacheStats()).memoryCacheSizeInBytes).toBeLessThanOrEqual(8 * 1024 * 1024);
+      expect(await getFromCache('large-4', 'en', 'zh', 'deepseek')).toHaveLength(1024 * 1024);
+    });
+
     test('returns zero entries when cache is empty', async () => {
       const stats = await getCacheStats(false);
       expect(stats.memoryCacheEntries).toBe(0);
@@ -312,7 +328,7 @@ describe('translation cache', () => {
 
       const expectedKey = 'p:en:fr:hi';
       const expectedValue = 'salut';
-      expect(stats.memoryCacheSizeInBytes).toBe(expectedKey.length + expectedValue.length);
+      expect(stats.memoryCacheSizeInBytes).toBe(2 * (expectedKey.length + expectedValue.length));
     });
   });
 });

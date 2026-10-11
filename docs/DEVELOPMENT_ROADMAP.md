@@ -3,11 +3,12 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `0.4.4` PC release closure; it preserves the completed 0.4 feature scope and incorporates the acceptance, persistence, native-speech, installer, and CI corrections made after the historical `v0.4.3` tag. No new product capability or model weight is added by this patch.
-- Acceptance status: `0.4.4` implementation and local automated release gates pass. Published traceability is bound by one reviewed source commit, exact version metadata, the standard Windows x64 package, checksums, SBOM, release notes, green remote required checks, the immutable `v0.4.4` tag, and its GitHub release record. Formal PC acceptance remains **pending external evidence** for credentialed provider lifecycles, representative legal-corpus quality review, exact final-package clean-host workflows, human TTS review, signing, and legal review. Platform implementation remains blocked until those external gates close. The historical 0.4.3 automated verdict remains in `docs/PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md`; the superseding traceability record is `docs/PC_0.4.4_RELEASE_ACCEPTANCE_2026-08-23.md`.
-- Roadmap revision: 13
+- Current implementation baseline: `0.4.5` PC audit-remediation candidate. It retains the 0.4 feature boundary and adds security, recovery, lifecycle and resource corrections identified after the historical `v0.4.4` release. No platform-port feature or model weight is added.
+- Acceptance status: **0.4.5 INTERNAL VERIFICATION IN PROGRESS**. Do not reuse the historical 0.4.4 release verdict or package hashes for changed code. Follow `docs/AUDIT_REMEDIATION_0.4.4_2026-09-19.md` until the new frozen-source test, CI, package, SBOM and performance record closes. External provider, corpus-quality, independent minimum-host, voice, signing and legal gates remain **DEFERRED**, not PASS, by owner instruction. No 0.5 implementation is authorized by this deferral. Historical 0.4.4 traceability remains in `docs/PC_0.4.4_RELEASE_ACCEPTANCE_2026-08-23.md` and its immutable tag/release.
+- Roadmap revision: 14
 - Approved scope date: 2026-08-23
 - Last closure update: 2026-08-23
+- Last remediation update: 2026-10-11
 - Target stable release: `1.0.0`
 
 This document is the source of truth for BabelLeaf version planning, implementation sequencing, code review, and release acceptance. Release notes record what a version actually delivered; this roadmap records what must be delivered before work advances to the next version.
@@ -73,7 +74,7 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 
 ## Current baseline and requirement coverage
 
-| Requirement | Current state at 0.4.4 | Remaining milestone |
+| Requirement | Historical feature baseline delivered by 0.4.4 | Remaining milestone |
 | --- | --- | --- |
 | Local library and reader | Implemented from the Readest baseline | Format and platform matrix hardened through 0.8 |
 | EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths, resource limits, PDF diagnostics, OCR/workspace routing, and 48-entry local fixture matrix pass; exact final-package clean-host routing remains external evidence | Cross-platform proof in 0.8 |
@@ -110,6 +111,7 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | 0.4.2 | Image cleanup and typesetting | Text can be erased, repaired, typeset, and exported to a separate translated copy; editable state is sidecar-backed |
 | 0.4.3 | PC feature closure | The desktop reader exposes the comic workspace, local OCR sidecar/model workflow, selectable text, translation, cleanup, typesetting, and separate CBZ/PDF export. The public tag is retained as historical evidence and is not moved. |
 | 0.4.4 | Traceable PC release closure | Preserve the 0.4 feature set while binding the post-0.4.3 acceptance fixes to one reviewed commit, exact package, checksums, SBOM, remote checks, immutable tag, and published release record. |
+| 0.4.5 | PC audit remediation | Close reopened internal security, persistence, lifecycle and resource gates with new exact-source evidence; carry owner-deferred external gates forward without changing the PC scope. |
 | 0.5.0 | macOS and portable-core qualification | macOS ships natively and desktop assumptions are removed from the shared core |
 | 0.6.0 | Android | Android imports, reads, translates, looks up, speaks, and persists supported local content |
 | 0.7.0 | iOS/iPadOS | iOS and iPadOS meet equivalent native import, reading, translation, speech, and persistence requirements |
@@ -385,12 +387,13 @@ under 0.4.4 instead of rewriting history. The 0.4.3 split verdict remains in
 
 ### Current implementation status
 
-The 0.4.4 automated release closure passes its local gates and is published as
+The historical 0.4.4 automated release closure passed its local gates and was published as
 an explicitly unsigned, source-bound PC release. The patch contains only
 version metadata, release and roadmap records, reproducibility corrections, and
 corrections required by release gates. Formal PC acceptance and 0.5 production
 implementation remain blocked by the external/user-owned gates listed in the
-0.4.4 release acceptance record.
+0.4.4 release acceptance record. The independent audit below subsequently
+reopened internal gates; this historical statement is not the current verdict.
 
 ### 2026-09-19 PC audit revalidation scope
 
@@ -404,6 +407,27 @@ minimum-spec host, human voice review, signing and owner/legal review remain
 and validation gates without entering 0.5. Deferral does not authorize uploading
 content, using credentials, paid requests, replacing historical release assets,
 or claiming complete externally verified acceptance.
+
+## 0.4.5 - PC audit-remediation maintenance candidate
+
+### Scope and acceptance
+
+- Close AUD-01 through AUD-08 and their follow-up storage, comic lifecycle,
+  request-cache, input-budget and dictionary-import findings without expanding
+  the approved PC feature boundary.
+- Bind a new frozen source revision, aligned JavaScript/Rust/Tauri version,
+  Windows packages, SBOM and SHA-256 values to fresh full regression evidence.
+  Do not rewrite `v0.4.4` or replace its assets.
+- Qualify current-host directory/gzip/archive workloads, cancellation and worker
+  release separately from the 300-second idle gate. Synthetic workload results
+  do not qualify representative OCR/LaMa quality or an independent minimum host.
+- Require green remote checks and a reviewed main merge before internal closure.
+  Then remove only reproducible caches, preserving source, user data, model packs,
+  credentials, reports, raw logs, manifests, hashes and release candidates.
+- Carry every owner-deferred external gate forward explicitly. A new patch
+  number, successful build or local automated verdict cannot close those gates.
+
+Current status: **IN PROGRESS**. See `RELEASE_0.4.5.md` and the remediation ledger.
 
 ## 0.5.0 - macOS and portable-core qualification
 

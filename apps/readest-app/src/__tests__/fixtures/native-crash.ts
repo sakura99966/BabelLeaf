@@ -29,6 +29,7 @@ const validate = (value: unknown): { count: number } => {
   return value as { count: number };
 };
 const run = async () => {
+  report({ stage: 'initializing', phase: params.get('phase') });
   const service = new NativeAppService(root);
   await service.init();
   await service.createDir('', 'Data', true);
@@ -43,8 +44,11 @@ const run = async () => {
     targetLang: 'zh-CN',
   });
   const store = new TranslationArtifactStore(service);
-  if (phase === 'veto-close') {
+  if (phase === 'workload') {
+    report(await (await import('./native-workload')).runNativeWorkload(root));
+  } else if (phase === 'veto-close') {
     await getCurrentWindow().onCloseRequested((event) => event.preventDefault());
+    report({ stage: 'veto-ready' });
     const channel = new BroadcastChannel(params.get('channel')!);
     channel.postMessage('ready');
   } else if (phase === 'quit-guard') {
