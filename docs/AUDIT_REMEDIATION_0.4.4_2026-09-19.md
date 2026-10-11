@@ -567,3 +567,33 @@ includes the previously uncommitted September 22 work and its fresh validation.
   FTS UPDATE regression; production reader search does not call fts_match.
   It remains visible, not reclassified as an external gate or silently deleted.
   These runs do not supersede the pending native CI and exact-package gates.
+
+### Native hosted-runner handshake follow-up
+
+- Remote 9bd69338a failure receipt is now available: `passed=false`, phase
+  `quit-guard`, POST `/session` timed out before a browser/fixture was created.
+  Evidence: `ci-native-9bd69338a/result.json`. This is not a failed quit-veto
+  assertion and must not be hidden by an automatic test rerun.
+- The probe previously treated a listening port as window readiness. The plugin
+  opens that port before the main WebView is built; the existing WDIO runner
+  already waits for an owned post-build PID marker. The crash probe now uses
+  the same contract, with a separate marker for every spawned process. Missing
+  markers have a bounded wait; stale PIDs, early exit and access errors are tested.
+- The HTTP-origin probe does not run the application frontend that shows the
+  launch-hidden main window. Only the compile-time webdriver feature now creates
+  a visible main window. Production startup stays hidden and no production
+  permission, network boundary or foreground/background policy is expanded.
+  The client handshake budget exceeds the upstream 30-second initial-script
+  timeout so a server-side diagnostic is not prematurely cancelled.
+- Failing-before evidence: `native-readiness-before-20261011.log`. After fix:
+  12 readiness/build-contract tests passed, type/lint/format passed; native UI
+  27 passed (`wdio-ready-candidate-045-20261011.log`), all eight process/workload
+  phases passed (`native-window-ready-20261011.log`). Hosted-runner confirmation
+  remains mandatory before closure; 9bd69338a packages are retained as superseded.
+- Current Rust warnings disposition: glib 0.18.5 is absent from the Windows
+  graph; rand 0.7.3 and chacha20 0.10.1 are retained lockfile entries absent from
+  the current resolved graph. lru 0.16.4 is Windows-reachable through Tantivy,
+  but its only cache is `LruCache<usize, Block>` using get/put, not pop or keys
+  with a panicking Drop. RUSTSEC-2026-0253's panic-in-key-Drop/pop condition is
+  not present in that call path. Keep the warning and upstream-upgrade follow-up;
+  zero-vulnerability audit is not zero warnings or a general proof of safety.

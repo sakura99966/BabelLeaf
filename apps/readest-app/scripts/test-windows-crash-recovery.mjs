@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
+import { waitForNativeWindow } from './native-probe-readiness.mjs';
 // Reuse the native test provider's declared WebDriver dependency.
 const providerRequire = createRequire(import.meta.resolve('@vitest/browser-webdriverio'));
 const { remote } = await import(pathToFileURL(providerRequire.resolve('webdriverio')).href);
@@ -80,11 +81,12 @@ try {
     currentPhase = phase;
     lastPage = undefined;
     console.log(`Native probe phase: ${phase}`);
+    const pidFile = path.join(runtime, `${phase}.pid`);
     child = spawn(executable, [], {
       cwd: appRoot, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, APPDATA: path.join(runtime, 'Roaming'), LOCALAPPDATA: path.join(runtime, 'Local'),
         WEBVIEW2_USER_DATA_FOLDER: path.dirname(profile), BABELLEAF_WEBDRIVER_WEBVIEW_DATA_DIR: profile,
-        BABELLEAF_NATIVE_TEST_ROOT: root, BABELLEAF_WEBDRIVER_PID_FILE: path.join(runtime, 'webdriver.pid'), TAURI_WEBDRIVER_PORT: '4445' },
+        BABELLEAF_NATIVE_TEST_ROOT: root, BABELLEAF_WEBDRIVER_PID_FILE: pidFile, TAURI_WEBDRIVER_PORT: '4445' },
     });
     child.stdout.on('data', (data) => process.stdout.write(data));
     child.stderr.on('data', (data) => process.stderr.write(data));
@@ -93,6 +95,8 @@ try {
       if (child.exitCode !== null || Date.now() > deadline) throw new Error('Isolated WebDriver failed to start');
       await delay(200);
     }
+    await waitForNativeWindow({ pidFile, expectedPid: child.pid, isAlive: () => child.exitCode === null && child.signalCode === null });
+    console.log(`Native window ready for ${phase}, PID ${child.pid}`);
     let sampler;
     let samplingOutput = '';
     let samplingError = '';
@@ -102,7 +106,9 @@ try {
       sampler.stderr.on('data', (data) => { samplingError += data; });
       sampler.on('error', (error) => { samplingError += error.message; });
     }
-    const browser = await remote({ hostname: '127.0.0.1', port: 4445, capabilities: { browserName: 'chrome' }, logLevel: 'error', connectionRetryCount: 0, connectionRetryTimeout: 20000 });
+    // The upstream server's initial script timeout is 30s; don't abort the
+    // handshake client-side before that server-side diagnostic can arrive.
+    const browser = await remote({ hostname: '127.0.0.1', port: 4445, capabilities: { browserName: 'chrome' }, logLevel: 'error', connectionRetryCount: 0, connectionRetryTimeout: 45000 });
     await browser.url(`http://127.0.0.1:3000/src/__tests__/fixtures/native-crash.html?${new URLSearchParams({ root, phase })}`);
     let result;
     await browser.waitUntil(async () => {

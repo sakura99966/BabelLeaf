@@ -7,6 +7,14 @@ const readSource = (path: string) => readFileSync(resolve(process.cwd(), path), 
 const readRustVersion = (manifest: string) => manifest.match(/^rust-version = "([^"]+)"$/m)?.[1];
 
 describe('BabelLeaf native build contract', () => {
+  test('keeps only webdriver-feature windows visible before frontend bootstrapping', () => {
+    expect(readSource('src-tauri/src/lib.rs')).toContain('.visible(cfg!(feature = "webdriver"))');
+    const probe = readSource('scripts/test-windows-crash-recovery.mjs');
+    expect(probe).toContain('await waitForNativeWindow(');
+    expect(probe.indexOf('await waitForNativeWindow(')).toBeLessThan(
+      probe.indexOf('await remote('),
+    );
+  });
   test('aligns the application MSRV with the vendored Tauri workspace', () => {
     const rootManifest = readSource('../../Cargo.toml');
     const appManifest = readSource('src-tauri/Cargo.toml');

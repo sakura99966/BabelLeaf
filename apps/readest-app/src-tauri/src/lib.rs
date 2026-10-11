@@ -716,7 +716,10 @@ pub fn run() {
             let win_builder = {
                 let mut builder = win_builder
                     .decorations(false)
-                    .visible(false)
+                    // HTTP-origin probes don't run the application bootstrap
+                    // that shows the launch-hidden window. Keep test-only
+                    // WebViews foreground-ready; shipped startup stays hidden.
+                    .visible(cfg!(feature = "webdriver"))
                     .shadow(true)
                     .title("BabelLeaf");
 
