@@ -40,6 +40,7 @@ export default defineConfig({
     testTimeout: 30000,
     browser: {
       enabled: true,
+      api: { host: '127.0.0.1' },
       provider: webdriverio({
         hostname: '127.0.0.1',
         port: 4445,

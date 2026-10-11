@@ -719,7 +719,7 @@ pub fn run() {
                     // HTTP-origin probes don't run the application bootstrap
                     // that shows the launch-hidden window. Keep test-only
                     // WebViews foreground-ready; shipped startup stays hidden.
-                    .visible(cfg!(feature = "webdriver"))
+                    .visible(cfg!(all(feature = "webdriver", target_os = "windows")))
                     .shadow(true)
                     .title("BabelLeaf");
 

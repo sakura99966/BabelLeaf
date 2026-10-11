@@ -160,6 +160,39 @@ no cloud TTS, no implicit model downloads and no source modification.
 
 ## Safe closure and handoff
 
+### Final closure follow-up
+
+The documentation-only head 7637486da reproduced the Linux browser-session
+startup timeout before any integration assertion. The passing same-source
+rerun above is a historical receipt, not proof of a fully stable harness.
+The Windows-only readiness behavior is now explicitly cfg-gated to Windows
+webdriver builds; Linux and production startup retain their original policy.
+Vitest's browser API now binds explicitly to 127.0.0.1, matching WebDriver and
+the test-only IPC origin. No shipping permission is widened. Fresh required
+checks on the final head, not a rerun of older checks, remain the merge gate.
+
+A live open-alert check also found CodeQL #9: the local-only production-Web
+preview script returned exception details. A real HTTP malformed-URI regression
+failed before the fix; the response is now a generic 500 and traversal remains
+404. Two new tests pass. Evidence: closure-followup-before-20261011.log,
+closure-final-followup-20261011.log and native-loopback-before-20261011.log.
+The preview script is not embedded in the Windows application, but is fixed
+instead of dismissing the finding. Post-commit evidence records the final
+full-suite counts and canonical source; the c66d118b0 table remains exact
+historical candidate evidence, not a claim of a later build identity.
+
+Other open main alerts are explicitly retained, not dismissed through the API:
+CodeQL #7/#8 are controlled-fixture SSML text extraction in unit tests, not a
+production sanitizer or an HTML rendering sink; #6 is Android's test-only CDP
+Runtime.evaluate helper, where JSON string literals are evaluated directly and
+not inserted into script-tag HTML. These do not ship in the PC runtime. Scorecard
+#2/#3/#4 concern repository review/maintenance/badges; #5 scans all-platform and
+development dependency manifests on historical main. Fresh target-specific
+production audits and the resolved warning dispositions above establish the PC
+dependency gate, not a zero-alert claim for every manifest or governance score.
+Reconcile the alert state after canonical-main CodeQL/Scorecard runs; do not
+suppress a new reachable production finding or expand into Android development.
+
 After required checks, review and merge PR 7 normally, fetch/fast-forward main,
 verify local/remote SHA, qualify canonical-main artifacts and main CI, and retain
 their generated provenance records. Remove the merged audit branch only.

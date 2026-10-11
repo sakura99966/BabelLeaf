@@ -113,9 +113,9 @@ const server = http.createServer(async (request, response) => {
     });
     if (request.method === 'HEAD') response.end();
     else createReadStream(filePath).pipe(response);
-  } catch (error) {
+  } catch {
     response.writeHead(500, headers);
-    response.end(error instanceof Error ? error.message : String(error));
+    response.end('Internal server error');
   }
 });
 

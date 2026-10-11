@@ -602,3 +602,20 @@ includes the previously uncommitted September 22 work and its fresh validation.
   with a panicking Drop. RUSTSEC-2026-0253's panic-in-key-Drop/pop condition is
   not present in that call path. Keep the warning and upstream-upgrade follow-up;
   zero-vulnerability audit is not zero warnings or a general proof of safety.
+
+### Final preview security and hosted-harness follow-up
+
+- Final docs-only head 7637486da exposed another Linux browser-session startup
+  timeout, before assertions. The prior same-source rerun is retained but is not
+  treated as a stability proof. Restrict initial visibility to Windows webdriver
+  builds and bind the Vitest API explicitly to 127.0.0.1. Production permissions
+  and startup are unchanged; fresh final-head CI must pass before normal merge.
+- Open CodeQL alert #9 was reproduced through a real malformed HTTP request:
+  the local Web preview response exposed URI exception details. Return a generic
+  500 while keeping traversal rejection. Two regression tests pass after a
+  failing-before run; full before-run had 4,900 passes plus the two intended
+  failures. Preview serving is local-only and is not embedded in the PC binary.
+- Test-classified CodeQL #6-#8 and historical Scorecard governance/all-manifest
+  findings are recorded with their nonshipping/current-PC dispositions in the
+  internal acceptance record. No alert is manually suppressed or falsely
+  reclassified as a passing external gate.
