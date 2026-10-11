@@ -2,12 +2,16 @@ import withBundleAnalyzer from '@next/bundle-analyzer';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// The development toolchain follows the same no-telemetry policy as the app.
+process.env.NEXT_TELEMETRY_DISABLED = '1';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const isDev = process.env['NODE_ENV'] === 'development';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  agentRules: false,
   output: isDev ? undefined : 'export',
   productionBrowserSourceMaps: false,
   pageExtensions: ['jsx', 'tsx'],

@@ -36,7 +36,12 @@ describe('settings persistence', () => {
 
   test('never writes the plaintext translation API key to settings files', async () => {
     const writeFile = vi.fn(async () => undefined);
-    const fs = { writeFile } as unknown as FileSystem;
+    const fs = {
+      writeFile,
+      readFile: async () => {
+        throw new Error('File not found');
+      },
+    } as unknown as FileSystem;
 
     await saveSettings(fs, makeSettings());
 

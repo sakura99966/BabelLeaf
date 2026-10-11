@@ -11,6 +11,8 @@ export const transformContent = async (ctx: TransformContext): Promise<string> =
     try {
       transformed = await transformer.transform({ ...ctx, content: transformed });
     } catch (error) {
+      // An optional typography failure may be tolerated; a security failure may not.
+      if (transformer.name === 'sanitizer') throw error;
       console.warn(`Error in transformer ${transformer.name}:`, error);
     }
   }

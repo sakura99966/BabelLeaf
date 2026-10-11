@@ -1,5 +1,5 @@
 import type { BaseDir, FileSystem } from '@/types/system';
-import { safeLoadJSON, safeSaveJSON } from '@/services/persistence';
+import { safeLoadJSON, safeSaveJSON, updateJSON } from '@/services/persistence';
 
 export const TRANSLATION_MEMORY_SCHEMA_VERSION = 1 as const;
 export const TRANSLATION_MEMORY_DIR = 'translation-memory';
@@ -42,6 +42,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 const requiredString = (value: unknown, field: string): string => {
+  if (typeof value === 'string' && value.length > 1_048_576)
+    throw new Error(`Translation memory field exceeds resource limit: ${field}`);
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`Invalid translation memory field: ${field}`);
   }
@@ -49,7 +51,7 @@ const requiredString = (value: unknown, field: string): string => {
 };
 
 const finiteInteger = (value: unknown, field: string, minimum = 0): number => {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum) {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < minimum) {
     throw new Error(`Invalid translation memory field: ${field}`);
   }
   return value;
@@ -105,7 +107,17 @@ export const parseTranslationMemory = (value: unknown): TranslationMemoryData =>
     throw new Error('Invalid translation memory timestamp');
   }
   if (!Array.isArray(value['entries'])) throw new Error('Invalid translation memory entries');
-  const entries = value['entries'].map(parseEntry);
+  if (value['entries'].length > 100_000)
+    throw new Error('Translation memory entry count exceeds resource limit');
+  let totalChars = 0;
+  const entries = value['entries'].map((raw, index) => {
+    const entry = parseEntry(raw, index);
+    for (const field of Object.values(entry))
+      if (typeof field === 'string') totalChars += field.length;
+    if (totalChars > 32 * 1_048_576)
+      throw new Error('Translation memory text exceeds resource limit');
+    return entry;
+  });
   const keys = new Set<string>();
   for (const entry of entries) {
     if (keys.has(entry.key)) throw new Error(`Duplicate translation memory entry: ${entry.key}`);
@@ -123,6 +135,7 @@ export class TranslationMemoryFileStore {
       TRANSLATION_MEMORY_FILENAME,
       TRANSLATION_MEMORY_BASE,
       null,
+      parseTranslationMemory,
     );
     return raw === null ? null : parseTranslationMemory(raw);
   }
@@ -136,12 +149,50 @@ export class TranslationMemoryFileStore {
       parseTranslationMemory(data),
     );
   }
+
+  async merge(
+    data: TranslationMemoryData,
+    baseline: TranslationMemoryEntry[],
+    limit: number,
+  ): Promise<void> {
+    const incoming = parseTranslationMemory(data);
+    const previousEntries = new Map(baseline.map((entry) => [entry.key, entry]));
+    const incomingKeys = new Set(incoming.entries.map((entry) => entry.key));
+    await this.fs.createDir(TRANSLATION_MEMORY_DIR, TRANSLATION_MEMORY_BASE, true);
+    await updateJSON(
+      this.fs,
+      TRANSLATION_MEMORY_FILENAME,
+      TRANSLATION_MEMORY_BASE,
+      (raw) => {
+        const disk = raw === null ? [] : parseTranslationMemory(raw).entries;
+        const entries = new Map(disk.map((entry) => [entry.key, entry]));
+        for (const old of baseline) {
+          if (!incomingKeys.has(old.key) && entries.get(old.key)?.updatedAt === old.updatedAt)
+            entries.delete(old.key);
+        }
+        for (const next of incoming.entries) {
+          if (JSON.stringify(previousEntries.get(next.key)) === JSON.stringify(next)) continue;
+          const existing = entries.get(next.key);
+          if (!existing || next.updatedAt >= existing.updatedAt) entries.set(next.key, next);
+        }
+        return {
+          ...incoming,
+          entries: [...entries.values()]
+            .sort((a, b) => b.updatedAt - a.updatedAt || b.hits - a.hits)
+            .slice(0, limit),
+        };
+      },
+      parseTranslationMemory,
+    );
+  }
 }
 
 export class TranslationMemory {
   private readonly maxEntries: number;
   private readonly store?: TranslationMemoryFileStore;
   private readonly entries = new Map<string, TranslationMemoryEntry>();
+  private baseline: TranslationMemoryEntry[] = [];
+  private saveTail: Promise<void> = Promise.resolve();
 
   constructor(options: { maxEntries?: number; store?: TranslationMemoryFileStore } = {}) {
     this.maxEntries = Math.max(
@@ -165,6 +216,7 @@ export class TranslationMemory {
     if (!data) return;
     this.entries.clear();
     for (const entry of data.entries) this.entries.set(entry.key, { ...entry });
+    this.baseline = data.entries.map((entry) => ({ ...entry }));
     this.evictIfNeeded();
   }
 
@@ -198,17 +250,24 @@ export class TranslationMemory {
     await this.persist();
   }
 
-  async persist(): Promise<void> {
-    await this.store?.save({
+  async persist(replace = false): Promise<void> {
+    const data: TranslationMemoryData = {
       schemaVersion: TRANSLATION_MEMORY_SCHEMA_VERSION,
       updatedAt: Date.now(),
       entries: Array.from(this.entries.values()).map((entry) => ({ ...entry })),
+    };
+    const save = this.saveTail.then(async () => {
+      if (replace) await this.store?.save(data);
+      else await this.store?.merge(data, this.baseline, this.maxEntries);
+      this.baseline = data.entries;
     });
+    this.saveTail = save.catch(() => {});
+    await save;
   }
 
   async clear(): Promise<void> {
     this.entries.clear();
-    await this.persist();
+    await this.persist(true);
   }
 
   async remove(key: string): Promise<boolean> {
@@ -223,7 +282,7 @@ export class TranslationMemory {
     this.entries.clear();
     for (const entry of parsed.entries) this.entries.set(entry.key, { ...entry });
     this.evictIfNeeded();
-    await this.persist();
+    await this.persist(true);
   }
 
   size(): number {

@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { gzipSync } from 'node:zlib';
+import { File as NodeFile } from 'node:buffer';
+const File = NodeFile as unknown as typeof globalThis.File;
 
 import { createStarDictProvider } from '@/services/dictionaries/providers/starDictProvider';
 import type { ImportedDictionary } from '@/services/dictionaries/types';

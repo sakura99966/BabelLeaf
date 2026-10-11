@@ -2,7 +2,7 @@ diff --git a/dist/index.js b/dist/index.js
 index 7e0992f6ac16a2cdcd11f449e6941fac52df1be5..c5c66aa6b55651a76c247005d981596fd65fa2d5 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -1528,8 +1528,9 @@ function stringifyRegExpWithFlags(regex, refs) {
+@@ -1636,8 +1636,9 @@ function stringifyRegExpWithFlags(regex, refs) {
      }
      if (flags.m) {
        if (source[i] === "^") {
@@ -18,7 +18,7 @@ diff --git a/dist/index.mjs b/dist/index.mjs
 index 1cccf8e34ba5107a5b3d015dd03b69296b389c82..28d3f09ee2517e4ec0ee0f0b0ef1dbaffebef252 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
-@@ -1439,8 +1439,9 @@ function stringifyRegExpWithFlags(regex, refs) {
+@@ -1543,8 +1543,9 @@ function stringifyRegExpWithFlags(regex, refs) {
      }
      if (flags.m) {
        if (source[i] === "^") {

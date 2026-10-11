@@ -340,17 +340,18 @@ export class ComicEditSidecarStore {
   constructor(private readonly fs: ComicEditSidecarStorage) {}
 
   async load(bookHash: string): Promise<ComicEditSidecar | null> {
-    const raw = await safeLoadJSON<unknown>(
+    return safeLoadJSON<ComicEditSidecar | null>(
       this.fs,
       getComicEditSidecarPath(bookHash),
       'Data' as BaseDir,
       null,
+      (value) => {
+        const sidecar = parseComicEditSidecar(value);
+        if (sidecar.bookHash !== bookHash)
+          throw new ComicEditSidecarError('Edit sidecar book hash does not match');
+        return sidecar;
+      },
     );
-    if (raw === null) return null;
-    const sidecar = parseComicEditSidecar(raw);
-    if (sidecar.bookHash !== bookHash)
-      throw new ComicEditSidecarError('Edit sidecar book hash does not match');
-    return sidecar;
   }
 
   async save(sidecar: ComicEditSidecar): Promise<void> {

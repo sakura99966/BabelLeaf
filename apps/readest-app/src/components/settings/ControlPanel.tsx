@@ -30,7 +30,7 @@ import { canShareText } from '@/utils/share';
 const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset }) => {
   const _ = useTranslation();
   const { envConfig, appService } = useEnv();
-  const { getView, getViewSettings, recreateViewer } = useReaderStore();
+  const { getView, getViewSettings } = useReaderStore();
   const { getBookData } = useBookDataStore();
   const { settings } = useSettingsStore();
   const { applyEinkMode } = useEinkMode();
@@ -66,7 +66,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
     settings.swipeBrightnessGesture,
   );
   const [screenWakeLock, setScreenWakeLock] = useState(settings.screenWakeLock);
-  const [allowScript, setAllowScript] = useState(viewSettings.allowScript);
 
   const resetToDefaults = useResetViewSettings();
   const pageTurnerResetRef = useRef<() => void>(() => {});
@@ -97,7 +96,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
       swapClickArea: setSwapClickArea,
       animated: setAnimated,
       isEink: setIsEink,
-      allowScript: setAllowScript,
       fullscreenClickArea: setFullscreenClickArea,
       disableDoubleClick: setIsDisableDoubleClick,
       enableAnnotationQuickActions: setEnableAnnotationQuickActions,
@@ -253,14 +251,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
     saveSysSettings(envConfig, 'screenWakeLock', screenWakeLock);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screenWakeLock]);
-
-  useEffect(() => {
-    if (viewSettings.allowScript === allowScript) return;
-    saveViewSettings(envConfig, bookKey, 'allowScript', allowScript, true, false).then(() => {
-      recreateViewer(envConfig, bookKey);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowScript]);
 
   useEffect(() => {
     saveViewSettings(
@@ -483,16 +473,6 @@ const ControlPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterRes
           checked={screenWakeLock}
           onChange={() => setScreenWakeLock(!screenWakeLock)}
           data-setting-id='settings.control.screenWakeLock'
-        />
-      </BoxedList>
-
-      <BoxedList title={_('Security')} data-setting-id='settings.control.allowJavascript'>
-        <SettingsSwitchRow
-          label={_('Allow JavaScript')}
-          description={_('Enable only if you trust the file.')}
-          checked={allowScript}
-          disabled={bookData?.book?.format !== 'EPUB'}
-          onChange={() => setAllowScript(!allowScript)}
         />
       </BoxedList>
     </div>

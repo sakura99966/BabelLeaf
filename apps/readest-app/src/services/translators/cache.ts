@@ -1,8 +1,10 @@
-import { TranslationCache } from './types';
-
 const DB_NAME = 'TranslationCache';
 const DB_VERSION = 1;
 const STORE_NAME = 'translations';
+const MAX_MEMORY_ENTRIES = 512;
+const MAX_MEMORY_BYTES = 8 * 1024 * 1024;
+const MAX_DB_ENTRIES = 2048;
+const MAX_DB_ENTRY_BYTES = 64 * 1024;
 
 interface CacheEntry {
   key: string;
@@ -13,33 +15,49 @@ interface CacheEntry {
   targetLang: string;
   originalText: string;
 }
+interface MemoryEntry {
+  translation: string;
+  timestamp: number;
+  provider: string;
+  bytes: number;
+}
+const memoryCache = new Map<string, MemoryEntry>();
+let memoryBytes = 0;
 
-const memoryCache: TranslationCache = {};
-const memoryTimestamps: Record<string, number> = {};
+const forget = (key: string) => {
+  const entry = memoryCache.get(key);
+  if (entry) memoryBytes -= entry.bytes;
+  memoryCache.delete(key);
+};
+const remember = (entry: CacheEntry) => {
+  if (typeof entry.key !== 'string' || typeof entry.translation !== 'string') return;
+  forget(entry.key);
+  // UTF-16 string payload estimate; object/engine overhead is not included.
+  const bytes = 2 * (entry.key.length + entry.translation.length);
+  if (bytes > MAX_MEMORY_BYTES) return;
+  while (memoryCache.size >= MAX_MEMORY_ENTRIES || memoryBytes + bytes > MAX_MEMORY_BYTES)
+    forget(memoryCache.keys().next().value!);
+  memoryCache.set(entry.key, {
+    translation: entry.translation,
+    timestamp: entry.timestamp,
+    provider: entry.provider,
+    bytes,
+  });
+  memoryBytes += bytes;
+};
 
-const openDatabase = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
-      console.warn('IndexedDB not supported. Using in-memory cache only.');
+const openDatabase = (): Promise<IDBDatabase> =>
+  new Promise((resolve, reject) => {
+    if (!globalThis.indexedDB) {
       reject(new Error('IndexedDB not supported'));
       return;
     }
-
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = (event) => {
-      console.error('IndexedDB error:', event);
-      reject(new Error('Could not open IndexedDB'));
-    };
-
-    request.onsuccess = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      resolve(db);
-    };
-
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-
+    request.onerror = () => reject(new Error('Could not open IndexedDB'));
+    request.onblocked = () => reject(new Error('Translation cache database is blocked'));
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = () => {
+      const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' });
         store.createIndex('provider', 'provider', { unique: false });
@@ -47,147 +65,55 @@ const openDatabase = (): Promise<IDBDatabase> => {
       }
     };
   });
-};
-
-export const loadCacheFromDB = async (
-  options: {
-    maxAge?: number;
-    maxEntries?: number;
-    onlyLoadProviders?: string[];
-    onlyLoadLanguages?: { source?: string[]; target?: string[] };
-  } = {},
-): Promise<void> => {
-  let db: IDBDatabase | undefined;
-  try {
-    db = await openDatabase();
-    const store = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME);
-    let entries: CacheEntry[];
-    if (options.onlyLoadProviders && options.onlyLoadProviders.length > 0) {
-      const providerPromises = options.onlyLoadProviders.map((provider) => {
-        return new Promise<CacheEntry[]>((resolve) => {
-          const providerIndex = store.index('provider');
-          const request = providerIndex.getAll(provider);
-
-          request.onsuccess = () => {
-            resolve(request.result);
-          };
-
-          request.onerror = () => {
-            resolve([]);
-          };
-        });
-      });
-
-      entries = (await Promise.all(providerPromises)).flat();
-    } else {
-      entries = await new Promise<CacheEntry[]>((resolve) => {
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result as CacheEntry[]);
-        request.onerror = () => resolve([]);
-      });
-    }
-    processLoadedEntries(entries, options);
-  } catch (error) {
-    console.error('Failed to load cache from IndexedDB:', error);
-  } finally {
-    db?.close();
-  }
-};
-
-const processLoadedEntries = (
-  entries: CacheEntry[],
-  options: {
-    maxAge?: number;
-    maxEntries?: number;
-    onlyLoadLanguages?: { source?: string[]; target?: string[] };
-  },
-): void => {
-  let filteredEntries = entries;
-
-  if (options.maxAge) {
-    const cutoff = Date.now() - options.maxAge;
-    filteredEntries = filteredEntries.filter((entry) => entry.timestamp >= cutoff);
-  }
-
-  if (options.onlyLoadLanguages) {
-    if (options.onlyLoadLanguages.source && options.onlyLoadLanguages.source.length > 0) {
-      filteredEntries = filteredEntries.filter((entry) =>
-        options.onlyLoadLanguages!.source!.includes(entry.sourceLang),
-      );
-    }
-
-    if (options.onlyLoadLanguages.target && options.onlyLoadLanguages.target.length > 0) {
-      filteredEntries = filteredEntries.filter((entry) =>
-        options.onlyLoadLanguages!.target!.includes(entry.targetLang),
-      );
-    }
-  }
-
-  if (options.maxEntries && filteredEntries.length > options.maxEntries) {
-    filteredEntries.sort((a, b) => b.timestamp - a.timestamp);
-    filteredEntries = filteredEntries.slice(0, options.maxEntries);
-  }
-
-  filteredEntries.forEach((entry) => {
-    memoryCache[entry.key] = entry.translation;
-    memoryTimestamps[entry.key] = entry.timestamp;
-  });
-
-  // console.log(`Loaded ${filteredEntries.length} translations into memory cache`);
-};
 
 export const getCacheKey = (
   text: string,
   sourceLang: string,
   targetLang: string,
   provider: string,
-): string => {
-  return `${provider}:${sourceLang}:${targetLang}:${text}`;
-};
+  context?: string,
+): string =>
+  context === undefined
+    ? `${provider}:${sourceLang}:${targetLang}:${text}`
+    : `${provider}:${JSON.stringify([sourceLang, targetLang, context, text])}`;
 
 export const getFromCache = async (
   text: string,
   sourceLang: string,
   targetLang: string,
   provider: string,
+  context?: string,
 ): Promise<string | null> => {
   if (!text?.trim()) return null;
-
-  const key = getCacheKey(text, sourceLang, targetLang, provider);
-
-  if (memoryCache[key]) {
-    return memoryCache[key];
+  const key = getCacheKey(text, sourceLang, targetLang, provider, context);
+  const cached = memoryCache.get(key);
+  if (cached) {
+    memoryCache.delete(key);
+    memoryCache.set(key, cached);
+    return cached.translation;
   }
-
+  let db: IDBDatabase | undefined;
   try {
-    const db = await openDatabase();
+    db = await openDatabase();
     const transaction = db.transaction(STORE_NAME, 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const request = store.get(key);
-
-    return new Promise((resolve) => {
+    const request = transaction.objectStore(STORE_NAME).get(key);
+    return await new Promise<string | null>((resolve) => {
+      transaction.onabort = transaction.onerror = () => resolve(null);
+      request.onerror = () => resolve(null);
       request.onsuccess = () => {
-        const entry = request.result as CacheEntry;
-        if (entry) {
-          memoryCache[key] = entry.translation;
-          memoryTimestamps[key] = entry.timestamp;
-          resolve(entry.translation);
-        } else {
+        const entry = request.result as CacheEntry | undefined;
+        if (!entry || typeof entry.translation !== 'string') {
           resolve(null);
+          return;
         }
-      };
-
-      request.onerror = () => {
-        resolve(null);
-      };
-
-      transaction.oncomplete = () => {
-        db.close();
+        remember(entry);
+        resolve(entry.translation);
       };
     });
-  } catch (error) {
-    console.error('Error accessing IndexedDB:', error);
+  } catch {
     return null;
+  } finally {
+    db?.close();
   }
 };
 
@@ -197,45 +123,59 @@ export const storeInCache = async (
   sourceLang: string,
   targetLang: string,
   provider: string,
+  context?: string,
 ): Promise<void> => {
   if (!text?.trim() || !translation) return;
-
-  const key = getCacheKey(text, sourceLang, targetLang, provider);
-  const timestamp = Date.now();
-
-  memoryCache[key] = translation;
-  memoryTimestamps[key] = timestamp;
-
+  const entry: CacheEntry = {
+    key: getCacheKey(text, sourceLang, targetLang, provider, context),
+    translation,
+    timestamp: Date.now(),
+    provider,
+    sourceLang,
+    targetLang,
+    originalText: text,
+  };
+  remember(entry);
+  // Cache is disposable. Large results remain in durable translation sidecars.
+  // Reject large strings before serializing. Escapes/UTF-8 encoding can only
+  // increase this lower bound; the bounded serialized entry is checked next.
+  const minimumBytes = [entry.key, translation, provider, sourceLang, targetLang, text].reduce(
+    (total, value) => total + value.length,
+    0,
+  );
+  if (minimumBytes > MAX_DB_ENTRY_BYTES) return;
+  if (new TextEncoder().encode(JSON.stringify(entry)).byteLength > MAX_DB_ENTRY_BYTES) return;
+  let db: IDBDatabase | undefined;
   try {
-    const db = await openDatabase();
+    db = await openDatabase();
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-
-    const entry: CacheEntry = {
-      key,
-      translation,
-      timestamp,
-      provider,
-      sourceLang,
-      targetLang,
-      originalText: text,
-    };
-
     store.put(entry);
-
-    return new Promise((resolve, reject) => {
-      transaction.oncomplete = () => {
-        db.close();
-        resolve();
+    const count = store.count();
+    count.onsuccess = () => {
+      let excess = count.result - MAX_DB_ENTRIES;
+      if (excess <= 0) return;
+      const cursor = store.index('timestamp').openCursor();
+      cursor.onsuccess = () => {
+        const item = cursor.result;
+        if (!item || excess <= 0) return;
+        // Retain the just-completed result even if the system clock moved back.
+        if (item.primaryKey !== entry.key) {
+          item.delete();
+          excess -= 1;
+        }
+        item.continue();
       };
-
-      transaction.onerror = (event) => {
-        console.error('Error storing in IndexedDB:', event);
-        reject(new Error('Failed to store in IndexedDB'));
-      };
+    };
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = transaction.onabort = () =>
+        reject(new Error('Translation cache write failed'));
     });
-  } catch (error) {
-    console.error('Error accessing IndexedDB:', error);
+  } catch {
+    /* Best-effort cache failure must not discard a completed translation. */
+  } finally {
+    db?.close();
   }
 };
 
@@ -243,264 +183,77 @@ export interface CacheFilterOptions {
   provider?: string;
   maxAge?: number;
 }
+const matches = (entry: Pick<CacheEntry, 'provider' | 'timestamp'>, filter?: CacheFilterOptions) =>
+  (!filter?.provider || entry.provider === filter.provider) &&
+  (!filter?.maxAge || Date.now() - entry.timestamp >= filter.maxAge);
 
 export const clearCache = async (filter?: CacheFilterOptions): Promise<number> => {
   let deletedCount = 0;
-
-  if (!filter) {
-    const count = Object.keys(memoryCache).length;
-    Object.keys(memoryCache).forEach((key) => {
-      delete memoryCache[key];
-      delete memoryTimestamps[key];
-    });
-    deletedCount = count;
-  } else {
-    const keysToDelete: string[] = [];
-
-    Object.keys(memoryCache).forEach((key) => {
-      let shouldDelete = true;
-
-      if (filter.provider) {
-        const parts = key.split(':');
-        const provider = parts[0];
-
-        if (filter.provider && provider !== filter.provider) {
-          shouldDelete = false;
-        }
-      }
-
-      if (shouldDelete && filter.maxAge && memoryTimestamps[key]) {
-        const timestamp = memoryTimestamps[key];
-        if (Date.now() - timestamp < filter.maxAge) {
-          shouldDelete = false;
-        }
-      }
-
-      if (shouldDelete) {
-        keysToDelete.push(key);
-      }
-    });
-
-    keysToDelete.forEach((key) => {
-      delete memoryCache[key];
-      delete memoryTimestamps[key];
-    });
-
-    deletedCount = keysToDelete.length;
+  for (const [key, entry] of memoryCache) {
+    if (matches(entry, filter)) {
+      forget(key);
+      deletedCount += 1;
+    }
   }
-
+  let db: IDBDatabase | undefined;
   try {
-    const db = await openDatabase();
+    db = await openDatabase();
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-
-    if (!filter) {
-      store.clear();
-    } else {
-      const request = store.getAll();
-
+    if (!filter) store.clear();
+    else {
+      const request = store.openCursor();
       request.onsuccess = () => {
-        const entries = request.result as CacheEntry[];
-        const entriesToDelete = entries.filter((entry) => {
-          if (filter.provider && entry.provider !== filter.provider) return false;
-          if (filter.maxAge && Date.now() - entry.timestamp < filter.maxAge) return false;
-          return true;
-        });
-
-        entriesToDelete.forEach((entry) => {
-          store.delete(entry.key);
-        });
+        const cursor = request.result;
+        if (!cursor) return;
+        if (matches(cursor.value as CacheEntry, filter)) cursor.delete();
+        cursor.continue();
       };
     }
-
-    return new Promise((resolve) => {
-      transaction.oncomplete = () => {
-        db.close();
-        resolve(deletedCount);
-      };
-
-      transaction.onerror = () => {
-        db.close();
-        resolve(deletedCount);
-      };
+    await new Promise<void>((resolve) => {
+      transaction.oncomplete = transaction.onerror = transaction.onabort = () => resolve();
     });
-  } catch (error) {
-    console.error('Error clearing IndexedDB cache:', error);
-    return deletedCount;
+  } catch {
+    /* The in-memory cache is still cleared when IndexedDB is unavailable. */
+  } finally {
+    db?.close();
   }
+  return deletedCount;
 };
 
 export const getCacheStats = async (
-  includeDB: boolean = false,
+  includeDB = false,
 ): Promise<{
   memoryCacheEntries: number;
   memoryCacheSizeInBytes: number;
   dbCacheEntries?: number;
   dbCacheSizeInBytes?: number;
-  totalEntries?: number;
-  totalSizeInBytes?: number;
 }> => {
-  const memoryCacheEntries = Object.keys(memoryCache).length;
-
-  let memoryCacheSizeInBytes = 0;
-  for (const key in memoryCache) {
-    memoryCacheSizeInBytes += key.length;
-
-    const value = memoryCache[key] || '';
-    memoryCacheSizeInBytes += value.length;
-  }
-
-  if (!includeDB) {
-    return { memoryCacheEntries, memoryCacheSizeInBytes };
-  }
-
+  const stats = { memoryCacheEntries: memoryCache.size, memoryCacheSizeInBytes: memoryBytes };
+  if (!includeDB) return stats;
+  let db: IDBDatabase | undefined;
   try {
-    const db = await openDatabase();
+    db = await openDatabase();
     const transaction = db.transaction(STORE_NAME, 'readonly');
-    const store = transaction.objectStore(STORE_NAME);
-    const countRequest = store.count();
-
-    return new Promise((resolve) => {
-      countRequest.onsuccess = () => {
-        const dbCacheEntries = countRequest.result;
-
-        const getAllRequest = store.getAll();
-
-        getAllRequest.onsuccess = () => {
-          const entries = getAllRequest.result as CacheEntry[];
-
-          let dbCacheSizeInBytes = 0;
-          entries.forEach((entry) => {
-            const entryString = JSON.stringify(entry);
-            dbCacheSizeInBytes += entryString.length;
-          });
-
-          const totalEntries =
-            memoryCacheEntries + dbCacheEntries - Math.min(memoryCacheEntries, dbCacheEntries);
-
-          const totalSizeInBytes = memoryCacheSizeInBytes + dbCacheSizeInBytes;
-
-          resolve({
-            memoryCacheEntries,
-            memoryCacheSizeInBytes,
-            dbCacheEntries,
-            dbCacheSizeInBytes,
-            totalEntries,
-            totalSizeInBytes,
-          });
-        };
-      };
-
-      transaction.oncomplete = () => {
-        db.close();
-      };
-
-      transaction.onerror = () => {
-        db.close();
-        resolve({
-          memoryCacheEntries,
-          memoryCacheSizeInBytes,
-        });
-      };
+    let dbCacheEntries = 0;
+    let dbCacheSizeInBytes = 0;
+    const request = transaction.objectStore(STORE_NAME).openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) return;
+      dbCacheEntries += 1;
+      dbCacheSizeInBytes += JSON.stringify(cursor.value).length * 2;
+      cursor.continue();
+    };
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = transaction.onabort = () =>
+        reject(new Error('Cache statistics failed'));
     });
-  } catch (error) {
-    console.error('Error getting IndexedDB stats:', error);
-    return { memoryCacheEntries, memoryCacheSizeInBytes };
-  }
-};
-
-export const pruneCache = async (
-  options: { maxAge?: number; maxEntries?: number; maxSizeInBytes?: number; dryRun?: boolean } = {},
-): Promise<number> => {
-  const { maxAge, maxEntries, maxSizeInBytes, dryRun = false } = options;
-
-  if (!maxAge && !maxEntries && !maxSizeInBytes) {
-    return 0;
-  }
-
-  try {
-    const db = await openDatabase();
-    const transaction = db.transaction(STORE_NAME, dryRun ? 'readonly' : 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    const getAllRequest = store.getAll();
-
-    return new Promise((resolve) => {
-      getAllRequest.onsuccess = () => {
-        const entries = getAllRequest.result as CacheEntry[];
-        const entriesToPrune: CacheEntry[] = [];
-
-        if (maxAge) {
-          const cutoffTime = Date.now() - maxAge;
-          const agedEntries = entries.filter((entry) => entry.timestamp < cutoffTime);
-          entriesToPrune.push(...agedEntries);
-        }
-
-        if (maxEntries && entries.length > maxEntries) {
-          const sortedEntries = [...entries].sort((a, b) => a.timestamp - b.timestamp);
-          const excessEntries = sortedEntries.slice(0, entries.length - maxEntries);
-
-          const prunedKeys = new Set(entriesToPrune.map((e) => e.key));
-          excessEntries.forEach((entry) => {
-            if (!prunedKeys.has(entry.key)) {
-              entriesToPrune.push(entry);
-            }
-          });
-        }
-
-        if (maxSizeInBytes) {
-          let currentSize = 0;
-          entries.forEach((entry) => {
-            const entryString = JSON.stringify(entry);
-            currentSize += entryString.length;
-          });
-
-          if (currentSize > maxSizeInBytes) {
-            const remainingEntries = entries
-              .filter((entry) => !entriesToPrune.some((e) => e.key === entry.key))
-              .sort((a, b) => a.timestamp - b.timestamp);
-
-            let sizeToRemove = currentSize - maxSizeInBytes;
-            const prunedKeys = new Set(entriesToPrune.map((e) => e.key));
-
-            for (const entry of remainingEntries) {
-              if (sizeToRemove <= 0) break;
-
-              if (!prunedKeys.has(entry.key)) {
-                const entryString = JSON.stringify(entry);
-                const entrySize = entryString.length * 2;
-
-                entriesToPrune.push(entry);
-                prunedKeys.add(entry.key);
-                sizeToRemove -= entrySize;
-              }
-            }
-          }
-        }
-
-        const pruneCount = entriesToPrune.length;
-
-        if (!dryRun && pruneCount > 0) {
-          entriesToPrune.forEach((entry) => {
-            store.delete(entry.key);
-
-            delete memoryCache[entry.key];
-            delete memoryTimestamps[entry.key];
-          });
-        }
-
-        resolve(pruneCount);
-      };
-
-      getAllRequest.onerror = () => {
-        resolve(0);
-      };
-
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  } catch (error) {
-    console.error('Error pruning cache:', error);
-    return 0;
+    return { ...stats, dbCacheEntries, dbCacheSizeInBytes };
+  } catch {
+    return stats;
+  } finally {
+    db?.close();
   }
 };

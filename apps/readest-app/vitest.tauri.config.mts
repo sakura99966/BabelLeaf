@@ -4,7 +4,7 @@ import { webdriverio } from '@vitest/browser-webdriverio';
 import { loadEnvFile } from './vitest.env.mts';
 
 // Load .env and .env.tauri so tauri tests have the same env as the desktop app.
-const env = { ...loadEnvFile('.env'), ...loadEnvFile('.env.tauri'), CWD: process.cwd() };
+const env = { ...loadEnvFile('.env'), ...loadEnvFile('.env.tauri'), CWD: process.cwd(), BABELLEAF_NATIVE_TEST_ROOT: process.env.BABELLEAF_NATIVE_TEST_ROOT };
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
@@ -20,6 +20,7 @@ export default defineConfig({
       '@tauri-apps/plugin-http',
       '@tauri-apps/api/path',
       '@tauri-apps/api/core',
+      '@tauri-apps/api/webviewWindow',
       '@zip.js/zip.js',
       'franc-min',
       'iso-639-2',
@@ -39,6 +40,7 @@ export default defineConfig({
     testTimeout: 30000,
     browser: {
       enabled: true,
+      api: { host: '127.0.0.1' },
       provider: webdriverio({
         hostname: '127.0.0.1',
         port: 4445,

@@ -50,6 +50,8 @@ const mocks = vi.hoisted(() => {
     controllerSubscribe: vi.fn(),
     controllerCancel: vi.fn(),
     controllerPause: vi.fn(),
+    controllerBusy: false,
+    controllerFlush: vi.fn(async () => {}),
     selectFiles: vi.fn(),
     translate: vi.fn(),
     saveFile: vi.fn(),
@@ -171,6 +173,15 @@ vi.mock('@/services/translators/batch', () => {
     code = 'unsupported';
   }
   class TranslationBatchController {
+    get isBusy() {
+      return mocks.controllerBusy;
+    }
+    get hasPendingWrites() {
+      return false;
+    }
+    flush() {
+      return mocks.controllerFlush();
+    }
     static restore = vi.fn(async () => new TranslationBatchController());
     subscribe(callback: (snapshot: unknown) => void) {
       mocks.controllerSubscribe(callback);
@@ -314,6 +325,21 @@ afterEach(() => {
 });
 
 describe('TranslationWorkbenchDialog', () => {
+  test('keeps the workbench open while an in-flight batch is still running', async () => {
+    mocks.controllerBusy = true;
+    try {
+      render(
+        <TranslationWorkbenchDialog bookKey='book-hash-window' isOpen onClose={mocks.onClose} />,
+      );
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Start' })).toBeTruthy());
+      fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+      await waitFor(() => expect(mocks.controllerStart).toHaveBeenCalled());
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      expect(mocks.onClose).not.toHaveBeenCalled();
+    } finally {
+      mocks.controllerBusy = false;
+    }
+  });
   test('loads a local artifact, starts a batch job, and exposes every workspace entry', async () => {
     render(
       <TranslationWorkbenchDialog bookKey='book-hash-window' isOpen onClose={mocks.onClose} />,
@@ -333,7 +359,22 @@ describe('TranslationWorkbenchDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Memory' }));
     expect(screen.getByText('Memory panel direct entry')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(mocks.onClose).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mocks.onClose).toHaveBeenCalledTimes(1));
+  });
+
+  test('rejects oversized native sidecars before reading and closes the owned file', async () => {
+    const text = vi.fn().mockResolvedValue('{}');
+    const close = vi.fn().mockResolvedValue(undefined);
+    mocks.selectFiles.mockResolvedValue({ files: [{ path: '/large.json' }] });
+    mocks.openFile.mockResolvedValue({ size: 64 * 1024 * 1024 + 1, text, close });
+    render(
+      <TranslationWorkbenchDialog bookKey='book-hash-window' isOpen onClose={mocks.onClose} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Import' }));
+    await waitFor(() => expect(screen.getByText(/Sidecar input exceeds/)).toBeTruthy());
+    expect(text).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(mocks.artifactSave).not.toHaveBeenCalled();
   });
 
   test('reports file-picker and export failures in the workbench instead of rejecting silently', async () => {

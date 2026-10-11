@@ -12,6 +12,7 @@ fn main() {
     tauri_build::try_build(tauri_build::Attributes::new().app_manifest(
         tauri_build::AppManifest::new().commands(&[
             "get_executable_dir",
+            "get_webview_environment",
             "allow_paths_in_scopes",
             "set_webview_memory_usage",
             "read_dir",

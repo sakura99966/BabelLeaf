@@ -1,6 +1,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { readSidecarInput } from '@/services/translators/sidecarInput';
+import { readerCloseGuard } from '@/services/translators/readerCloseGuard';
+import { collectComicExportPages } from '@/services/translators/comicExport';
+import { exportComicArchive } from '@/services/translators/comicExportWorker';
 import { arch as osArch, platform as osPlatform } from '@tauri-apps/plugin-os';
 import Dialog from '@/components/Dialog';
 import { useEnv } from '@/context/EnvContext';
@@ -30,7 +34,6 @@ import {
   createManualComicRegion,
   createComicWorkspacePage,
   editComicRegion,
-  exportComicPages,
   getEffectiveComicRegion,
   mergeComicRegions,
   listOcrModelPacks,
@@ -458,6 +461,14 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
   const [ocrRunning, setOcrRunning] = useState(false);
   const [ocrProgress, setOcrProgress] = useState({ completed: 0, total: 0, pageId: '' });
   const ocrAbortRef = useRef<AbortController | null>(null);
+  const exportAbortRef = useRef<AbortController | null>(null);
+  const pendingWorkspaceRef = useRef<ComicWorkspace | null>(null);
+  const pendingEditRef = useRef<ComicEditSidecar | null>(null);
+  const workspaceWriteRef = useRef<Promise<void>>(Promise.resolve());
+  const editWriteRef = useRef<Promise<void>>(Promise.resolve());
+  const busyRef = useRef(false);
+  busyRef.current = busy || ocrRunning;
+  useEffect(() => () => exportAbortRef.current?.abort(), []);
   const pipelineId = `${bookHash}:translate:${providerName}:${targetLang}:${createComicPipelinePageSetSignature(
     assets.map(({ pageId, width, height, byteLength }) => ({
       pageId,
@@ -475,16 +486,58 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
       }
       workspaceRef.current = next;
       setWorkspace(next);
-      if (workspaceStore) await workspaceStore.save(next);
+      pendingWorkspaceRef.current = next;
+      const write = workspaceWriteRef.current
+        .catch(() => {})
+        .then(async () => {
+          if (!workspaceStore) throw new Error('Comic workspace storage is unavailable');
+          await workspaceStore.save(next);
+          if (pendingWorkspaceRef.current === next) pendingWorkspaceRef.current = null;
+        });
+      workspaceWriteRef.current = write;
+      await write;
     },
     [workspaceStore],
   );
   const persistEditSidecar = useCallback(
     async (next: ComicEditSidecar) => {
       setEditSidecar(next);
-      if (editStore) await editStore.save(next);
+      pendingEditRef.current = next;
+      const write = editWriteRef.current
+        .catch(() => {})
+        .then(async () => {
+          if (!editStore) throw new Error('Comic edit storage is unavailable');
+          await editStore.save(next);
+          if (pendingEditRef.current === next) pendingEditRef.current = null;
+        });
+      editWriteRef.current = write;
+      await write;
     },
     [editStore],
+  );
+
+  const flushLocalWrites = useCallback(async () => {
+    await Promise.all([
+      workspaceWriteRef.current.catch(() => {}),
+      editWriteRef.current.catch(() => {}),
+    ]);
+    if (pendingWorkspaceRef.current)
+      await persistWorkspace(pendingWorkspaceRef.current, { recordHistory: false });
+    if (pendingEditRef.current) await persistEditSidecar(pendingEditRef.current);
+    await pipelineQueueRef.current?.flushCheckpoint();
+  }, [persistWorkspace, persistEditSidecar]);
+
+  useEffect(
+    () =>
+      readerCloseGuard.register(bookKey, {
+        isBusy: () => busyRef.current || !!pipelineQueueRef.current?.isBusy,
+        hasPending: () =>
+          !!pendingWorkspaceRef.current ||
+          !!pendingEditRef.current ||
+          !!pipelineQueueRef.current?.hasPendingWrites,
+        flush: flushLocalWrites,
+      }),
+    [bookKey, flushLocalWrites],
   );
 
   useEffect(() => {
@@ -673,6 +726,7 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
               ) {
                 continue;
               }
+              let translationCompleted = false;
               try {
                 const result = await translateComicRegion({
                   workspace: currentWorkspace,
@@ -684,9 +738,11 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
                   signal,
                 });
                 currentWorkspace = result.workspace;
+                translationCompleted = true;
                 await persistWorkspace(currentWorkspace, { recordHistory: false });
                 translatedCount += 1;
               } catch (reason: unknown) {
+                if (translationCompleted) throw reason;
                 try {
                   currentWorkspace = recordComicTranslationFailure(
                     {
@@ -960,7 +1016,9 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
       const selected = selection.files[0];
       if (!selected) return;
       const loaded = await readSelected(selected, appService);
-      const sidecar = parseOcrSidecar(JSON.parse(await loaded.file.text()));
+      const sidecar = parseOcrSidecar(
+        JSON.parse(await readSidecarInput(loaded.file, !selected.file)),
+      );
       if (sidecar.bookHash !== bookHash) {
         throw new Error(_('The OCR sidecar belongs to a different book.'));
       }
@@ -1118,10 +1176,12 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
     }
     setError(null);
     try {
+      await flushLocalWrites();
       const result = await (queue.getSnapshot().status === 'paused'
         ? queue.resume()
         : queue.start());
       setPipelineSnapshot(result);
+      await flushLocalWrites();
       setMessage(_('Comic batch translation checkpoint saved locally.'));
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -1144,8 +1204,10 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
     if (!queue) return;
     setError(null);
     try {
+      await flushLocalWrites();
       const result = await queue.retryFailed();
       setPipelineSnapshot(result);
+      await flushLocalWrites();
       setMessage(_('Failed comic pages were queued again.'));
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason));
@@ -1385,8 +1447,18 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
 
   const translateSelected = async () => {
     if (!workspace || !page || !selectedRegion || !provider) return;
+    // Retained completed results must be saved before another paid request.
+    if (pendingWorkspaceRef.current || pendingEditRef.current) {
+      try {
+        await flushLocalWrites();
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      }
+      return;
+    }
     setBusy(true);
     setError(null);
+    let translationCompleted = false;
     try {
       const result = await translateComicRegion({
         workspace,
@@ -1396,9 +1468,14 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
         sourceLang,
         targetLang,
       });
+      translationCompleted = true;
       await persistWorkspace(result.workspace);
       setMessage(_('Translation completed and saved to the local workspace.'));
     } catch (reason: unknown) {
+      if (translationCompleted) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+        return;
+      }
       try {
         await persistWorkspace(
           recordComicTranslationFailure(
@@ -1652,6 +1729,8 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
     if (!workspace || assets.length === 0 || !appService) return;
     setBusy(true);
     setError(null);
+    const exportController = new AbortController();
+    exportAbortRef.current = exportController;
     let inpaintWorker: Awaited<ReturnType<typeof createInstalledLamaInpaintWorker>> | undefined;
     try {
       if (useLamaInpaint) {
@@ -1659,18 +1738,15 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
         setMessage(_('Loading local LaMa model...'));
         inpaintWorker = await createInstalledLamaInpaintWorker(inpaintModelStorage);
       }
-      const pages = [] as ComicRenderedPage[];
-      for (const currentPage of workspace.pages) {
-        const current = assets.find((candidate) => candidate.pageId === currentPage.pageId);
-        if (current) pages.push(await renderAsset(current, currentPage, inpaintWorker));
-      }
-      if (pages.length === 0) throw new Error(_('Re-import the source pages before exporting.'));
-      if (format === 'pdf') {
-        // Convert one page at a time so a PDF export never holds both the
-        // complete source-image set and a second complete JPEG set.
-        for (let index = 0; index < pages.length; index += 1) {
-          const page = pages[index]!;
-          if (page.mimeType === 'image/jpeg') continue;
+      const pages = await collectComicExportPages(
+        workspace.pages,
+        async (currentPage) => {
+          const current = assets.find((candidate) => candidate.pageId === currentPage.pageId);
+          if (!current) throw new Error(_('Re-import the source pages before exporting.'));
+          const page = await renderAsset(current, currentPage, inpaintWorker);
+          exportController.signal.throwIfAborted();
+          if (format !== 'pdf' || page.mimeType === 'image/jpeg') return page;
+          // Convert before collection so the budget covers the final JPEGs.
           const blob = new Blob([new Uint8Array(page.bytes).buffer], { type: page.mimeType });
           const canvas = document.createElement('canvas');
           const currentAsset = assets.find((candidate) => candidate.pageId === page.pageId);
@@ -1688,31 +1764,29 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
           );
           canvas.width = 0;
           canvas.height = 0;
-          pages[index] = {
+          return {
             ...page,
-            extension: 'jpg',
+            extension: 'jpg' as const,
             mimeType: 'image/jpeg',
             bytes: await jpeg.arrayBuffer(),
           };
-        }
-      }
-      const result = exportComicPages({
-        format,
-        outputName: `${bookData?.book?.title || 'translated-comic'}.${format}`,
-        pages,
-      });
-      const archiveBytes = result.archive!;
-      await appService.saveFile(
-        result.fileName,
-        archiveBytes.buffer.slice(
-          archiveBytes.byteOffset,
-          archiveBytes.byteOffset + archiveBytes.byteLength,
-        ) as ArrayBuffer,
-        {
-          mimeType: format === 'pdf' ? 'application/pdf' : 'application/vnd.comicbook+zip',
         },
+        exportController.signal,
       );
-      setMessage(_('Translated copy exported without changing the source.'));
+      const result = await exportComicArchive(
+        {
+          format,
+          outputName: `${bookData?.book?.title || 'translated-comic'}.${format}`,
+          pages,
+        },
+        exportController.signal,
+      );
+      const archiveBytes = result.archive!;
+      exportController.signal.throwIfAborted();
+      const saved = await appService.saveFile(result.fileName, archiveBytes.buffer, {
+        mimeType: format === 'pdf' ? 'application/pdf' : 'application/vnd.comicbook+zip',
+      });
+      if (saved) setMessage(_('Translated copy exported without changing the source.'));
     } catch (reason: unknown) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -1722,18 +1796,37 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
         setError(reason instanceof Error ? reason.message : String(reason));
       }
       setBusy(false);
+      exportAbortRef.current = null;
     }
   };
 
   return (
     <Dialog
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={() => {
+        void (async () => {
+          exportAbortRef.current?.abort();
+          try {
+            await readerCloseGuard.prepare([bookKey]);
+            onClose();
+          } catch (reason) {
+            setError(reason instanceof Error ? reason.message : String(reason));
+          }
+        })();
+      }}
       title={_('Comic workspace')}
       snapHeight={0.92}
       useOverlayScroll
     >
       <div className='space-y-3 pb-4'>
+        {busy && exportAbortRef.current && (
+          <button
+            className='btn btn-outline btn-sm'
+            onClick={() => exportAbortRef.current?.abort()}
+          >
+            {_('Cancel')}
+          </button>
+        )}
         <div className='flex flex-wrap items-center gap-2'>
           <button
             className='btn btn-primary btn-sm'

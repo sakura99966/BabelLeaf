@@ -1,4 +1,5 @@
 import { redirect, useRouter } from 'next/navigation';
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, ScrollBarStyle } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { isPWA, isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
@@ -6,11 +7,17 @@ import { BOOK_IDS_SEPARATOR } from '@/services/constants';
 import { AppService } from '@/types/system';
 
 let readerWindowsCount = 0;
-const createReaderWindow = (appService: AppService, url: string) => {
+const createReaderWindow = async (appService: AppService, url: string) => {
+  const windowId = readerWindowsCount++;
+  const environment = appService.isWindowsApp
+    ? await invoke<Partial<ConstructorParameters<typeof WebviewWindow>[1]>>(
+        'get_webview_environment',
+      )
+    : {};
   const currentWindow = getCurrentWindow();
   const label = currentWindow.label;
   const newLabelPrefix = label === 'main' ? 'reader' : label;
-  const win = new WebviewWindow(`${newLabelPrefix}-${readerWindowsCount}`, {
+  const win = new WebviewWindow(`${newLabelPrefix}-${windowId}`, {
     url,
     width: 800,
     height: 600,
@@ -27,16 +34,13 @@ const createReaderWindow = (appService: AppService, url: string) => {
     scrollBarStyle: (appService.osPlatform === 'windows'
       ? 'fluentOverlay'
       : 'default') as unknown as ScrollBarStyle,
+    ...environment,
   });
   win.once('tauri://created', () => {
     console.log('new window created');
-    readerWindowsCount += 1;
   });
   win.once('tauri://error', (e) => {
     console.error('error creating window', e);
-  });
-  win.once('tauri://destroyed', () => {
-    readerWindowsCount -= 1;
   });
 };
 
@@ -45,14 +49,14 @@ export const showReaderWindow = (appService: AppService, bookIds: string[]) => {
   const params = new URLSearchParams('');
   params.set('ids', ids);
   const url = `/reader?${params.toString()}`;
-  createReaderWindow(appService, url);
+  return createReaderWindow(appService, url);
 };
 
 export const showLibraryWindow = (appService: AppService, filenames: string[]) => {
   const params = new URLSearchParams();
   filenames.forEach((filename) => params.append('file', filename));
   const url = `/library?${params.toString()}`;
-  createReaderWindow(appService, url);
+  return createReaderWindow(appService, url);
 };
 
 // Bring the main library window back when a reader window asks to "go to library".
@@ -68,6 +72,11 @@ export const ensureMainLibraryWindow = async (appService: AppService) => {
     await existing.setFocus();
     return;
   }
+  const environment = appService.isWindowsApp
+    ? await invoke<Partial<ConstructorParameters<typeof WebviewWindow>[1]>>(
+        'get_webview_environment',
+      )
+    : {};
   const win = new WebviewWindow('main', {
     url: '/library',
     width: 800,
@@ -84,6 +93,7 @@ export const ensureMainLibraryWindow = async (appService: AppService) => {
     scrollBarStyle: (appService.osPlatform === 'windows'
       ? 'fluentOverlay'
       : 'default') as unknown as ScrollBarStyle,
+    ...environment,
   });
   win.once('tauri://error', (e) => {
     console.error('error recreating main window', e);

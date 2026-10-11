@@ -15,6 +15,7 @@ export const ANTHROPIC_TRANSLATION_MODEL = 'claude-sonnet-4-6';
 export const ANTHROPIC_API_VERSION = '2023-06-01';
 
 type AnthropicResponse = {
+  stop_reason?: string;
   content?: Array<{ type?: string; text?: string }>;
   error?: { message?: string };
 };
@@ -60,7 +61,14 @@ export class AnthropicProvider implements AIProvider {
 
     const payload = (await response.json().catch(() => ({}))) as AnthropicResponse;
     if (!response.ok) {
-      throw new Error(payload.error?.message || `Anthropic request failed (${response.status})`);
+      throw Object.assign(new Error(`Anthropic request failed (${response.status})`), {
+        status: response.status,
+        retryAfter: response.headers.get('retry-after'),
+      });
+    }
+
+    if (payload.stop_reason !== 'end_turn') {
+      throw new Error('Translation provider returned an incomplete response');
     }
 
     const text = payload.content

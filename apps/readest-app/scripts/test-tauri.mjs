@@ -277,6 +277,7 @@ try {
   const runtimeLocalAppData = path.join(temporaryRuntimeDirectory, 'Local');
   const runtimeWebViewData = path.join(temporaryRuntimeDirectory, 'WebView2');
   const runtimeWebViewProfile = path.join(runtimeWebViewData, 'EBWebView');
+  const nativeTestRoot = path.join(temporaryRuntimeDirectory, '.readest-test-sandbox-tauri');
   const webdriverPidFile = path.join(temporaryRuntimeDirectory, 'webdriver.pid');
   webdriverExitFile = path.join(temporaryRuntimeDirectory, 'webdriver.exit');
   webdriverFallbackPidFile = path.join(os.tmpdir(), `babelleaf-webdriver-${webdriverPort}.pid`);
@@ -286,14 +287,13 @@ try {
   await mkdir(runtimeAppData, { recursive: true });
   await mkdir(runtimeLocalAppData, { recursive: true });
   await mkdir(runtimeWebViewData, { recursive: true });
+  await mkdir(nativeTestRoot, { recursive: true });
   environment = {
     ...baseEnvironment,
     APPDATA: runtimeAppData,
     LOCALAPPDATA: runtimeLocalAppData,
-    NEXT_PUBLIC_BABELLEAF_E2E_DATA_ROOT: path.join(
-      temporaryRuntimeDirectory,
-      '.readest-test-sandbox-tauri',
-    ),
+    NEXT_PUBLIC_BABELLEAF_E2E_DATA_ROOT: nativeTestRoot,
+    BABELLEAF_NATIVE_TEST_ROOT: nativeTestRoot,
     WEBVIEW2_USER_DATA_FOLDER: runtimeWebViewData,
     BABELLEAF_WEBDRIVER_WEBVIEW_DATA_DIR: runtimeWebViewProfile,
     BABELLEAF_WEBDRIVER_PID_FILE: webdriverPidFile,

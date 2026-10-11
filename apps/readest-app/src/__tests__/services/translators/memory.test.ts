@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import type { BaseDir, FileSystem } from '@/types/system';
 import {
   getTranslationMemoryKey,
+  parseTranslationMemory,
   TranslationMemory,
   TranslationMemoryFileStore,
 } from '@/services/translators/memory';
@@ -32,6 +33,42 @@ const query = {
 };
 
 describe('translation memory', () => {
+  test('rejects excessive persisted entry arrays before mapping', () => {
+    expect(() =>
+      parseTranslationMemory({ schemaVersion: 1, updatedAt: 1, entries: new Array(100_001) }),
+    ).toThrow(/limit/);
+  });
+  test('rejects oversized fields and aggregate text at the trust boundary', () => {
+    const entry = {
+      ...query,
+      key: 'key',
+      translatedText: 'x'.repeat(1_048_577),
+      updatedAt: 1,
+      hits: 0,
+    };
+    expect(() =>
+      parseTranslationMemory({ schemaVersion: 1, updatedAt: 1, entries: [entry] }),
+    ).toThrow(/limit/);
+    const entries = Array.from({ length: 32 }, (_, i) => ({
+      ...entry,
+      key: `${i}`,
+      translatedText: 'x'.repeat(1_048_576),
+    }));
+    expect(() => parseTranslationMemory({ schemaVersion: 1, updatedAt: 1, entries })).toThrow(
+      /limit/,
+    );
+  });
+  test('preserves independently remembered entries from two loaded instances', async () => {
+    const { fs } = makeFileSystem();
+    const store = new TranslationMemoryFileStore(fs);
+    const first = await TranslationMemory.load(store);
+    const second = await TranslationMemory.load(store);
+    await first.remember({ ...query, sourceText: 'First' }, '一');
+    await second.remember({ ...query, sourceText: 'Second' }, '二');
+    const loaded = await TranslationMemory.load(store);
+    expect(loaded.lookup({ ...query, sourceText: 'First' })).toBe('一');
+    expect(loaded.lookup({ ...query, sourceText: 'Second' })).toBe('二');
+  });
   test('isolates entries by language, provider, and glossary version', async () => {
     const memory = new TranslationMemory();
     await memory.remember(query, '你好');

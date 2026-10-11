@@ -133,9 +133,15 @@ Version 0.4.3 adds the recoverable comic pipeline:
 - AI settings controls for explicit checksum-verified local OCR model-pack
   import, listing, and removal.
 
-The remaining work after the PC 0.4 closure is platform migration and release
-qualification. A production OCR model is still an explicit local-pack quality
-and license gate; no model is bundled or downloaded automatically.
+Version 0.4.5 is an audit-remediation maintenance candidate within the same PC
+feature scope: untrusted-content isolation, persistence/recovery, guarded
+closure, failure handling and bounded dictionary/archive/translation caches.
+See [0.4.5 qualification status](docs/RELEASE_0.4.5.md).
+
+The owner has deferred paid-provider tests, representative lawful-corpus and
+human OCR/inpainting quality review, independent minimum-spec Windows tests,
+human voice review, signing and responsible-owner license review. Deferred is
+not PASS. No model weights are bundled or downloaded automatically.
 
 Later milestones cover signed production packages and target-platform release
 validation for macOS, Android, and iOS.
@@ -201,11 +207,12 @@ pnpm --filter @readest/readest-app setup-vendors
 
 ### Local workspace cleanup
 
-Development builds create large, ignored directories such as `target/`,
-`node_modules/`, `.next/`, `out/`, `public/vendor/`, and ignored generated
-subdirectories under `src-tauri/gen/`. They are reproducible and may be
-removed when disk space is needed. Do not delete the tracked mobile scaffolding
-files under `src-tauri/gen/`. The optional `.upstream/` directory is only a
+Remove only individually verified reproducible caches such as `.next/`, `out/`
+and Rust compiler caches. Never remove `target/` wholesale: it also holds release
+packages, reports, raw logs, SBOMs, hashes and qualification records. Preserve
+user data, credentials, model packs and tracked mobile scaffolding under
+`src-tauri/gen/`. Dependencies and `public/vendor/` can be regenerated but are
+required for local development. The optional `.upstream/` directory is only a
 disposable local research mirror.
 After removing dependencies or vendor assets, restore them with:
 

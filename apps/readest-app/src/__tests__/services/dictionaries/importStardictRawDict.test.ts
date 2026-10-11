@@ -56,6 +56,48 @@ async function readRawDictFile(): Promise<File> {
 }
 
 describe('importDictionaries — StarDict raw .dict', () => {
+  it('never reuses or removes an existing staging destination', async () => {
+    const fs = createMockFs();
+    vi.mocked(fs.exists).mockResolvedValue(true);
+    const files = [
+      { file: await readIfoFile() },
+      { file: await readIdxFile() },
+      { file: await readRawDictFile() },
+    ];
+    await expect(importDictionaries(fs, files)).rejects.toThrow('already exists');
+    expect(fs.writeFile).not.toHaveBeenCalled();
+    expect(fs.removeDir).not.toHaveBeenCalled();
+  });
+  it('keeps the previous bundle until metadata replacement is durably committed', async () => {
+    const fs = createMockFs();
+    const files = [
+      { file: await readIfoFile() },
+      { file: await readIdxFile() },
+      { file: await readRawDictFile() },
+    ];
+    const first = await importDictionaries(fs, files);
+    const previous = first.imported[0]!;
+    const replacement = await importDictionaries(fs, files, [previous]);
+    expect(replacement.replacements).toHaveLength(1);
+    expect(fs.removeDir).not.toHaveBeenCalledWith(previous.bundleDir, 'Dictionaries', true);
+  });
+
+  it('removes only fresh staging directories when a bundle write fails', async () => {
+    const fs = createMockFs();
+    vi.mocked(fs.writeFile)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('disk full'));
+    const files = [
+      { file: await readIfoFile() },
+      { file: await readIdxFile() },
+      { file: await readRawDictFile() },
+    ];
+    await expect(importDictionaries(fs, files)).rejects.toThrow('disk full');
+    const freshDirectory = vi.mocked(fs.createDir).mock.calls[0]![0];
+    expect(fs.removeDir).toHaveBeenCalledWith(freshDirectory, 'Dictionaries', true);
+    expect(fs.removeDir).toHaveBeenCalledTimes(1);
+  });
+
   it('imports a raw .dict bundle without flagging it unsupported', async () => {
     const fs = createMockFs();
     const ifo = await readIfoFile();

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   createEmptyComicEditSidecar,
+  ComicEditSidecarStore,
   parseComicEditSidecar,
   serializeComicEditSidecar,
   setComicEditPageLayout,
@@ -37,6 +38,16 @@ const layout: ComicTypesetLayout = {
 };
 
 describe('comic edit sidecar', () => {
+  test('recovers a schema-invalid primary from a validated backup', async () => {
+    const value = sidecar();
+    const store = new ComicEditSidecarStore({
+      createDir: async () => undefined,
+      readFile: async (path) => (path.endsWith('.bak') ? JSON.stringify(value) : '{}'),
+      writeFile: async () => undefined,
+    });
+    expect(await store.load(value.bookHash)).toEqual(value);
+  });
+
   test('stores mask and editable typeset layout without modifying source metadata', () => {
     let current = sidecar();
     current = setComicEditPageMask(current, 'page-1', {

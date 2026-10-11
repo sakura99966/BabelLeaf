@@ -11,6 +11,8 @@ export interface TranslationProvider {
   disabled?: boolean;
   /** Runtime configuration check. It must not perform a network request. */
   isConfigured?: () => boolean;
+  /** Non-secret model/prompt identity; reading it must not perform I/O. */
+  cacheContext?: () => string;
   translate: (
     texts: string[],
     sourceLang: string,

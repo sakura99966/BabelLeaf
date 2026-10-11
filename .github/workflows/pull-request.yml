@@ -545,6 +545,19 @@ jobs:
           BABELLEAF_WDIO_REQUIRE_SPEECH_COMPLETION: '0'
         run: pnpm test:e2e
 
+      - name: verify native process interruption recovery
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: pnpm test:windows-crash-recovery
+
+      - name: retain native crash recovery receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-crash-recovery
+          path: target/windows-crash-recovery/result.json
+          if-no-files-found: ignore
+
   ci_gate:
     name: required-checks
     if: ${{ always() }}

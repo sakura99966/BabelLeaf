@@ -101,6 +101,53 @@ describe('customDictionaryStore local providers', () => {
     }
   });
 
+  it('restores the committed dictionary view when metadata persistence fails', async () => {
+    const original = useSettingsStore.getState();
+    const oldDictionary = dictionary('old');
+    const committed = {
+      ...original.settings,
+      customDictionaries: [oldDictionary],
+      dictionarySettings: useCustomDictionaryStore.getState().settings,
+    };
+    useSettingsStore.setState({
+      settings: committed,
+      saveSettings: vi.fn().mockRejectedValue(new Error('disk full')),
+    });
+    useCustomDictionaryStore.getState().addDictionary(dictionary('replacement'));
+    try {
+      await expect(
+        useCustomDictionaryStore.getState().saveCustomDictionaries({} as never),
+      ).rejects.toThrow('disk full');
+      expect(useSettingsStore.getState().settings).toBe(committed);
+      expect(useCustomDictionaryStore.getState().dictionaries).toEqual([oldDictionary]);
+    } finally {
+      useSettingsStore.setState(original);
+    }
+  });
+
+  it('does not discard a newer local edit when an earlier metadata save fails', async () => {
+    const original = useSettingsStore.getState();
+    let rejectWrite!: (error: Error) => void;
+    const write = new Promise<void>((_resolve, reject) => {
+      rejectWrite = reject;
+    });
+    useSettingsStore.setState({ saveSettings: vi.fn(() => write) });
+    useCustomDictionaryStore.getState().addDictionary(dictionary('first'));
+    try {
+      const pending = useCustomDictionaryStore.getState().saveCustomDictionaries({} as never);
+      const failure = expect(pending).rejects.toThrow('disk full');
+      useCustomDictionaryStore.getState().addDictionary(dictionary('newer'));
+      rejectWrite(new Error('disk full'));
+      await failure;
+      expect(useCustomDictionaryStore.getState().dictionaries.map((dict) => dict.id)).toEqual([
+        'first',
+        'newer',
+      ]);
+    } finally {
+      useSettingsStore.setState(original);
+    }
+  });
+
   it('migrates legacy online providers and dictionary tombstones out of local settings', async () => {
     const live = dictionary('mdict:live');
     const deleted = { ...dictionary('mdict:deleted'), deletedAt: 1 };

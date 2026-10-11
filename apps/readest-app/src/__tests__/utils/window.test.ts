@@ -22,9 +22,14 @@ vi.mock('@/utils/event', () => ({
   eventDispatcher: { dispatch: vi.fn() },
 }));
 
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow, getAllWindows } from '@tauri-apps/api/window';
+import { exit } from '@tauri-apps/plugin-process';
 import { type as osType } from '@tauri-apps/plugin-os';
-import { tauriHandleOnCloseWindow, tauriHandleToggleFullScreen } from '@/utils/window';
+import {
+  tauriHandleOnCloseWindow,
+  tauriHandleToggleFullScreen,
+  tauriQuitApp,
+} from '@/utils/window';
 
 type CloseHandler = (event: { preventDefault: () => void }) => Promise<void> | void;
 
@@ -49,6 +54,23 @@ function makeWindow(label: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
+});
+
+test('does not force application exit while another reader vetoes closing', async () => {
+  const current = makeWindow('main').win;
+  const other = { label: 'reader-1', close: vi.fn(async () => {}) };
+  vi.mocked(getCurrentWindow).mockReturnValue(
+    current as unknown as ReturnType<typeof getCurrentWindow>,
+  );
+  vi.mocked(getAllWindows).mockResolvedValue([current, other] as unknown as Awaited<
+    ReturnType<typeof getAllWindows>
+  >);
+  const quitting = tauriQuitApp();
+  const outcome = expect(quitting).rejects.toThrow(/reader|window/i);
+  await vi.advanceTimersByTimeAsync(6000);
+  await outcome;
+  expect(other.close).toHaveBeenCalled();
+  expect(exit).not.toHaveBeenCalled();
 });
 
 describe('tauriHandleOnCloseWindow', () => {

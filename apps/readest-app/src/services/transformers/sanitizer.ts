@@ -1,6 +1,13 @@
 import DOMPurify from 'dompurify';
 import type { Transformer } from './types';
-// import { diff } from '@/utils/diff';
+
+/** SVG can be an EPUB spine document, not just an inert image. */
+export const sanitizeSvgDocument = (content: string): string =>
+  DOMPurify.sanitize(content, {
+    USE_PROFILES: { svg: true, svgFilters: true },
+    FORBID_TAGS: ['script', 'foreignObject', 'iframe', 'object', 'embed', 'animate', 'set'],
+    FORBID_ATTR: ['srcdoc'],
+  });
 
 const DOCTYPE_XHTML11 = `<!DOCTYPE html PUBLIC
 "-//W3C//DTD XHTML 1.1//EN"
@@ -10,15 +17,12 @@ export const sanitizerTransformer: Transformer = {
   name: 'sanitizer',
 
   transform: async (ctx) => {
-    const allowScript = ctx.viewSettings.allowScript;
-    if (allowScript) return ctx.content;
-
     const result = ctx.content.replaceAll('&nbsp;', '&#160;');
 
     const sanitized = DOMPurify.sanitize(result, {
       WHOLE_DOCUMENT: true,
-      FORBID_TAGS: ['script', 'iframe', 'object', 'embed'],
-      FORBID_ATTR: ['srcdoc'],
+      FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'base'],
+      FORBID_ATTR: ['srcdoc', 'http-equiv'],
       ALLOWED_URI_REGEXP:
         /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|blob|data):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
       ADD_TAGS: ['link', 'meta'],
