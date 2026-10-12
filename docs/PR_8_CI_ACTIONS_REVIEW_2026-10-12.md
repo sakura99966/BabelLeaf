@@ -80,3 +80,25 @@ runtime Cargo graph, user data or published release asset is changed.
 Preserve the known deterministic Foliate security preparation. Do not
 recreate already-cleaned compiler caches just to validate YAML-only changes;
 the changed Linux/Windows action behavior is exercised by hosted CI.
+
+## Follow-up: owned measurement process lifecycle
+
+The repaired c7dc1533ad8993c07699d746370fc8d869cb37d1 run passed both
+original Linux failures, but exposed an independent native-workload harness
+failure: the workload completed, four workers returned to zero and heartbeats
+passed; the PowerShell sampler did not finish within its post-taskkill wait.
+The failed result and raw log are retained under target/pr-8.
+
+The old sampler had no first-sample handshake, no cooperative stop request,
+unbounded CIM operations and no finally-scoped sampler cleanup. Now measurement
+must publish an owned first-sample PID before the workload; both CIM queries
+request five-second operation deadlines; after the workload the harness requests
+stop and joins the drained close event before taskkill. Every failure path
+cleans up only the owned sampler. A missing marker, invalid/empty sample,
+premature sampler stop or nonzero exit still fails. The 1 GiB process-tree
+budget, 500 ms heartbeat budget and eight process-interruption phases remain
+unchanged. This is test tooling, not a reader/runtime feature change.
+
+Retain before/after lifecycle regressions and the local Windows sampler smoke.
+That smoke exercises a benign owned Node process, not the application or the
+workload budget. Only fresh native CI receipts qualify the reader workload.

@@ -11,6 +11,7 @@ import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { waitForNativeWindow } from './native-probe-readiness.mjs';
+import { observeSampler, waitForSamplerReady, finishSampler, cleanupSampler } from './native-workload-sampler.mjs';
 // Reuse the native test provider's declared WebDriver dependency.
 const providerRequire = createRequire(import.meta.resolve('@vitest/browser-webdriverio'));
 const { remote } = await import(pathToFileURL(providerRequire.resolve('webdriverio')).href);
@@ -39,6 +40,8 @@ let currentPhase;
 let lastPage;
 let server;
 let child;
+let sampler;
+let samplerStopFile;
 const stop = async () => {
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
   const exited = once(child, 'exit');
@@ -97,14 +100,11 @@ try {
     }
     await waitForNativeWindow({ pidFile, expectedPid: child.pid, isAlive: () => child.exitCode === null && child.signalCode === null });
     console.log(`Native window ready for ${phase}, PID ${child.pid}`);
-    let sampler;
-    let samplingOutput = '';
-    let samplingError = '';
     if (phase === 'workload') {
-      sampler = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(appRoot, 'scripts/sample-windows-process-tree.ps1'), '-RootProcessId', String(child.pid), '-ExpectedExecutable', executable], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-      sampler.stdout.on('data', (data) => { samplingOutput += data; });
-      sampler.stderr.on('data', (data) => { samplingError += data; });
-      sampler.on('error', (error) => { samplingError += error.message; });
+      const samplerReadyFile = path.join(runtime, 'sampler-workload.pid');
+      samplerStopFile = path.join(runtime, 'sampler-workload.stop');
+      sampler = observeSampler(spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(appRoot, 'scripts/sample-windows-process-tree.ps1'), '-RootProcessId', String(child.pid), '-ExpectedExecutable', executable, '-ReadyFile', samplerReadyFile, '-StopFile', samplerStopFile], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }));
+      await waitForSamplerReady({ readyFile: samplerReadyFile, expectedPid: sampler.child.pid, isAlive: () => !sampler.isClosed() });
     }
     // The upstream server's initial script timeout is 30s; don't abort the
     // handshake client-side before that server-side diagnostic can arrive.
@@ -118,17 +118,18 @@ try {
       return result.stage === expected;
     }, { timeout: 60000, interval: 200 });
     evidence.push({ phase, processId: child.pid, result });
-    // Deliberately do not close the WebDriver session/window gracefully.
-    await stop();
     if (sampler) {
-      if (sampler.exitCode === null) await Promise.race([once(sampler, 'exit'), delay(10000).then(() => { throw new Error('Workload sampler did not finish'); })]);
-      if (sampler.exitCode !== 0) throw new Error(`Workload sampling failed: ${samplingError}`);
-      const memory = JSON.parse(samplingOutput);
+      // Finish measurement before taskkill, without relying on CIM observing process exit.
+      const memory = await finishSampler(sampler, samplerStopFile);
+      const samplingOutput = JSON.stringify(memory);
       const memoryBudgetBytes = 1024 * 1024 * 1024;
       if (!memory.samples || memory.peakWorkingSetBytes > memoryBudgetBytes || memory.peakPrivateBytes > memoryBudgetBytes)
         throw new Error(`Workload memory budget exceeded: ${samplingOutput}`);
       evidence[evidence.length - 1].memory = { ...memory, memoryBudgetBytes };
+      sampler = undefined;
     }
+    // Deliberately do not close the WebDriver session/window gracefully.
+    await stop();
   }
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, JSON.stringify({ passed: true, timestamp: new Date().toISOString(), sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true }).trim(), sourceDirty: execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true }).trim().length > 0, scope: 'process kill, not power loss or storage-controller failure', evidence }, null, 2));
@@ -140,10 +141,12 @@ try {
   console.error(`Failed native phase ${currentPhase}: ${JSON.stringify(lastPage)}`);
   throw error;
 } finally {
+  await cleanupSampler(sampler, samplerStopFile).finally(async () => {
   await stop();
   await server?.close();
   // Retain a failed isolated profile for diagnosis; never touch user application data.
   if (passed && path.dirname(runtime) === os.tmpdir() && path.basename(runtime).startsWith('babelleaf-crash-'))
     await rm(runtime, { recursive: true, force: true, maxRetries: 10, retryDelay: 500 });
   else console.error(`Retained isolated diagnostic directory: ${runtime}`);
+  });
 }
