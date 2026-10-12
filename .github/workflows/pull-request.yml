@@ -222,10 +222,15 @@ jobs:
         run: pnpm test:coverage -- --run
 
   build_tauri_app:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       SCCACHE_GHA_ENABLED: 'true'
       RUSTC_WRAPPER: sccache
+      # The native WebKitGTK lane has no GPU; keep Xvfb rendering deterministic.
+      GDK_BACKEND: 'x11'
+      LIBGL_ALWAYS_SOFTWARE: '1'
+      WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+      WEBKIT_DISABLE_COMPOSITING_MODE: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -280,7 +285,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: /var/cache/apt/archives
-          key: apt-tauri-${{ runner.os }}
+          key: apt-tauri-ubuntu-24.04
 
       - name: install system dependencies
         run: |
@@ -290,9 +295,9 @@ jobs:
       - name: run Tauri integration tests
         working-directory: apps/readest-app
         run: |
-          dbus-run-session -- bash -euo pipefail -c '
+          xvfb-run -a --server-args="-screen 0 1280x720x24" dbus-run-session -- bash -euo pipefail -c '
             eval "$(printf "%s" "babelleaf-ci-keyring" | gnome-keyring-daemon --unlock --components=secrets)"
-            xvfb-run pnpm test:tauri
+            pnpm test:tauri
           '
 
   security_audit:
