@@ -47,4 +47,17 @@ describe('GitHub Actions Rust warning policy', () => {
     expect(required).toContain('rust_lint');
     expect(required).toContain('build_tauri_app');
   });
+
+  it('starts the Linux session bus inside a stable software-rendered Xvfb display', () => {
+    const native = jobBlock('build_tauri_app');
+    expect(native).toContain('runs-on: ubuntu-24.04');
+    expect(native).toContain("GDK_BACKEND: 'x11'");
+    expect(native).toContain("LIBGL_ALWAYS_SOFTWARE: '1'");
+    expect(native).toContain("WEBKIT_DISABLE_DMABUF_RENDERER: '1'");
+    expect(native).toContain("WEBKIT_DISABLE_COMPOSITING_MODE: '1'");
+    expect(native).toContain('xvfb-run -a --server-args="-screen 0 1280x720x24" dbus-run-session');
+    expect(native).not.toContain('xvfb-run pnpm test:tauri');
+    expect(native).not.toContain('WEBKIT_FORCE_SANDBOX');
+    expect(native).toContain('pnpm test:tauri');
+  });
 });
