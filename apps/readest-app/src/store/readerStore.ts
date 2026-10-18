@@ -22,6 +22,7 @@ import { BookData, useBookDataStore } from './bookDataStore';
 import { useLibraryStore } from './libraryStore';
 import { clearBookProgress, getBookProgress, setBookProgress } from './readerProgressStore';
 import { uniqueId } from '@/utils/misc';
+import { useTranslationSessionStore } from './translationSessionStore';
 
 interface ViewState {
   /* Unique key for each book view */
@@ -131,6 +132,7 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
   },
 
   clearViewState: (key: string) => {
+    useTranslationSessionStore.getState().revoke(key);
     // Drop the per-book progress entry alongside the view state so the
     // standalone progress store doesn't leak across opens/closes.
     clearBookProgress(key);

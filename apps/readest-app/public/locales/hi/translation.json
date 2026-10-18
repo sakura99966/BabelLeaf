@@ -1936,5 +1936,6 @@
   "— William Shakespeare, As You Like It": "— विलियम शेक्सपियर, एज़ यू लाइक इट",
   "Failed to download and install update": "अपडेट डाउनलोड और इंस्टॉल करने में विफल",
   "Additional Margin (%)": "अतिरिक्त हाशिया (%)",
-  "Translation not saved. Keep this book open and retry saving.": "अनुवाद सहेजा नहीं गया। इस पुस्तक को खुला रखें और फिर से सहेजने का प्रयास करें।"
+  "Translation not saved. Keep this book open and retry saving.": "अनुवाद सहेजा नहीं गया। इस पुस्तक को खुला रखें और फिर से सहेजने का प्रयास करें।",
+  "Book changes not saved. Keep this book open and retry saving.": "पुस्तक के बदलाव सहेजे नहीं गए हैं। इस पुस्तक को खुला रखें और फिर से सहेजने का प्रयास करें।"
 }

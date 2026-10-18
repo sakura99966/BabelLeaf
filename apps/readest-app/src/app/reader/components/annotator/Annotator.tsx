@@ -754,7 +754,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
       } else if (touched) {
         const updatedConfig = updateBooknotes(bookKey, allAnnotations);
         if (updatedConfig) {
-          saveConfig(envConfig, bookKey, updatedConfig, settings);
+          void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
         }
       }
     };
@@ -1028,7 +1028,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
     }
     const updatedConfig = updateBooknotes(bookKey, annotations);
     if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+      void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
     }
     if (!appService?.isMobile) {
       setNotebookVisible(true);
@@ -1117,7 +1117,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
 
     const updatedConfig = updateBooknotes(bookKey, annotations);
     if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+      void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
     }
     return created;
   };
@@ -1139,7 +1139,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
     annotations.push(annotation);
     const updatedConfig = updateBooknotes(bookKey, annotations);
     if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+      void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
     }
     const views = getViewsById(bookKey.split('-')[0]!);
     views.forEach((view) => view?.addAnnotation(annotation));
@@ -1168,7 +1168,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
     annotations[idx] = { ...existing, global: nextGlobal, updatedAt: Date.now() };
     const updatedConfig = updateBooknotes(bookKey, annotations);
     if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+      void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
     }
 
     const views = getViewsById(bookKey.split('-')[0]!);
@@ -1414,7 +1414,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
       );
       const updatedConfig = updateBooknotes(bookKey, merged);
       if (updatedConfig) {
-        saveConfig(envConfig, bookKey, updatedConfig, settings);
+        void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
       }
 
       // Apply imported (or resurrected) annotations to all live views so
@@ -1561,7 +1561,7 @@ const Annotator: React.FC<{ bookKey: string; contentInsets: Insets }> = ({
 
     const updatedConfig = updateBooknotes(bookKey, storedNotes);
     if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+      void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
     }
     // Reset any browse-mode state in the annotations sidebar tab so it
     // doesn't keep paging through stale (now soft-deleted) entries.

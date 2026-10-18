@@ -152,7 +152,12 @@ const Notebook: React.FC = ({}) => {
           if (updatedConfig) {
             // Read settings fresh: this callback has stable identity (empty deps)
             // so a captured `settings` would go stale across saves.
-            saveConfig(envConfig, bookKey, updatedConfig, useSettingsStore.getState().settings);
+            void saveConfig(
+              envConfig,
+              bookKey,
+              updatedConfig,
+              useSettingsStore.getState().settings,
+            ).catch(() => {});
           }
         }
       }
@@ -234,7 +239,7 @@ const Notebook: React.FC = ({}) => {
     }
     const updatedConfig = updateBooknotes(sideBarBookKey, annotations);
     if (updatedConfig) {
-      saveConfig(envConfig, sideBarBookKey, updatedConfig, settings);
+      void saveConfig(envConfig, sideBarBookKey, updatedConfig, settings).catch(() => {});
     }
     setNotebookNewAnnotation(null);
     // The placeholder now carries a note (or a fresh unified record was created),
@@ -260,7 +265,7 @@ const Notebook: React.FC = ({}) => {
     view?.addAnnotation({ ...note, value: `${NOTE_PREFIX}${note.cfi}` }, true);
     const updatedConfig = updateBooknotes(sideBarBookKey, annotations);
     if (updatedConfig) {
-      saveConfig(envConfig, sideBarBookKey, updatedConfig, settings);
+      void saveConfig(envConfig, sideBarBookKey, updatedConfig, settings).catch(() => {});
     }
     setNotebookEditAnnotation(null);
   };

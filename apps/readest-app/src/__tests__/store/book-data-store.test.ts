@@ -391,7 +391,7 @@ describe('bookDataStore', () => {
       expect(saveLibraryBooks).toHaveBeenCalledOnce();
     });
 
-    test('does nothing for unknown book hash', async () => {
+    test('retains unknown-book writes and permits local retry after library recovery', async () => {
       const saveBookConfig = vi.fn().mockResolvedValue(undefined);
       const saveLibraryBooks = vi.fn().mockResolvedValue(undefined);
       const envConfig = makeEnvConfig({ saveBookConfig, saveLibraryBooks });
@@ -401,12 +401,18 @@ describe('bookDataStore', () => {
       const data = makeBookData('nonexistent', { progress: [1, 100] });
       useBookDataStore.setState({ booksData: { nonexistent: data } });
 
-      await useBookDataStore
-        .getState()
-        .saveConfig(envConfig, 'nonexistent', data.config!, FAKE_SETTINGS);
+      await expect(
+        useBookDataStore
+          .getState()
+          .saveConfig(envConfig, 'nonexistent', data.config!, FAKE_SETTINGS),
+      ).rejects.toThrow(/unsaved/);
 
       expect(saveBookConfig).not.toHaveBeenCalled();
       expect(saveLibraryBooks).not.toHaveBeenCalled();
+      expect(useBookDataStore.getState().configSaveErrors['nonexistent']).toMatch(/unsaved/);
+      useLibraryStore.getState().setLibrary([makeLibraryBook({ hash: 'nonexistent' })]);
+      await useBookDataStore.getState().retryConfigSave('nonexistent');
+      expect(useBookDataStore.getState().configSaveErrors['nonexistent']).toBeUndefined();
     });
 
     test('refreshes config.updatedAt in the store with a fresh reference', async () => {

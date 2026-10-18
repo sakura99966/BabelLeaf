@@ -1,6 +1,10 @@
 import { act, renderHook, waitFor, cleanup } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { useTextTranslation } from '@/app/reader/hooks/useTextTranslation';
+import {
+  getTranslationConsentContext,
+  useTranslationSessionStore,
+} from '@/store/translationSessionStore';
 
 const mocks = vi.hoisted(() => ({
   translate: vi.fn(async () => ['translated']),
@@ -36,6 +40,9 @@ afterEach(() => {
 });
 
 it('does not submit translation after local sidecar loading fails', async () => {
+  useTranslationSessionStore
+    .getState()
+    .grant('isolated-book-1', getTranslationConsentContext('deepseek', 'zh-CN'));
   Object.assign(mocks.appService, {
     readFile: mocks.readFile,
     writeFile: vi.fn(),

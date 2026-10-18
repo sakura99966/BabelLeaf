@@ -26,6 +26,7 @@ import { DEFAULT_AI_SETTINGS } from './ai/constants';
 import { loadTranslationApiKeys } from './ai/translationApiKey';
 import { getTargetLang, isCJKEnv } from '@/utils/misc';
 import { safeLoadJSON, safeSaveJSON } from './persistence';
+import { validateSettingsSnapshot } from './localStateValidation';
 
 export interface Context {
   fs: FileSystem;
@@ -119,6 +120,7 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
     SETTINGS_FILENAME,
     'Settings',
     defaultSettings,
+    validateSettingsSnapshot,
   );
 
   const version = settings.version ?? 0;

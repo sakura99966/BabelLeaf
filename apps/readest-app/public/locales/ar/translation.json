@@ -2080,5 +2080,6 @@
   "— William Shakespeare, As You Like It": "— ويليام شكسبير، كما تشاء",
   "Failed to download and install update": "فشل تنزيل التحديث وتثبيته",
   "Additional Margin (%)": "هامش إضافي (%)",
-  "Translation not saved. Keep this book open and retry saving.": "لم تُحفظ الترجمة. أبقِ هذا الكتاب مفتوحًا وأعد محاولة الحفظ."
+  "Translation not saved. Keep this book open and retry saving.": "لم تُحفظ الترجمة. أبقِ هذا الكتاب مفتوحًا وأعد محاولة الحفظ.",
+  "Book changes not saved. Keep this book open and retry saving.": "لم تُحفظ تغييرات الكتاب. أبقِ هذا الكتاب مفتوحًا وحاول الحفظ مرة أخرى."
 }

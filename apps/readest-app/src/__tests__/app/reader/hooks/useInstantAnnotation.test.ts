@@ -22,7 +22,7 @@ vi.mock('@/store/settingsStore', () => ({
   }),
 }));
 const stores = vi.hoisted(() => ({
-  saveConfig: vi.fn(),
+  saveConfig: vi.fn(async () => {}),
   updateBooknotes: vi.fn(() => ({})),
 }));
 

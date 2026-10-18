@@ -22,6 +22,7 @@
 import type { DictionaryProvider, ImportedDictionary } from '../types';
 import type { BaseDir } from '@/types/system';
 import { StarDictReader, type StarDictEntry } from '../stardictReader';
+import { createDictionaryContent } from '../safeDictionaryContent';
 
 /** Subset of the file API the provider needs. Both `AppService` and `FileSystem` satisfy this. */
 export interface DictionaryFileOpener {
@@ -54,8 +55,7 @@ const renderEntry = (
   }
 
   if (type === 'h' || type === 'x') {
-    const div = document.createElement('div');
-    div.innerHTML = text;
+    const div = createDictionaryContent(text);
     div.className = 'mt-2 text-sm';
     container.appendChild(div);
     return;

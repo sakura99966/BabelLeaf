@@ -1972,5 +1972,6 @@
   "— William Shakespeare, As You Like It": "— William Shakespeare, Como gustéis",
   "Failed to download and install update": "Error al descargar e instalar la actualización",
   "Additional Margin (%)": "Margen adicional (%)",
-  "Translation not saved. Keep this book open and retry saving.": "La traducción no se ha guardado. Mantenga este libro abierto y vuelva a intentar guardarla."
+  "Translation not saved. Keep this book open and retry saving.": "La traducción no se ha guardado. Mantenga este libro abierto y vuelva a intentar guardarla.",
+  "Book changes not saved. Keep this book open and retry saving.": "Los cambios del libro no se han guardado. Mantén este libro abierto e intenta guardarlos de nuevo."
 }

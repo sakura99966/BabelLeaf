@@ -43,6 +43,7 @@ import {
   type BookFileContentSource,
 } from './bookContent';
 import { normalizeFilePathForIndex } from './bookLookup';
+import { loadRecoverableBookConfig, saveRecoverableBookConfig } from './bookConfigPersistence';
 export {
   buildBookLookupIndex,
   collectKnownSourcePaths,
@@ -532,7 +533,11 @@ export async function importBook(
         const config: Partial<BookConfig> = JSON.parse(bestConfigData);
         config.bookHash = hash;
         config.metaHash = metaHash;
-        await fs.writeFile(getConfigFilename(book), 'Books', serializeRawConfig(config));
+        await saveRecoverableBookConfig(
+          fs,
+          getConfigFilename(book),
+          JSON.parse(serializeRawConfig(config)),
+        );
       } else {
         const oldConfigPath = `${oldBookDir}/config.json`;
         if (await fs.exists(oldConfigPath, 'Books')) {
@@ -540,7 +545,11 @@ export async function importBook(
           const config: Partial<BookConfig> = JSON.parse(configData);
           config.bookHash = hash;
           config.metaHash = metaHash;
-          await fs.writeFile(getConfigFilename(book), 'Books', serializeRawConfig(config));
+          await saveRecoverableBookConfig(
+            fs,
+            getConfigFilename(book),
+            JSON.parse(serializeRawConfig(config)),
+          );
         } else {
           await saveBookConfigFn(book, INIT_BOOK_CONFIG);
         }
@@ -554,7 +563,11 @@ export async function importBook(
       const config: Partial<BookConfig> = JSON.parse(bestConfigData);
       config.bookHash = hash;
       config.metaHash = metaHash;
-      await fs.writeFile(getConfigFilename(book), 'Books', serializeRawConfig(config));
+      await saveRecoverableBookConfig(
+        fs,
+        getConfigFilename(book),
+        JSON.parse(serializeRawConfig(config)),
+      );
     }
 
     // Transient previews and in-place imports read from their local source path.
@@ -673,15 +686,8 @@ export async function loadBookConfig(
     ...settings.globalViewSettings,
     ...(FIXED_LAYOUT_FORMATS.has(book.format) ? DEFAULT_FIXED_LAYOUT_VIEW_SETTINGS : {}),
   };
-  try {
-    let str = '{}';
-    if (await fs.exists(getConfigFilename(book), 'Books')) {
-      str = (await fs.readFile(getConfigFilename(book), 'Books', 'text')) as string;
-    }
-    return deserializeConfig(str, globalViewSettings, DEFAULT_BOOK_SEARCH_CONFIG);
-  } catch {
-    return deserializeConfig('{}', globalViewSettings, DEFAULT_BOOK_SEARCH_CONFIG);
-  }
+  const config = await loadRecoverableBookConfig(fs, getConfigFilename(book));
+  return deserializeConfig(JSON.stringify(config), globalViewSettings, DEFAULT_BOOK_SEARCH_CONFIG);
 }
 
 export async function saveBookConfig(
@@ -700,7 +706,7 @@ export async function saveBookConfig(
   } else {
     serializedConfig = serializeRawConfig(config);
   }
-  await fs.writeFile(getConfigFilename(book), 'Books', serializedConfig);
+  await saveRecoverableBookConfig(fs, getConfigFilename(book), JSON.parse(serializedConfig));
 }
 
 export async function loadBookNav(fs: FileSystem, book: Book): Promise<BookNav | null> {

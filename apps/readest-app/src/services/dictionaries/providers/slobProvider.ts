@@ -15,6 +15,7 @@
 import type { DictionaryProvider, ImportedDictionary } from '../types';
 import type { DictionaryFileOpener } from './starDictProvider';
 import { SlobReader } from '../slobReader';
+import { createDictionaryContent } from '../safeDictionaryContent';
 
 const renderEntry = (
   container: HTMLElement,
@@ -32,10 +33,7 @@ const renderEntry = (
     h1.textContent = word;
     h1.className = 'text-lg font-bold';
     container.appendChild(h1);
-    const div = document.createElement('div');
-    // Strip <link rel="stylesheet"> tags pointing at slob-internal CSS;
-    // they 404 because we don't expose the bundled CSS as URLs in the popup.
-    div.innerHTML = text.replace(/<link\b[^>]*rel=["']?stylesheet[^>]*>/gi, '');
+    const div = createDictionaryContent(text);
     div.className = 'mt-2 text-sm';
     container.appendChild(div);
     return { ok: true };

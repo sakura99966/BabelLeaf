@@ -1936,5 +1936,6 @@
   "— William Shakespeare, As You Like It": "— Ουίλιαμ Σαίξπηρ, Όπως Αγαπάτε",
   "Failed to download and install update": "Αποτυχία λήψης και εγκατάστασης της ενημέρωσης",
   "Additional Margin (%)": "Πρόσθετο περιθώριο (%)",
-  "Translation not saved. Keep this book open and retry saving.": "Η μετάφραση δεν αποθηκεύτηκε. Κρατήστε αυτό το βιβλίο ανοιχτό και δοκιμάστε ξανά την αποθήκευση."
+  "Translation not saved. Keep this book open and retry saving.": "Η μετάφραση δεν αποθηκεύτηκε. Κρατήστε αυτό το βιβλίο ανοιχτό και δοκιμάστε ξανά την αποθήκευση.",
+  "Book changes not saved. Keep this book open and retry saving.": "Οι αλλαγές στο βιβλίο δεν αποθηκεύτηκαν. Κρατήστε το βιβλίο ανοιχτό και δοκιμάστε ξανά."
 }
