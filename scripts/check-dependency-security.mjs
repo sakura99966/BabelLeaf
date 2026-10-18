@@ -3,10 +3,19 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assessDependencyAudit, verifyDependencyBackports } from './dependency-security.mjs';
+import { RUNTIME_VENDORS } from './runtime-vendor-policy.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const policy = JSON.parse(readFileSync(resolve(root, 'scripts/dependency-security-policy.json'), 'utf8'));
 verifyDependencyBackports(pathToFileURL(root + '/'), policy.packages);
+const runtimePackages = [...new Set(RUNTIME_VENDORS.flatMap((vendor) => {
+  const manifest = vendor.manifest
+    ? JSON.parse(readFileSync(resolve(root, vendor.manifest), 'utf8')) : vendor.component;
+  if (typeof manifest?.name !== 'string' || !manifest.name.trim())
+    throw new Error('Runtime dependency scope is unavailable: ' + vendor.id);
+  // Keep the actual package identity even when the asset component has an alias.
+  return [manifest.name, vendor.name].filter((name) => typeof name === 'string' && name);
+}))].sort();
 const entrypoint = process.env.npm_execpath;
 const runPnpm = (args) => {
   try {
@@ -33,7 +42,7 @@ const parse = (result) => {
   return JSON.parse(result.stdout);
 };
 const productionResult = assessDependencyAudit(parse(production), []);
-const fullResult = assessDependencyAudit(parse(full), policy.packages);
+const fullResult = assessDependencyAudit(parse(full), policy.packages, runtimePackages);
 const passed = productionResult.passed && fullResult.passed;
 const evidence = {
   status: passed ? (fullResult.mitigated.length ? 'PASS_WITH_PINNED_DEVELOPMENT_BACKPORTS' : 'PASS_CLEAN') : 'FAIL',
@@ -41,6 +50,7 @@ const evidence = {
   production: productionResult,
   full: fullResult,
   regressionExit: regression.status,
+  copiedRuntimePackages: runtimePackages,
   policy,
   note: 'Raw version advisories remain visible. Only tested, hash-bound, exact-version development backports qualify; new/runtime/unknown findings fail.',
 };

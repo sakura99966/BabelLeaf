@@ -7,7 +7,7 @@ import { mkdtemp, mkdir, copyFile, writeFile, readFile, rm } from 'node:fs/promi
 import { tmpdir } from 'node:os';
 import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validatePackagedRuntimeManifest } from './packaged-runtime-manifest.mjs';
+import { validatePackagedRuntimeManifest, dispatchPackagedProbeResponse } from './packaged-runtime-manifest.mjs';
 import net from 'node:net';
 
 if (process.platform !== 'win32') throw new Error('Windows-only standard package acceptance probe');
@@ -80,9 +80,9 @@ try {
   socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((done, fail) => { socket.addEventListener('open', done, { once: true }); socket.addEventListener('error', fail, { once: true }); });
   socket.addEventListener('message', (event) => {
-    const message = JSON.parse(String(event.data));
-    const handler = messages.get(message.id);
-    if (handler) { messages.delete(message.id); handler(message); }
+    let message;
+    try { message = JSON.parse(String(event.data)); } catch { return; }
+    dispatchPackagedProbeResponse(messages, message);
   });
   const evaluate = (expression) => new Promise((done, fail) => {
     const id = ++sequence;

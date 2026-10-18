@@ -23,6 +23,10 @@ it('distinguishes a reviewed code mitigation from a clean scan', () => {
   expect(result.passed).toBe(true);
   expect(result.mitigated).toHaveLength(1);
 });
+
+it('does not apply a development-only backport disposition to a copied runtime package', () => {
+  expect(assessDependencyAudit(report(), policy, ['reviewed']).passed).toBe(false);
+});
 it.each([
   report('GHSA-new1-new2-new3'),
   report(undefined, false),

@@ -113,14 +113,37 @@ assets. A green old CI run does not qualify changed source or new advisories.
   native integration 121 passes / 1 skip; native UI 27 passes; 11-phase
   process interruption/recovery PASS. The dedicated smoke package installs,
   launches with a responding window, uninstalls and retains its data sentinel.
-  Full idle measurement is currently running; it is not yet marked PASS.
+  Full idle measurement has passed: 60-second warmup / 300-second idle,
+  99.96 MiB peak process-tree working set and 171.35 MiB peak private bytes.
+  Warmup peak was 371.94 MiB; it is not hidden or counted as an idle failure.
+  Responding Win32 window was observed at 143.24 ms. This is not a measured
+  first-interactive-library-frame latency; that timing remains in the matrix.
+  Portable-state placement and owned-profile cleanup passed.
+- Bounded cleanup removed 17,675 files / 14,693,052,881 logical bytes (about
+  13.68 GiB) from 13 allowlisted compiler/Next directories and three hash-proven
+  duplicate EXE/installer copies. Reparse-point and resolved-path checks passed.
+  All unique standard/smoke candidates, historical releases, logs, source,
+  credentials, dictionaries/books and model packs remain. Native test EXE/DLL
+  roots remain available; Cargo build caches may need regeneration later.
+  Earlier temporary-copy cleanup is separately recorded. Byte totals are
+  logical sizes, not a guarantee of the same physical-disk reclamation.
+- Dependency security now resolves actual copied-runtime package identities
+  (including component aliases) before evaluating dev-only backports. A dev flag
+  cannot exempt a runtime copy. The fresh full gate still passes with the same
+  three transparent development backport records.
+- Fresh CodeQL identified a high-severity test-probe response-dispatch warning:
+  the callback Map was owned but the external response id lacked an explicit
+  numeric/has/callable guard. Added malformed/non-callable/duplicate-response
+  regression, explicit validation and safe JSON handling; hosted reanalysis
+  must confirm closure, not a manual dismissal.
 
 ## Remaining internal closure work (no 0.5)
 
-1. Finish current standard-EXE 60-second warmup / 300-second idle receipt and
-   preserve the smoke installer/executable before bounded compiler-cache cleanup.
+1. Reconcile the latest full local checks and PR #10 checks, including the
+   protocol-dispatch fix and real packaged-runtime CI step. Preserve current
+   candidate identities; do not merge main while internal gates remain open.
 2. Complete the performance scenario matrix from PERFORMANCE_BASELINE.md:
-   EPUB/PDF import-to-readable, 50-turn p95, full-book search p95, 20/5000-segment
+   first interactive library frame, EPUB/PDF import-to-readable, 50-turn p95, full-book search p95, 20/5000-segment
    mock queues, workspace atomic save and warmed overlay update. Record fixture
    hashes, hardware/runtime, byte/worker/cache budgets and scope. Existing
    heartbeat/workload results do not substitute for these measurements.

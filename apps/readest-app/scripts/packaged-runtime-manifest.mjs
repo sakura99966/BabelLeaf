@@ -26,3 +26,14 @@ export function validatePackagedRuntimeManifest(value) {
   if (total !== value.totalBytes) fail();
   return value;
 }
+
+/** Ignore unsolicited/malformed protocol events; only owned numeric calls run. */
+export function dispatchPackagedProbeResponse(callbacks, message) {
+  if (!message || typeof message !== 'object' || !Number.isSafeInteger(message.id)
+    || message.id <= 0 || !callbacks.has(message.id)) return false;
+  const handler = callbacks.get(message.id);
+  if (typeof handler !== 'function') return false;
+  callbacks.delete(message.id);
+  handler(message);
+  return true;
+}

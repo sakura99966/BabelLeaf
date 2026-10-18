@@ -1,7 +1,10 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { validatePackagedRuntimeManifest } from '../../../scripts/packaged-runtime-manifest.mjs';
+import {
+  validatePackagedRuntimeManifest,
+  dispatchPackagedProbeResponse,
+} from '../../../scripts/packaged-runtime-manifest.mjs';
 
 const fixture = () => ({
   schemaVersion: 1,
@@ -57,4 +60,18 @@ it('makes actual packaged-library hydration and embedded asset checks a Windows 
     'utf8',
   );
   expect(workflow).toContain('run: pnpm test:windows-packaged-runtime');
+});
+
+it('dispatches only an outstanding numeric protocol id to an owned callable, once', () => {
+  const handler = vi.fn();
+  const callbacks = new Map<number, unknown>([
+    [1, handler],
+    [2, 'not a function'],
+  ]);
+  for (const input of [{ id: '__proto__' }, { id: 0 }, { id: 3 }, { id: 2 }, null])
+    expect(dispatchPackagedProbeResponse(callbacks, input)).toBe(false);
+  expect(handler).not.toHaveBeenCalled();
+  expect(dispatchPackagedProbeResponse(callbacks, { id: 1 })).toBe(true);
+  expect(dispatchPackagedProbeResponse(callbacks, { id: 1 })).toBe(false);
+  expect(handler).toHaveBeenCalledTimes(1);
 });

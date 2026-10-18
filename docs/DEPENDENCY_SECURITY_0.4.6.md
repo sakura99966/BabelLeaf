@@ -39,10 +39,13 @@ verified upstream fix is actually available.
 These are development dependency paths, not shipped runtime copies. The gate
 rejects unknown advisories, different versions, production findings, changed
 patch bytes and mismatching workspace/lock hashes. Eleven real-installed-package
-boundary/control cases and seven policy cases must pass before audit acceptance.
+boundary/control cases and eight policy cases must pass before audit acceptance.
 It also fails closed on incomplete/network-error audit output. The extract
 backport is not claimed to defeat a separate hostile process concurrently
 replacing ancestor directories outside the private build/test root.
+The gate derives copied-runtime names from the actual declared source manifests,
+including aliased components. A dev-declared package copied into the runtime
+cannot inherit a development-only mitigation disposition from pnpm's dev flag.
 
 Authoritative definitions:
 `scripts/dependency-security-policy.json`, `pnpm-workspace.yaml`,

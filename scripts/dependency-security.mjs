@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 /** A code backport is not a clean version scan. Unknown findings fail closed. */
-export function assessDependencyAudit(report, policies = []) {
+export function assessDependencyAudit(report, policies = [], runtimePackages = []) {
   if (!report || typeof report !== 'object' || report.error || !report.metadata?.vulnerabilities ||
     !report.advisories || typeof report.advisories !== 'object') {
     throw new Error('Incomplete or unavailable dependency audit');
@@ -16,7 +16,7 @@ export function assessDependencyAudit(report, policies = []) {
   for (const advisory of findings) {
     const id = advisory.url?.match(/^https:\/\/github\.com\/advisories\/(GHSA-[a-z0-9-]+)$/i)?.[1];
     const policy = policies.find((entry) => entry.name === advisory.module_name && entry.advisories.includes(id));
-    const matches = policy && advisory.findings?.length && advisory.findings.every(
+    const matches = policy && !runtimePackages.includes(advisory.module_name) && advisory.findings?.length && advisory.findings.every(
       (finding) => finding.dev === true && finding.version === policy.version,
     );
     const record = { package: advisory.module_name, id: id ?? String(advisory.id), title: advisory.title };
