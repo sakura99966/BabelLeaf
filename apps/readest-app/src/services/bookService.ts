@@ -44,6 +44,7 @@ import {
 } from './bookContent';
 import { normalizeFilePathForIndex } from './bookLookup';
 import { loadRecoverableBookConfig, saveRecoverableBookConfig } from './bookConfigPersistence';
+import { useBookConfigRecoveryStore } from '@/store/bookConfigRecoveryStore';
 export {
   buildBookLookupIndex,
   collectKnownSourcePaths,
@@ -686,7 +687,9 @@ export async function loadBookConfig(
     ...settings.globalViewSettings,
     ...(FIXED_LAYOUT_FORMATS.has(book.format) ? DEFAULT_FIXED_LAYOUT_VIEW_SETTINGS : {}),
   };
-  const config = await loadRecoverableBookConfig(fs, getConfigFilename(book));
+  const config = await loadRecoverableBookConfig(fs, getConfigFilename(book), {
+    onRecovered: () => useBookConfigRecoveryStore.getState().markRecovered(book.hash),
+  });
   return deserializeConfig(JSON.stringify(config), globalViewSettings, DEFAULT_BOOK_SEARCH_CONFIG);
 }
 
@@ -706,7 +709,9 @@ export async function saveBookConfig(
   } else {
     serializedConfig = serializeRawConfig(config);
   }
-  await saveRecoverableBookConfig(fs, getConfigFilename(book), JSON.parse(serializedConfig));
+  await saveRecoverableBookConfig(fs, getConfigFilename(book), JSON.parse(serializedConfig), {
+    onRecovered: () => useBookConfigRecoveryStore.getState().markRecovered(book.hash),
+  });
 }
 
 export async function loadBookNav(fs: FileSystem, book: Book): Promise<BookNav | null> {

@@ -5,6 +5,7 @@ import { EnvConfigType } from '@/services/environment';
 import { BookDoc } from '@/libs/document';
 import { useLibraryStore } from './libraryStore';
 import { BookConfigSaveQueue } from '@/services/bookConfigSaveQueue';
+import { mergeBooknoteSnapshots } from '@/utils/booknoteMerge';
 
 const configSaveQueue = new BookConfigSaveQueue(undefined, (bookKey, error) => {
   useBookDataStore.setState((state) => {
@@ -140,7 +141,15 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
     config: BookConfig,
     settings: SystemSettings,
   ) => {
-    const snapshot = JSON.parse(JSON.stringify(config)) as BookConfig;
+    const current = get().getConfig(bookKey);
+    const snapshot = JSON.parse(
+      JSON.stringify({
+        ...config,
+        ...(current?.booknotes !== undefined || config.booknotes !== undefined
+          ? { booknotes: mergeBooknoteSnapshots(current?.booknotes, config.booknotes) }
+          : {}),
+      }),
+    ) as BookConfig;
     return configSaveQueue.save(bookKey, async () => {
       const appService = await envConfig.getAppService();
       const { library, hashIndex, setLibrary } = useLibraryStore.getState();

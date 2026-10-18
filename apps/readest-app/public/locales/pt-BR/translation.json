@@ -1973,5 +1973,7 @@
   "Failed to download and install update": "Falha ao baixar e instalar a atualização",
   "Additional Margin (%)": "Margem adicional (%)",
   "Translation not saved. Keep this book open and retry saving.": "A tradução não foi salva. Mantenha este livro aberto e tente salvar novamente.",
-  "Book changes not saved. Keep this book open and retry saving.": "As alterações do livro não foram salvas. Mantenha este livro aberto e tente salvar novamente."
+  "Book changes not saved. Keep this book open and retry saving.": "As alterações do livro não foram salvas. Mantenha este livro aberto e tente salvar novamente.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "As configurações do livro foram recuperadas de um backup local. Confira as anotações antes de continuar.",
+  "Dismiss": "Fechar"
 }

@@ -1,12 +1,16 @@
-import type { FileSystem } from '@/types/system';
+import { mergeBooknoteSnapshots } from '@/utils/booknoteMerge';
 import { BOOK_CONFIG_SCHEMA_VERSION, type BookNote } from '@/types/book';
-import { isMissingFileError, withJSONLock } from './persistence';
+import { isMissingFileError, withJSONLock, type JSONFileSystem } from './persistence';
 import { MAX_SIDECAR_INPUT_BYTES } from './translators/sidecarInput';
 
 type ConfigRecord = Record<string, unknown>;
 interface Snapshot {
   bytes: Uint8Array;
   value: ConfigRecord | null;
+  recovered?: boolean;
+}
+interface RecoveryOptions {
+  onRecovered?: () => void;
 }
 class UnsupportedConfigVersion extends Error {}
 
@@ -77,7 +81,7 @@ export function validateBookConfigSnapshot(value: unknown): ConfigRecord {
   return value;
 }
 
-async function readBytes(fs: FileSystem, path: string): Promise<Uint8Array | null> {
+async function readBytes(fs: JSONFileSystem, path: string): Promise<Uint8Array | null> {
   try {
     if (fs.openFile) {
       const file = await fs.openFile(path, 'Books');
@@ -108,7 +112,7 @@ async function readBytes(fs: FileSystem, path: string): Promise<Uint8Array | nul
   }
 }
 
-async function readSnapshot(fs: FileSystem, path: string): Promise<Snapshot | null> {
+async function readSnapshot(fs: JSONFileSystem, path: string): Promise<Snapshot | null> {
   const bytes = await readBytes(fs, path);
   if (bytes === null) return null;
   try {
@@ -120,12 +124,12 @@ async function readSnapshot(fs: FileSystem, path: string): Promise<Snapshot | nu
   }
 }
 
-const writeAtomic = (fs: FileSystem, path: string, json: string) =>
+const writeAtomic = (fs: JSONFileSystem, path: string, json: string) =>
   fs.writeFileAtomic ? fs.writeFileAtomic(path, 'Books', json) : fs.writeFile(path, 'Books', json);
 const equalBytes = (first: Uint8Array, second: Uint8Array) =>
   first.length === second.length && first.every((byte, index) => byte === second[index]);
 
-async function loadUnlocked(fs: FileSystem, path: string): Promise<Snapshot | null> {
+async function loadUnlocked(fs: JSONFileSystem, path: string): Promise<Snapshot | null> {
   const main = await readSnapshot(fs, path);
   if (main?.value) return main;
   const backup = await readSnapshot(fs, path + '.bak');
@@ -146,63 +150,49 @@ async function loadUnlocked(fs: FileSystem, path: string): Promise<Snapshot | nu
       }
     }
     await writeAtomic(fs, path, new TextDecoder('utf-8', { fatal: true }).decode(backup.bytes));
-    return backup;
+    return { ...backup, recovered: true };
   }
   if (main || backup) throw new Error('No valid book configuration or recovery backup: ' + path);
   return null;
 }
 
 export async function loadRecoverableBookConfig(
-  fs: FileSystem,
+  fs: JSONFileSystem,
   path: string,
+  options: RecoveryOptions = {},
 ): Promise<ConfigRecord> {
-  return withJSONLock(fs, path, 'Books', async () => (await loadUnlocked(fs, path))?.value ?? {});
+  const snapshot = await withJSONLock(fs, path, 'Books', () => loadUnlocked(fs, path));
+  notifyRecovery(snapshot, options);
+  return snapshot?.value ?? {};
+}
+
+function notifyRecovery(snapshot: Snapshot | null, options: RecoveryOptions) {
+  if (!snapshot?.recovered) return;
+  // A presentation callback must never undo or hide a safely committed restore.
+  try {
+    options.onRecovered?.();
+  } catch (error) {
+    console.warn('Book configuration recovery notification failed', error);
+  }
 }
 
 function mergeConfig(previous: ConfigRecord, incoming: ConfigRecord): ConfigRecord {
   const oldIsNewer = Number(previous['updatedAt'] ?? 0) > Number(incoming['updatedAt'] ?? 0);
   const merged = oldIsNewer ? { ...incoming, ...previous } : { ...previous, ...incoming };
-  const notes = new Map<string, BookNote>();
-  const previousNotes = (previous['booknotes'] ?? []) as BookNote[];
-  const incomingNotes = (incoming['booknotes'] ?? []) as BookNote[];
-  const group = (note: BookNote) => JSON.stringify([note.id, note.type]);
-  const identity = (note: BookNote) => JSON.stringify([note.id, note.type, note.cfi]);
-  const time = (note: BookNote) =>
-    Math.max(note.updatedAt ?? note.createdAt ?? 0, note.deletedAt ?? 0);
-  const previousGroups = new Map<string, BookNote[]>();
-  const incomingCounts = new Map<string, number>();
-  for (const note of previousNotes) {
-    const key = group(note);
-    const entries = previousGroups.get(key) ?? [];
-    entries.push(note);
-    previousGroups.set(key, entries);
-    notes.set(identity(note), note);
+  if (previous['booknotes'] !== undefined || incoming['booknotes'] !== undefined) {
+    merged['booknotes'] = mergeBooknoteSnapshots(
+      previous['booknotes'] as BookNote[] | undefined,
+      incoming['booknotes'] as BookNote[] | undefined,
+    );
   }
-  for (const note of incomingNotes)
-    incomingCounts.set(group(note), (incomingCounts.get(group(note)) ?? 0) + 1);
-  for (const note of incomingNotes) {
-    const oldGroup = previousGroups.get(group(note)) ?? [];
-    if (oldGroup.length === 1 && incomingCounts.get(group(note)) === 1) {
-      const old = oldGroup[0]!;
-      // A unique stable annotation id may have an edited CFI. Do not retain
-      // a ghost of its old range; legacy multi-location identities stay distinct.
-      if (identity(old) !== identity(note)) {
-        if (time(old) > time(note)) continue;
-        notes.delete(identity(old));
-      }
-    }
-    const old = notes.get(identity(note));
-    if (!old || time(note) >= time(old)) notes.set(identity(note), { ...old, ...note });
-  }
-  if (previous['booknotes'] !== undefined || incoming['booknotes'] !== undefined)
-    merged['booknotes'] = [...notes.values()];
   return merged;
 }
 
 export async function saveRecoverableBookConfig(
-  fs: FileSystem,
+  fs: JSONFileSystem,
   path: string,
   data: unknown,
+  options: RecoveryOptions = {},
 ): Promise<void> {
   const incoming = validateBookConfigSnapshot(data);
   const json = JSON.stringify(incoming);
@@ -212,6 +202,7 @@ export async function saveRecoverableBookConfig(
   const captured = JSON.parse(json) as ConfigRecord;
   await withJSONLock(fs, path, 'Books', async () => {
     const previous = await loadUnlocked(fs, path);
+    notifyRecovery(previous, options);
     const merged = mergeConfig(previous?.value ?? {}, captured);
     const next = JSON.stringify(merged);
     if (new TextEncoder().encode(next).length > MAX_SIDECAR_INPUT_BYTES)

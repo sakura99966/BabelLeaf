@@ -1901,5 +1901,7 @@
   "Failed to download and install update": "Không thể tải xuống và cài đặt bản cập nhật",
   "Additional Margin (%)": "Lề bổ sung (%)",
   "Translation not saved. Keep this book open and retry saving.": "Bản dịch chưa được lưu. Giữ sách này mở và thử lưu lại.",
-  "Book changes not saved. Keep this book open and retry saving.": "Các thay đổi của sách chưa được lưu. Hãy giữ sách này mở và thử lưu lại."
+  "Book changes not saved. Keep this book open and retry saving.": "Các thay đổi của sách chưa được lưu. Hãy giữ sách này mở và thử lưu lại.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "Đã khôi phục cài đặt sách từ bản sao lưu cục bộ. Hãy kiểm tra chú thích trước khi tiếp tục.",
+  "Dismiss": "Đóng"
 }

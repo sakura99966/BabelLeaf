@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { RUNTIME_VENDORS } from '../../../../../../scripts/runtime-vendor-policy.mjs';
 
 const appRoot = process.cwd();
 const sha256 = (path: string) => createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -13,9 +14,11 @@ describe('ONNX Runtime packaged assets', () => {
       dependencies: Record<string, string>;
     };
     expect(pkg.dependencies['onnxruntime-web']).toBe('1.27.0');
-    expect(pkg.scripts['setup-vendors']).toContain('setup-onnxruntime');
-    expect(pkg.scripts['copy-onnxruntime']).toContain('ort-wasm-simd-threaded.mjs');
-    expect(pkg.scripts['copy-onnxruntime']).toContain('ort-wasm-simd-threaded.wasm');
+    expect(pkg.scripts['setup-vendors']).toContain('setup-runtime-vendors.mjs');
+    expect(RUNTIME_VENDORS.find((vendor) => vendor.id === 'onnxruntime')?.sources).toContainEqual({
+      directory: 'apps/readest-app/node_modules/onnxruntime-web/dist',
+      files: ['ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'],
+    });
     for (const file of ['ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm']) {
       const source = resolve(appRoot, 'node_modules/onnxruntime-web/dist', file);
       const packaged = resolve(appRoot, 'public/vendor/onnxruntime', file);

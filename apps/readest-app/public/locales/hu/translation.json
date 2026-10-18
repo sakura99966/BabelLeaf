@@ -1937,5 +1937,7 @@
   "Failed to download and install update": "A frissítés letöltése és telepítése sikertelen",
   "Additional Margin (%)": "További margó (%)",
   "Translation not saved. Keep this book open and retry saving.": "A fordítás nincs mentve. Hagyja nyitva ezt a könyvet, és próbálja újra a mentést.",
-  "Book changes not saved. Keep this book open and retry saving.": "A könyv módosításai nincsenek mentve. Hagyja nyitva a könyvet, és próbálja újra a mentést."
+  "Book changes not saved. Keep this book open and retry saving.": "A könyv módosításai nincsenek mentve. Hagyja nyitva a könyvet, és próbálja újra a mentést.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "A könyv beállításai helyi biztonsági mentésből helyreállítva. Folytatás előtt ellenőrizze a jegyzeteket.",
+  "Dismiss": "Bezárás"
 }

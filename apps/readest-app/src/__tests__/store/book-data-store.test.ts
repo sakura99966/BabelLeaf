@@ -287,6 +287,32 @@ describe('bookDataStore', () => {
   });
 
   describe('saveConfig', () => {
+    test('coalesces stale snapshots without losing unsaved in-memory annotations', async () => {
+      const saveBookConfig = vi.fn().mockResolvedValue(undefined);
+      const envConfig = makeEnvConfig({ saveBookConfig, saveLibraryBooks: vi.fn(async () => {}) });
+      useLibraryStore.getState().setLibrary([
+        {
+          hash: 'h1',
+          format: 'EPUB',
+          title: 'Owned fixture',
+          author: 'Fixture',
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]);
+      const latest = makeBookData('h1', { booknotes: [makeBookNote({ id: 'unsaved' })] });
+      useBookDataStore.setState({ booksData: { h1: latest } });
+      const first = useBookDataStore
+        .getState()
+        .saveConfig(envConfig, 'h1', latest.config!, FAKE_SETTINGS);
+      const stale = useBookDataStore
+        .getState()
+        .saveConfig(envConfig, 'h1', { updatedAt: 1, booknotes: [] }, FAKE_SETTINGS);
+      await Promise.all([first, stale]);
+      const persisted = saveBookConfig.mock.calls.at(-1)?.[1] as BookConfig;
+      expect(persisted.booknotes?.some((note) => note.id === 'unsaved')).toBe(true);
+    });
+
     function makeLibraryBook(overrides: Partial<Book> = {}): Book {
       return {
         hash: 'h1',

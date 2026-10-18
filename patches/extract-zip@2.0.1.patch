@@ -1,0 +1,93 @@
+diff --git a/index.js b/index.js
+index 23384ea16bb848616886f356d8d69f94325535bf..4721eef73dbce7eef2a7160eafdf97051b643e45 100644
+--- a/index.js
++++ b/index.js
+@@ -6,6 +6,7 @@ const path = require('path')
+ const { promisify } = require('util')
+ const stream = require('stream')
+ const yauzl = require('yauzl')
++const { randomBytes } = require('crypto')
+ 
+ const openZip = promisify(yauzl.open)
+ const pipeline = promisify(stream.pipeline)
+@@ -16,6 +17,30 @@ class Extractor {
+     this.opts = opts
+   }
+ 
++  // Validate both lexical containment and the nearest existing ancestor before
++  // mkdir/open: realpath-after-mkdir is already too late for a parent alias.
++  async ensureWithinRoot (candidate) {
++    const check = value => {
++      const relative = path.relative(this.opts.dir, value)
++      if (relative === '..' || relative.startsWith('..' + path.sep) || path.isAbsolute(relative)) {
++        throw new Error('Out of bound extraction path: ' + value)
++      }
++    }
++    let current = path.resolve(candidate)
++    check(current)
++    while (true) {
++      try {
++        check(await fs.realpath(current))
++        return
++      } catch (error) {
++        if (error.code !== 'ENOENT' && error.code !== 'ENOTDIR') throw error
++        const parent = path.dirname(current)
++        if (parent === current) throw new Error('Out of bound extraction ancestor')
++        current = parent
++      }
++    }
++  }
++
+   async extract () {
+     debug('opening', this.zipPath, 'with opts', this.opts)
+ 
+@@ -53,6 +78,7 @@ class Extractor {
+         const destDir = path.dirname(path.join(this.opts.dir, entry.fileName))
+ 
+         try {
++          await this.ensureWithinRoot(destDir)
+           await fs.mkdir(destDir, { recursive: true })
+ 
+           const canonicalDestDir = await fs.realpath(destDir)
+@@ -118,18 +144,39 @@ class Extractor {
+       mkdirOptions.mode = procMode
+     }
+     debug('mkdir', { dir: destDir, ...mkdirOptions })
++    await this.ensureWithinRoot(destDir)
+     await fs.mkdir(destDir, mkdirOptions)
+     if (isDir) return
+ 
++    try {
++      if ((await fs.lstat(dest)).isSymbolicLink()) {
++        throw new Error('Refusing existing symlink extraction destination: ' + dest)
++      }
++    } catch (error) {
++      if (error.code !== 'ENOENT') throw error
++    }
++
+     debug('opening read stream', dest)
+     const readStream = await promisify(this.zipfile.openReadStream.bind(this.zipfile))(entry)
+ 
+     if (symlink) {
+-      const link = await getStream(readStream)
++      const link = await getStream(readStream, { maxBuffer: 4096 })
++      if (link.includes('\0') || path.posix.isAbsolute(link) || path.win32.isAbsolute(link) || /^[a-z]:/i.test(link)) {
++        throw new Error('Out of bound symlink target')
++      }
++      await this.ensureWithinRoot(path.resolve(path.dirname(dest), link))
+       debug('creating symlink', link, dest)
+       await fs.symlink(link, dest)
+     } else {
+-      await pipeline(readStream, createWriteStream(dest, { mode: procMode }))
++      // Atomic replacement never follows a leaf symlink inserted after lstat.
++      // Exclusive temporary creation also refuses pre-existing attacker files.
++      const temporary = dest + '.babelleaf-' + randomBytes(12).toString('hex') + '.tmp'
++      try {
++        await pipeline(readStream, createWriteStream(temporary, { mode: procMode, flags: 'wx' }))
++        await fs.rename(temporary, dest)
++      } finally {
++        await fs.unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error })
++      }
+     }
+   }
+ 

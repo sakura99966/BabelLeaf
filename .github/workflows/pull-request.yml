@@ -328,6 +328,9 @@ jobs:
       - name: audit production JavaScript dependencies
         run: pnpm audit --prod --audit-level moderate
 
+      - name: audit complete JavaScript graph and verify security backports
+        run: pnpm -w security:dependencies
+
       - name: setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:

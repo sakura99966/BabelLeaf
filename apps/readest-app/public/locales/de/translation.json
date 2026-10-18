@@ -1937,5 +1937,7 @@
   "Failed to download and install update": "Fehler beim Herunterladen und Installieren des Updates",
   "Additional Margin (%)": "Zusätzlicher Rand (%)",
   "Translation not saved. Keep this book open and retry saving.": "Die Übersetzung wurde nicht gespeichert. Lassen Sie dieses Buch geöffnet und versuchen Sie erneut zu speichern.",
-  "Book changes not saved. Keep this book open and retry saving.": "Änderungen am Buch wurden nicht gespeichert. Lassen Sie das Buch geöffnet und versuchen Sie es erneut."
+  "Book changes not saved. Keep this book open and retry saving.": "Änderungen am Buch wurden nicht gespeichert. Lassen Sie das Buch geöffnet und versuchen Sie es erneut.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "Bucheinstellungen wurden aus einer lokalen Sicherung wiederhergestellt. Prüfen Sie die Anmerkungen, bevor Sie fortfahren.",
+  "Dismiss": "Schließen"
 }

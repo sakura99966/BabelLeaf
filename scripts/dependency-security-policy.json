@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    {
+      "name": "braces",
+      "version": "3.0.3",
+      "patch": "patches/braces@3.0.3.patch",
+      "sha256": "da30510662c285f94c0dddf0ac3a1f9ff74900c5803df930eabc664fce8b0c78",
+      "advisories": ["GHSA-vfj7-8cjw-p6xm"],
+      "reason": "No fixed release exists in the registry. Iterative AST validation and parser depth guards are covered by installed-dependency regressions."
+    },
+    {
+      "name": "extract-zip",
+      "version": "2.0.1",
+      "patch": "patches/extract-zip@2.0.1.patch",
+      "sha256": "01240c7f14775fcffe1d9eb18f187ac6bc2a858f51b75cdf58aedbc99f65792c",
+      "advisories": ["GHSA-jmr9-qjv8-65gv", "GHSA-7pqw-9j4j-h8q3"],
+      "reason": "No fixed release exists in the registry. Containment checks, bounded symlink targets and atomic leaf replacement are covered by installed-dependency regressions."
+    }
+  ]
+}

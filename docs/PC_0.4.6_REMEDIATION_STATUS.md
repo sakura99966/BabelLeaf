@@ -10,8 +10,8 @@ Branch: codex/0.4.6-audit-remediation. Product scope remains 0.4 PC.
 | AUD18-01 | Inert, sanitized local dictionary HTML/CSS/resources | IMPLEMENTED; final package gate pending |
 | AUD18-02 | Session-scoped explicit translation consent | IMPLEMENTED; final regression pending |
 | AUD18-03 | Atomic, validated, recoverable book configuration | IMPLEMENTED; final regression/native crash gate pending |
-| AUD18-04 | Current Rust dependency audit and native validation | OPEN |
-| AUD18-05 | Copied runtime vendor provenance/SBOM/security closure | OPEN |
+| AUD18-04 | Current Rust dependency audit and native validation | IMPLEMENTED; Windows audit/Rust tests/Clippy pass; updated package qualification pending |
+| AUD18-05 | Copied runtime vendor provenance/SBOM/security closure | IMPLEMENTED; source evidence passes; final static output/artifact gate pending |
 | Follow-up | Full npm graph, static candidates, performance and review | OPEN |
 | Closure | Full applicable regression, package qualification, remote backup and bounded cleanup | OPEN |
 
@@ -40,3 +40,34 @@ assets. A green old CI run does not qualify changed source or new advisories.
 - Intermediate verification: 4,940 unit passes before config changes; 321 browser
   passes plus one inherited skip after dictionary/consent fixes; 79 targeted
   surrounding config/import/annotation passes. Full new-source checks pending.
+- Dependency remediation: rustls 0.23.46, quinn-proto 0.11.18 and ZIP 9.0.5;
+  ZIP API adaptations pass 52 native unit tests and strict application Clippy.
+  Windows version audit passes; the all-platform nix 0.19.1 finding remains a
+  separate future-platform gate, not a proven Windows runtime vulnerability.
+- JavaScript compatibility/security updates include PDF.js 6.2.108 and Vitest
+  4.1.11. Removed cpx2, mkdirp and postcss-cli after replacing copy scripts with
+  one checked Node build tool. Raw full npm audit still has three high
+  development-only records for braces/extract-zip (no published fixes); exact
+  source backports, lock/file hashes and 18 boundary/policy regressions enforce
+  PASS_WITH_PINNED_DEVELOPMENT_BACKPORTS. No global ignore or false zero claim.
+- A deterministic runtime copy policy now inventories 7 components / 226 assets
+  (28,858,261 bytes), hashes sources and output, preserves upstream notices,
+  identifies Inter 4.001 from its actual font name table, and fails closed on
+  unknown copies, missing metadata, changed versions or tampered output. The
+  strict candidate source SBOM has 801 components and zero gaps. This is source
+  evidence, not final installer or responsible-owner legal approval.
+- Normal annotation writes coalesce to at most one active and one latest pending
+  snapshot, preserving merged notes and dirty-close protection. Backup recovery
+  now has a bounded session notice that survives UI mounting until acknowledgment;
+  two new strings are translated in all 33 existing locales.
+- CodeQL test-helper remediation replaces tag-stripping regexes with XML parsing
+  and escapes HTML-sensitive JavaScript data literals. 64 surrounding tests pass.
+  Remote alerts must be re-evaluated by fresh CodeQL; no alert is manually dismissed.
+- Removed three confirmed unreferenced legacy modules: cloud quota UI, CachedImage
+  and useAutoHideScrollbar, plus quota-only tests. Supported cached-cover service
+  APIs and platform adapters remain. This reduces maintenance surface; no measured
+  runtime-memory saving is claimed from deleting already-unbundled source.
+- Latest intermediate checks (before the final helper/native-fixture changes):
+  409 unit files, 5,004 passed / 1 inherited skipped; lint 1,134 files; real
+  Chromium 321 passed / 1 inherited skipped with no unhandled errors. Full final
+  coverage/build/native/installer/performance/CI qualification remains pending.

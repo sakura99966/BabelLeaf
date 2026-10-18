@@ -5,6 +5,7 @@ import type { Book, BookConfig, BookNote } from '@/types/book';
 import type { SystemSettings } from '@/types/settings';
 import type { FileSystem } from '@/types/system';
 import { File as NodeFile } from 'node:buffer';
+import { useBookConfigRecoveryStore } from '@/store/bookConfigRecoveryStore';
 
 const book = { hash: 'configfixture', format: 'EPUB' } as Book;
 const settings = { globalViewSettings: {} } as SystemSettings;
@@ -112,6 +113,16 @@ it('does not replace an occupied recovery slot or erase a second invalid origina
   await expect(loadBookConfig(fs, book, settings)).rejects.toThrow(/recovery|invalid/i);
   expect(files.get(path)).toBe('{second-invalid');
   expect(files.get(path + '.invalid')).toBe('{first-invalid');
+});
+
+it('retains a visible recovery notice after safely restoring the backup', async () => {
+  useBookConfigRecoveryStore.setState({ recovered: [] });
+  const { fs } = fixture({
+    [path]: '{invalid',
+    [path + '.bak']: JSON.stringify(config({ booknotes: [note('recovered')] })),
+  });
+  await loadBookConfig(fs, book, settings);
+  expect(useBookConfigRecoveryStore.getState().recovered).toContain(book.hash);
 });
 
 it('merges concurrent annotation snapshots instead of dropping the other window notes', async () => {

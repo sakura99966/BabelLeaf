@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { textWalker } from 'foliate-js/text-walker.js';
 import { TTS } from 'foliate-js/tts.js';
 import { createRejectFilter } from '@/utils/node';
+import { ssmlText as stripTags } from '../helpers/ssmlText';
 
 const createHTMLDoc = (bodyHTML: string, attrs: Record<string, string> = {}): Document => {
   const parser = new DOMParser();
@@ -27,9 +28,6 @@ const createPlainHTMLDoc = (html: string): Document => {
   const parser = new DOMParser();
   return parser.parseFromString(html, 'text/html');
 };
-
-/** Strip all XML tags to get plain text content from SSML */
-const stripTags = (ssml: string): string => ssml.replace(/<[^>]+\/?>/g, '').trim();
 
 const highlight = vi.fn();
 

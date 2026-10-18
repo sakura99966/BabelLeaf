@@ -54,3 +54,30 @@ it('serializes writes and only retries the newest dirty snapshot', async () => {
   expect(latest).toHaveBeenCalledTimes(1);
   expect(guard.needsProtection(['book-1'])).toBe(false);
 });
+
+it('bounds a slow-disk burst to the active write and the newest pending snapshot', async () => {
+  const queue = new BookConfigSaveQueue(new ReaderCloseGuard(), () => {});
+  let started!: () => void;
+  let release!: () => void;
+  const active = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const writes: number[] = [];
+  const first = queue.save('book-1', async () => {
+    writes.push(0);
+    started();
+    await blocked;
+  });
+  await active;
+  const pending = Array.from({ length: 100 }, (_, index) =>
+    queue.save('book-1', async () => {
+      writes.push(index + 1);
+    }),
+  );
+  release();
+  await Promise.all([first, ...pending]);
+  expect(writes).toEqual([0, 100]);
+});

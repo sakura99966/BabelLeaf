@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
+import { RUNTIME_VENDORS } from '../../../../../../scripts/runtime-vendor-policy.mjs';
 
 const appRoot = process.cwd();
 
@@ -11,10 +12,11 @@ describe('Tesseract WASM packaged runtime assets', () => {
       dependencies: Record<string, string>;
     };
     expect(pkg.dependencies['tesseract-wasm']).toBe('0.11.0');
-    expect(pkg.scripts['setup-vendors']).toContain('setup-tesseract');
-    expect(pkg.scripts['copy-tesseract']).toContain('tesseract-worker.js');
-    expect(pkg.scripts['copy-tesseract']).toContain('tesseract-core.wasm');
-    expect(pkg.scripts['copy-tesseract']).toContain('tesseract-core-fallback.wasm');
+    expect(pkg.scripts['setup-vendors']).toContain('setup-runtime-vendors.mjs');
+    expect(RUNTIME_VENDORS.find((vendor) => vendor.id === 'tesseract')?.sources).toContainEqual({
+      directory: 'apps/readest-app/node_modules/tesseract-wasm/dist',
+      files: ['tesseract-worker.js', 'tesseract-core.wasm', 'tesseract-core-fallback.wasm'],
+    });
 
     for (const file of [
       'tesseract-worker.js',

@@ -1937,5 +1937,7 @@
   "Failed to download and install update": "अपडेट डाउनलोड और इंस्टॉल करने में विफल",
   "Additional Margin (%)": "अतिरिक्त हाशिया (%)",
   "Translation not saved. Keep this book open and retry saving.": "अनुवाद सहेजा नहीं गया। इस पुस्तक को खुला रखें और फिर से सहेजने का प्रयास करें।",
-  "Book changes not saved. Keep this book open and retry saving.": "पुस्तक के बदलाव सहेजे नहीं गए हैं। इस पुस्तक को खुला रखें और फिर से सहेजने का प्रयास करें।"
+  "Book changes not saved. Keep this book open and retry saving.": "पुस्तक के बदलाव सहेजे नहीं गए हैं। इस पुस्तक को खुला रखें और फिर से सहेजने का प्रयास करें।",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "पुस्तक की सेटिंग स्थानीय बैकअप से बहाल की गई हैं। आगे बढ़ने से पहले टिप्पणियाँ जाँचें।",
+  "Dismiss": "बंद करें"
 }

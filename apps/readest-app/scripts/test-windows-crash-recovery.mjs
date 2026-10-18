@@ -80,7 +80,13 @@ try {
     server: { port: 3000, strictPort: true, host: '127.0.0.1', hmr: false },
   });
   await server.listen();
-  for (const [phase, expected] of [['quit-guard', 'quit-guard'], ['workload', 'workload'], ['directory-scope', 'directory-scope'], ['before-main', 'before-main'], ['after-main', 'after-main'], ['recover', 'recovered'], ['artifact-journal', 'artifact-journal'], ['recover-artifact', 'recovered-artifact']]) {
+  for (const [phase, expected] of [
+    ['quit-guard', 'quit-guard'], ['workload', 'workload'], ['directory-scope', 'directory-scope'],
+    ['before-main', 'before-main'], ['after-main', 'after-main'], ['recover', 'recovered'],
+    ['config-before-main', 'config-before-main'], ['config-after-main', 'config-after-main'],
+    ['recover-config', 'recover-config'], ['artifact-journal', 'artifact-journal'],
+    ['recover-artifact', 'recovered-artifact'],
+  ]) {
     currentPhase = phase;
     lastPage = undefined;
     console.log(`Native probe phase: ${phase}`);

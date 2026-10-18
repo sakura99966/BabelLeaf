@@ -1937,5 +1937,7 @@
   "Failed to download and install update": "Det gick inte att ladda ner och installera uppdateringen",
   "Additional Margin (%)": "Extra marginal (%)",
   "Translation not saved. Keep this book open and retry saving.": "Översättningen har inte sparats. Håll boken öppen och försök spara igen.",
-  "Book changes not saved. Keep this book open and retry saving.": "Ändringarna i boken har inte sparats. Låt boken vara öppen och försök spara igen."
+  "Book changes not saved. Keep this book open and retry saving.": "Ändringarna i boken har inte sparats. Låt boken vara öppen och försök spara igen.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "Bokinställningarna återställdes från en lokal säkerhetskopia. Kontrollera anteckningarna innan du fortsätter.",
+  "Dismiss": "Stäng"
 }

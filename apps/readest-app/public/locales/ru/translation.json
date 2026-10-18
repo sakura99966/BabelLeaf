@@ -2009,5 +2009,7 @@
   "Failed to download and install update": "Не удалось загрузить и установить обновление",
   "Additional Margin (%)": "Дополнительное поле (%)",
   "Translation not saved. Keep this book open and retry saving.": "Перевод не сохранён. Оставьте эту книгу открытой и повторите сохранение.",
-  "Book changes not saved. Keep this book open and retry saving.": "Изменения в книге не сохранены. Оставьте эту книгу открытой и повторите сохранение."
+  "Book changes not saved. Keep this book open and retry saving.": "Изменения в книге не сохранены. Оставьте эту книгу открытой и повторите сохранение.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "Настройки книги восстановлены из локальной резервной копии. Проверьте заметки, прежде чем продолжить.",
+  "Dismiss": "Закрыть"
 }

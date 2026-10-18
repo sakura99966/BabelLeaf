@@ -1901,5 +1901,7 @@
   "Failed to download and install update": "གསར་སྒྱུར་ཕབ་ལེན་དང་སྒྲིག་འཇུག་བྱེད་མ་ཐུབ།",
   "Additional Margin (%)": "ཁ་སྣོན་མཐའ་འགྲམ",
   "Translation not saved. Keep this book open and retry saving.": "ཡིག་སྒྱུར་ཉར་ཚགས་བྱས་མེད། དེབ་འདི་ཁ་ཕྱེ་ནས་བཞག་སྟེ་ཡང་བསྐྱར་ཉར་ཚགས་བྱེད་རོགས།",
-  "Book changes not saved. Keep this book open and retry saving.": "དཔེ་ཆའི་འགྱུར་བ་ཉར་ཚགས་བྱས་མེད། དཔེ་ཆ་ཁ་ཕྱེ་ནས་ཡང་བསྐྱར་ཉར་ཚགས་བྱེད་རོགས།"
+  "Book changes not saved. Keep this book open and retry saving.": "དཔེ་ཆའི་འགྱུར་བ་ཉར་ཚགས་བྱས་མེད། དཔེ་ཆ་ཁ་ཕྱེ་ནས་ཡང་བསྐྱར་ཉར་ཚགས་བྱེད་རོགས།",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "དེབ་ཀྱི་སྒྲིག་འགོད་ས་གནས་ཀྱི་གྲབས་ཉར་ལས་སླར་གསོ་བྱས་ཟིན། མུ་མཐུད་མ་བྱེད་གོང་མཆན་འགྲེལ་ལ་ཞིབ་བཤེར་གནང་།",
+  "Dismiss": "ཁ་རྒྱག"
 }

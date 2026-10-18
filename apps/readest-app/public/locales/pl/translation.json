@@ -2009,5 +2009,7 @@
   "Failed to download and install update": "Nie udało się pobrać i zainstalować aktualizacji",
   "Additional Margin (%)": "Dodatkowy margines (%)",
   "Translation not saved. Keep this book open and retry saving.": "Tłumaczenie nie zostało zapisane. Pozostaw tę książkę otwartą i spróbuj zapisać ponownie.",
-  "Book changes not saved. Keep this book open and retry saving.": "Zmiany w książce nie zostały zapisane. Pozostaw książkę otwartą i spróbuj zapisać ponownie."
+  "Book changes not saved. Keep this book open and retry saving.": "Zmiany w książce nie zostały zapisane. Pozostaw książkę otwartą i spróbuj zapisać ponownie.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "Ustawienia książki przywrócono z lokalnej kopii zapasowej. Sprawdź adnotacje przed kontynuowaniem.",
+  "Dismiss": "Zamknij"
 }

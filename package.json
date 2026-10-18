@@ -20,7 +20,8 @@
     "verify:inpaint-model:local": "node scripts/verify-pnpm-version.mjs && node scripts/inpaint/verify-lama-model.mjs",
     "build:inpaint-model-pack:local": "node scripts/verify-pnpm-version.mjs && node scripts/inpaint/build-lama-model-pack.mjs",
     "compliance:sbom": "node scripts/verify-pnpm-version.mjs && node scripts/generate-sbom.mjs --strict",
-    "compliance:sbom:local": "node scripts/generate-sbom.mjs"
+    "compliance:sbom:local": "node scripts/generate-sbom.mjs",
+    "security:dependencies": "node scripts/verify-pnpm-version.mjs && node scripts/check-dependency-security.mjs"
   },
   "packageManager": "pnpm@11.1.1",
   "devDependencies": {

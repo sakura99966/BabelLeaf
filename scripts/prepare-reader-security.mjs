@@ -18,3 +18,16 @@ for (const [name, expected] of files) {
   }
   if (hardened !== source) writeFileSync(path, hardened);
 }
+
+// PDF documents are untrusted local content too. Evaluation is already
+// disabled in getDocument; scripting must also be off in annotation widgets.
+const pdfPath = new URL('../packages/foliate-js/pdf.js', import.meta.url);
+const pdfSource = readFileSync(pdfPath, 'utf8');
+const annotationTarget = /annotations: await page\.getAnnotations\(\),(?:\r?\n[ \t]*enableScripting: false,\r?\n[ \t]*hasJSActions: false,)?/g;
+if ([...pdfSource.matchAll(annotationTarget)].length !== 1)
+  throw new Error('Unexpected PDF annotation scripting target');
+const hardenedPdf = pdfSource.replace(annotationTarget,
+  'annotations: await page.getAnnotations(),\n        enableScripting: false,\n        hasJSActions: false,');
+if (!hardenedPdf.includes('isEvalSupported: false'))
+  throw new Error('PDF JavaScript evaluation must remain disabled');
+if (hardenedPdf !== pdfSource) writeFileSync(pdfPath, hardenedPdf);
