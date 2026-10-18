@@ -1,0 +1,28 @@
+/** Strict input budget for the build-only packaged-runtime acceptance probe. */
+export function validatePackagedRuntimeManifest(value) {
+  const fail = () => { throw new Error('Invalid or unbounded packaged runtime manifest'); };
+  if (!value || value.schemaVersion !== 1 || !Array.isArray(value.components)
+    || !value.components.length || value.components.length > 64
+    || !Array.isArray(value.assets) || !value.assets.length || value.assets.length > 4096) fail();
+  const ids = new Set();
+  for (const component of value.components) {
+    if (!component || typeof component.id !== 'string' || !component.id || ids.has(component.id)
+      || !['name', 'version', 'license'].every((key) =>
+        typeof component[key] === 'string' && component[key].trim() && component[key] !== 'NOASSERTION')) fail();
+    ids.add(component.id);
+  }
+  const paths = new Set();
+  let total = 0;
+  for (const asset of value.assets) {
+    if (!asset || typeof asset.path !== 'string' || !/^(?:vendor|fonts)\/[a-z0-9/_.-]+$/i.test(asset.path)
+      || asset.path.split('/').some((part) => !part || part === '.' || part === '..')
+      || paths.has(asset.path.toLowerCase()) || !ids.has(asset.component)
+      || typeof asset.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(asset.sha256)
+      || !Number.isSafeInteger(asset.bytes) || asset.bytes < 0 || asset.bytes > 64 * 1024 * 1024) fail();
+    paths.add(asset.path.toLowerCase());
+    total += asset.bytes;
+    if (total > 256 * 1024 * 1024) fail();
+  }
+  if (total !== value.totalBytes) fail();
+  return value;
+}

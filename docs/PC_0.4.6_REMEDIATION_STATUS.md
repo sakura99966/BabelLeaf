@@ -88,3 +88,50 @@ assets. A green old CI run does not qualify changed source or new advisories.
   edge-fix freeze; final exact-source qualification/CI is still open.
 - See DEPENDENCY_SECURITY_0.4.6.md for every warning/backport/platform/hosted-alert
   disposition. Scope and external deferrals remain unchanged.
+- Final product implementation baseline for current candidates:
+  b93f462ad07a601d8ef632f3b986844628d613c6. The later ed137d6de test-only change
+  replaces expensive WASM deep comparison with exact native byte comparison.
+  Hosted coverage previously timed out on that comparison; its threshold was
+  not lowered. A local overlapping full-suite/coverage run also timed out on
+  cold NativeAppService import and contaminated the next platform mock. Both
+  full coverage and a subsequent isolated push hook pass; retain the initial
+  logs and avoid concurrent full-coverage/full-unit processes.
+- Current verified standard candidate is archived under
+  target/releases/0.4.6/b93f462ad, with EXE, NSIS package, runtime manifest,
+  artifact inventory and strict artifact-bound SBOM (801 components, zero gaps).
+  The standard EXE SHA-256 is
+  af087ed8e7b8b577aef059d1b689bcee844ff0b56b0adb0d03d02fde64eee73d.
+  These are candidate identities, not canonical-main/release identities.
+- Real standard-binary probe passes without a dev server or webdriver feature:
+  product BabelLeaf 0.4.6, hydrated empty library, 226 embedded assets /
+  28,858,205 bytes individually verified against source hashes, and removed
+  owned portable profile. The reusable test:windows-packaged-runtime command
+  now checks loopback endpoint process ownership, source manifest equivalence,
+  variant/version, bounds, streamed bytes and cleanup; Windows CI runs it
+  before the installer lifecycle. Twelve input/CI-contract regressions added.
+- Same-product frozen regressions: Chromium 321 passes / 1 inherited skip;
+  native integration 121 passes / 1 skip; native UI 27 passes; 11-phase
+  process interruption/recovery PASS. The dedicated smoke package installs,
+  launches with a responding window, uninstalls and retains its data sentinel.
+  Full idle measurement is currently running; it is not yet marked PASS.
+
+## Remaining internal closure work (no 0.5)
+
+1. Finish current standard-EXE 60-second warmup / 300-second idle receipt and
+   preserve the smoke installer/executable before bounded compiler-cache cleanup.
+2. Complete the performance scenario matrix from PERFORMANCE_BASELINE.md:
+   EPUB/PDF import-to-readable, 50-turn p95, full-book search p95, 20/5000-segment
+   mock queues, workspace atomic save and warmed overlay update. Record fixture
+   hashes, hardware/runtime, byte/worker/cache budgets and scope. Existing
+   heartbeat/workload results do not substitute for these measurements.
+3. Verify model-dependent OCR/inpainting evidence from already authorized local
+   packs where available; do not download models or claim deferred corpus/human
+   quality/minimum-host/signing/legal gates passed.
+4. Review dictionary stylesheet scope as well as active-code/resource sanitizing:
+   MDict already uses a shadow root; confirm StarDict/SLOB style rules cannot
+   affect application chrome. This is a follow-up inspection target, not a
+   newly demonstrated script/native-code exploit.
+5. Fresh final full regression and reviewed PR #10 CI (including the new real
+   packaged-runtime gate), final documentation, normal protected merge, exact
+   canonical-main package/provenance binding and safe cleanup. Do not move old
+   tags or label a previous candidate as a new main build.
