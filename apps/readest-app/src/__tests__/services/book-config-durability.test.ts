@@ -166,3 +166,15 @@ it('moves a uniquely identified edited annotation without retaining a ghost rang
   expect(loaded.booknotes).toHaveLength(1);
   expect(loaded.booknotes?.[0]?.cfi).toBe(changed.cfi);
 });
+
+it('does not revive an existing deletion when an older open view later moves its range', async () => {
+  const deleted = { ...note('edited'), deletedAt: 5, updatedAt: 5 };
+  const moved = { ...note('edited', 7), cfi: 'epubcfi(/6/4!/4/2)' };
+  const { fs } = fixture({
+    [path]: JSON.stringify(config({ updatedAt: 5, booknotes: [deleted] })),
+  });
+  await saveBookConfig(fs, book, config({ updatedAt: 7, booknotes: [moved] }));
+  const loaded = await loadBookConfig(fs, book, settings);
+  expect(loaded.booknotes).toHaveLength(1);
+  expect(loaded.booknotes?.[0]?.deletedAt).toBe(5);
+});

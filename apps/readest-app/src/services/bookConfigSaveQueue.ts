@@ -39,20 +39,24 @@ export class BookConfigSaveQueue {
       // At most one in-flight snapshot and the newest pending snapshot.
       // All callers join the same drain; a burst cannot retain a promise chain
       // with one full book configuration per keystroke.
-      while (owner.pending) {
-        const pending = owner.pending;
-        try {
-          await pending.action();
-          if (owner.pending === pending) {
-            owner.pending = null;
+      do {
+        while (owner.pending) {
+          const pending = owner.pending;
+          try {
+            await pending.action();
+            if (owner.pending === pending) {
+              owner.pending = null;
+            }
+          } catch (error) {
+            if (owner.pending !== pending) continue;
+            this.notify(bookKey, error instanceof Error ? error.message : String(error));
+            throw error;
           }
-        } catch (error) {
-          if (owner.pending !== pending) continue;
-          this.notify(bookKey, error instanceof Error ? error.message : String(error));
-          throw error;
         }
-      }
-      this.notify(bookKey, null);
+        this.notify(bookKey, null);
+        // A synchronous observer can enqueue again while clearing an error.
+        // That caller joined this drain too: do not resolve before its write.
+      } while (owner.pending);
     });
     owner.running = run;
     const finish = () => {

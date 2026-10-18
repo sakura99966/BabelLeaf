@@ -29,7 +29,10 @@ export const RUNTIME_VENDORS = [
     sources: [
       { directory: 'packages/simplecc-wasm/dist/web', all: true },
       { file: 'packages/simplecc-wasm/LICENSE', to: 'LICENSE' },
-      { file: 'packages/simplecc-wasm/OpenCC/LICENSE', to: 'LICENSE_OPENCC' },
+      {
+        file: 'licenses/runtime/OpenCC-e0d41d7f-LICENSE.txt', to: 'LICENSE_OPENCC',
+        origin: 'https://raw.githubusercontent.com/BYVoid/OpenCC/e0d41d7f5e7c62f9be1cfdd9e6cb1d03847c06e7/LICENSE',
+      },
     ],
   },
   {
@@ -52,8 +55,14 @@ export const RUNTIME_VENDORS = [
     manifest: app + 'node_modules/onnxruntime-web/package.json',
     sources: [
       { directory: app + 'node_modules/onnxruntime-web/dist', files: ['ort-wasm-simd-threaded.mjs', 'ort-wasm-simd-threaded.wasm'] },
-      { file: 'licenses/runtime/onnxruntime-1.27.0-LICENSE.txt', to: 'LICENSE.txt' },
-      { file: 'licenses/runtime/onnxruntime-1.27.0-ThirdPartyNotices.txt', to: 'ThirdPartyNotices.txt' },
+      {
+        file: 'licenses/runtime/onnxruntime-1.27.0-LICENSE.txt', to: 'LICENSE.txt',
+        origin: 'https://raw.githubusercontent.com/microsoft/onnxruntime/v1.27.0/LICENSE',
+      },
+      {
+        file: 'licenses/runtime/onnxruntime-1.27.0-ThirdPartyNotices.txt', to: 'ThirdPartyNotices.txt',
+        origin: 'https://raw.githubusercontent.com/microsoft/onnxruntime/v1.27.0/ThirdPartyNotices.txt',
+      },
     ],
   },
   {
@@ -71,7 +80,10 @@ export const RUNTIME_VENDORS = [
           'InterVariable-Italic.woff2': 'e564f652916db6c139570fefb9524a77c4d48f30c92928de9db19b6b5c7a262a',
         },
       },
-      { file: 'licenses/runtime/Inter-4.001-OFL.txt', to: 'OFL.txt' },
+      {
+        file: 'licenses/runtime/Inter-4.001-OFL.txt', to: 'OFL.txt',
+        origin: 'https://raw.githubusercontent.com/rsms/inter/9221beed3/LICENSE.txt',
+      },
     ],
   },
 ];

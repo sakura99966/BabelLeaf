@@ -81,3 +81,18 @@ it('bounds a slow-disk burst to the active write and the newest pending snapshot
   await Promise.all([first, ...pending]);
   expect(writes).toEqual([0, 100]);
 });
+
+it('drains a save enqueued synchronously by a completion observer before resolving', async () => {
+  const guard = new ReaderCloseGuard();
+  const nested = vi.fn(async () => {});
+  let reentered = false;
+  const queue = new BookConfigSaveQueue(guard, () => {
+    if (!reentered) {
+      reentered = true;
+      void queue.save('book-1', nested);
+    }
+  });
+  await queue.save('book-1', async () => {});
+  expect(nested).toHaveBeenCalledTimes(1);
+  expect(guard.needsProtection(['book-1'])).toBe(false);
+});

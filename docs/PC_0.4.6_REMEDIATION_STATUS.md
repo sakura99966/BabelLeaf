@@ -51,7 +51,7 @@ assets. A green old CI run does not qualify changed source or new advisories.
   source backports, lock/file hashes and 18 boundary/policy regressions enforce
   PASS_WITH_PINNED_DEVELOPMENT_BACKPORTS. No global ignore or false zero claim.
 - A deterministic runtime copy policy now inventories 7 components / 226 assets
-  (28,858,261 bytes), hashes sources and output, preserves upstream notices,
+  (28,858,204 bytes after normalizing the pinned OpenCC notice to upstream LF), hashes sources and output, preserves upstream notices,
   identifies Inter 4.001 from its actual font name table, and fails closed on
   unknown copies, missing metadata, changed versions or tampered output. The
   strict candidate source SBOM has 801 components and zero gaps. This is source
@@ -71,3 +71,20 @@ assets. A green old CI run does not qualify changed source or new advisories.
   409 unit files, 5,004 passed / 1 inherited skipped; lint 1,134 files; real
   Chromium 321 passed / 1 inherited skipped with no unhandled errors. Full final
   coverage/build/native/installer/performance/CI qualification remains pending.
+- Follow-up review found and fixed two additional edges with failing-before
+  regressions: a synchronous completion observer could enqueue a write that
+  the original drain did not finish; a range-moved annotation could drop its
+  existing deletion marker. Surrounding storage/store tests now pass.
+- First hosted PR #10 run exposed a clean-checkout notice dependency: the
+  OpenCC nested development submodule is not initialized by shallow CI checkout.
+  Its exact pinned upstream license is now tracked in licenses/runtime, so the
+  notice-only build input does not require downloading the entire nested tree.
+  The initial failed hosted run remains evidence, not a waived gate.
+- Current-host follow-up: 121 native integration passes (including actual
+  dictionary HTML in WebView2), 27 native UI passes, 23 production-static Web UI
+  passes, 52 Rust unit passes and strict Clippy pass. The 11-phase native
+  interruption probe passed ordinary config main/backup, tombstone retention,
+  exact invalid-byte archival and recovery notification. These precede the final
+  edge-fix freeze; final exact-source qualification/CI is still open.
+- See DEPENDENCY_SECURITY_0.4.6.md for every warning/backport/platform/hosted-alert
+  disposition. Scope and external deferrals remain unchanged.

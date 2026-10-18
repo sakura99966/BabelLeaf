@@ -21,16 +21,20 @@ export function mergeBooknoteSnapshots(
   for (const note of incoming)
     incomingCounts.set(group(note), (incomingCounts.get(group(note)) ?? 0) + 1);
   for (const note of incoming) {
+    let candidate = note;
     const oldGroup = previousGroups.get(group(note)) ?? [];
     if (oldGroup.length === 1 && incomingCounts.get(group(note)) === 1) {
       const old = oldGroup[0]!;
       if (identity(old) !== identity(note)) {
         if (time(old) > time(note)) continue;
         notes.delete(identity(old));
+        // A range move does not itself restore a deletion. Preserve the same
+        // tombstone fields that an in-place edit would retain.
+        candidate = { ...old, ...note };
       }
     }
     const old = notes.get(identity(note));
-    if (!old || time(note) >= time(old)) notes.set(identity(note), { ...old, ...note });
+    if (!old || time(candidate) >= time(old)) notes.set(identity(note), { ...old, ...candidate });
   }
   return [...notes.values()];
 }

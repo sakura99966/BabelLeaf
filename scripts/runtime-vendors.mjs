@@ -130,6 +130,7 @@ async function plan(root, options) {
         assets.push({
           path, component: vendor.id, source: sourcePath,
           sourceSha256, sha256: hash(output), bytes: output.length,
+          ...(source.origin ? { origin: source.origin } : {}),
           ...(transform ? { transform } : {}), output,
         });
       }

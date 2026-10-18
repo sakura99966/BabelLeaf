@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { expect, it } from 'vitest';
 import { verifyRuntimeVendorEvidence } from '../../../../../scripts/runtime-vendors.mjs';
+import { RUNTIME_VENDORS } from '../../../../../scripts/runtime-vendor-policy.mjs';
 
 const root = resolve(process.cwd(), '../..');
 const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
@@ -55,4 +56,10 @@ it('retains native process-interruption qualification for ordinary book annotati
     expect(runner.includes(phase)).toBe(true);
     expect(fixture.includes(phase)).toBe(true);
   }
+});
+
+it('builds notices without requiring the uninitialized OpenCC development submodule', () => {
+  const simplecc = RUNTIME_VENDORS.find((vendor) => vendor.id === 'simplecc');
+  expect(JSON.stringify(simplecc?.sources)).not.toContain('packages/simplecc-wasm/OpenCC/');
+  expect(JSON.stringify(simplecc?.sources)).toContain('licenses/runtime/OpenCC-');
 });

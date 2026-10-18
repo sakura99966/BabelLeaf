@@ -1,0 +1,98 @@
+# 0.4.6 dependency-security disposition
+
+Date: 2026-10-18. Scope: Windows PC candidate; not blanket cross-platform or
+responsible-owner legal acceptance. Raw reports are retained under
+`target/remediation-0.4.6/`. Never suppress a new advisory to reproduce an old
+green result.
+
+## Enforced checks and active fixes
+
+- Production npm graph: zero unresolved findings.
+- Full npm graph: `PASS_WITH_PINNED_DEVELOPMENT_BACKPORTS`; raw version-based
+  scanning still reports three high advisory records, not zero.
+- Windows Rust audit: zero vulnerability records; 18 warnings remain visible.
+- All-platform Rust audit still fails on nix 0.19.1 through battery 0.7.8 /
+  tauri-plugin-device-info 1.0.1. This is a mandatory future non-Windows
+  qualification issue, not a demonstrated Windows runtime flaw.
+- Updated rustls to 0.23.46, quinn-proto to 0.11.18, and ZIP to 9.0.5. Native
+  ZIP code uses bounded named-entry reads, not unbounded archive extraction.
+- Updated PDF.js to 6.2.108; annotation scripting is explicitly disabled.
+  Runtime copies (including dev-declared PDF.js, codecs, styles, WASM and fonts)
+  are reconciled against the installed packages and final static output.
+- Runtime assets are inventoried by `runtime-vendor-policy.mjs` and verified
+  by `runtime-vendors.mjs`. Strict artifact-bound SBOM requires this evidence.
+  Package-declared licenses and upstream notices do not substitute for the
+  owner's deferred font/model/legal approval.
+
+## Unpublished development-only fixes
+
+Registry inspection and official advisory pages showed no published fixed
+release for these two packages at this review. Do not specify fictitious
+versions or add a global ignore. Replace the local patch when a compatible,
+verified upstream fix is actually available.
+
+| Package | Raw advisory | Actual mitigation |
+| --- | --- | --- |
+| braces 3.0.3 | GHSA-vfj7-8cjw-p6xm | Parser depth guard plus iterative, bounded AST preflight for compile/expand/stringify; malformed cycles and caller-supplied ASTs included |
+| extract-zip 2.0.1 | GHSA-jmr9-qjv8-65gv; GHSA-7pqw-9j4j-h8q3 | Lexical/real-parent confinement before mkdir, bounded symlink targets, exclusive temporary regular files and atomic leaf replacement |
+
+These are development dependency paths, not shipped runtime copies. The gate
+rejects unknown advisories, different versions, production findings, changed
+patch bytes and mismatching workspace/lock hashes. Eleven real-installed-package
+boundary/control cases and seven policy cases must pass before audit acceptance.
+It also fails closed on incomplete/network-error audit output. The extract
+backport is not claimed to defeat a separate hostile process concurrently
+replacing ancestor directories outside the private build/test root.
+
+Authoritative definitions:
+`scripts/dependency-security-policy.json`, `pnpm-workspace.yaml`,
+`pnpm-lock.yaml` and the two `patches/*.patch` files.
+CI runs `pnpm -w security:dependencies` without lowering the existing production
+audit threshold.
+
+## Rust warning review
+
+Source: fresh RustSec report and
+`rust-warning-reachability.json` (`cargo tree --locked --offline -p Readest
+--target x86_64-pc-windows-msvc -e normal -i NAME@VERSION`).
+This is graph/call-condition review, not proof that arbitrary inputs are safe.
+No warning is hidden from cargo-audit.
+
+| Package / advisory | Current Windows scope and disposition |
+| --- | --- |
+| bincode 1.3.3 / RUSTSEC-2025-0141 | Unmaintained; persisted-scope dependency. Preserve stored-grant compatibility; replacing its binary format requires a separately tested upstream/migration change. No specific exploit is established by this maintenance warning. |
+| encoding 0.2.33 / RUSTSEC-2021-0153 | Unmaintained; MOBI native parser. Keep bounded parser and malformed-input regressions; a replacement must retain required legacy encodings and book compatibility. |
+| unic-char-property 0.9.0 / RUSTSEC-2025-0081 | Unmaintained; urlpattern through Tauri utilities/http/deep-link. Preserve native capability matching; track upstream replacement. |
+| unic-char-range 0.9.0 / RUSTSEC-2025-0075 | Same urlpattern chain and compatibility requirement. |
+| unic-common 0.9.0 / RUSTSEC-2025-0080 | Same urlpattern chain and compatibility requirement. |
+| unic-ucd-ident 0.9.0 / RUSTSEC-2025-0100 | Same urlpattern chain and compatibility requirement. |
+| unic-ucd-version 0.9.0 / RUSTSEC-2025-0098 | Same urlpattern chain and compatibility requirement. |
+| lru 0.16.4 / RUSTSEC-2026-0253 | Windows normal graph: Turso -> tantivy 0.26.1. The reviewed Tantivy source uses `LruCache<usize, Block>` only (`src/store/reader.rs`); the advisory requires a stored key destructor to panic during pop and later reuse of the cache. usize has no destructor, so that prerequisite is absent at this reviewed integration. Do not generalize this to new callers/key types. Upstream compatible replacement remains tracked. |
+| fxhash 0.2.1 / RUSTSEC-2025-0057 | Not found in the selected Windows normal graph; lock/build/future-target maintenance record, not proven PC reachability. |
+| mach 0.3.2 / RUSTSEC-2020-0168 | No selected Windows normal path; future Apple dependency review. |
+| paste 1.0.15 / RUSTSEC-2024-0436 | No selected Windows normal path; macro/build maintenance warning remains visible. |
+| proc-macro-error 1.0.4 / RUSTSEC-2024-0370 | No selected Windows normal path; macro/build maintenance warning remains visible. |
+| zbus_names 4.3.3 / RUSTSEC-2026-0371 | No selected Windows normal path; future desktop/DBus maintenance review. |
+| zvariant 5.13.0 / RUSTSEC-2026-0370 | Same future DBus chain; do not blindly change cross-platform serialization. |
+| zvariant_derive 5.13.0 / RUSTSEC-2026-0372 | Same future DBus chain / derive tooling. |
+| glib 0.18.5 / RUSTSEC-2024-0429 | Unsound warning, no selected Windows normal path; must requalify on Linux/GTK targets. |
+| rand 0.7.3 / RUSTSEC-2026-0097 | Unsound warning, absent from selected Windows normal graph; advisory custom-logger/reseed preconditions are not a demonstrated PC path. |
+| chacha20 0.10.1 / yanked | No selected Windows normal path; yanked locked-version record remains visible and requires future-target resolution. |
+
+Re-run graph/call-site review if dependencies, enabled features, callbacks or
+target change. A passing Windows scan is not permission to enter 0.5 with the
+non-Windows issue unresolved.
+
+## Hosted alerts and governance
+
+At the main baseline, CodeQL alerts 6-8 were test-helper findings, not proven
+reader runtime exploits. Source fixes replace duplicate tag regexes with XML
+parsing and harden test JavaScript data serialization; fresh CodeQL and main
+analysis must determine closure. No manual dismissal or fake approval is used.
+
+Scorecard alerts 2-5 concern code-review coverage, activity history, best-practice
+badges and an aggregate OSV dependency view. Protected PR #10, exact source and
+raw security reports provide current evidence; they cannot manufacture historic
+reviews/badges or erase unpatched-version identifiers. Retain these findings and
+distinguish them from current PC vulnerability records. Owner/admin governance
+decisions and external legal approval are not silently performed.
