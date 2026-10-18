@@ -51,7 +51,7 @@ assets. A green old CI run does not qualify changed source or new advisories.
   source backports, lock/file hashes and 18 boundary/policy regressions enforce
   PASS_WITH_PINNED_DEVELOPMENT_BACKPORTS. No global ignore or false zero claim.
 - A deterministic runtime copy policy now inventories 7 components / 226 assets
-  (28,858,204 bytes after normalizing the pinned OpenCC notice to upstream LF), hashes sources and output, preserves upstream notices,
+  (28,858,205 bytes with the pinned OpenCC Git-blob notice), hashes sources and output, preserves upstream notices,
   identifies Inter 4.001 from its actual font name table, and fails closed on
   unknown copies, missing metadata, changed versions or tampered output. The
   strict candidate source SBOM has 801 components and zero gaps. This is source
