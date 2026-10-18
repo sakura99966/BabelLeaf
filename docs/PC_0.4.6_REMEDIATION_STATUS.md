@@ -88,7 +88,7 @@ assets. A green old CI run does not qualify changed source or new advisories.
   edge-fix freeze; final exact-source qualification/CI is still open.
 - See DEPENDENCY_SECURITY_0.4.6.md for every warning/backport/platform/hosted-alert
   disposition. Scope and external deferrals remain unchanged.
-- Final product implementation baseline for current candidates:
+- Product implementation baseline for the archived pre-style-scope candidates:
   b93f462ad07a601d8ef632f3b986844628d613c6. The later ed137d6de test-only change
   replaces expensive WASM deep comparison with exact native byte comparison.
   Hosted coverage previously timed out on that comparison; its threshold was
@@ -102,6 +102,8 @@ assets. A green old CI run does not qualify changed source or new advisories.
   The standard EXE SHA-256 is
   af087ed8e7b8b577aef059d1b689bcee844ff0b56b0adb0d03d02fde64eee73d.
   These are candidate identities, not canonical-main/release identities.
+  The later dictionary containment change modifies application code; these
+  archived binaries do not qualify that new change and must not be relabeled.
 - Real standard-binary probe passes without a dev server or webdriver feature:
   product BabelLeaf 0.4.6, hydrated empty library, 226 embedded assets /
   28,858,205 bytes individually verified against source hashes, and removed
@@ -143,6 +145,20 @@ assets. A green old CI run does not qualify changed source or new advisories.
   process/endpoint diagnostics (no page contents or user data) if it recurs.
   The next hosted run must establish the outcome; do not infer PASS from the
   current-host result alone.
+- Additional style-scope review reproduced two real Chromium failures: StarDict
+  CSS changed a control outside the dictionary, and fixed dictionary content
+  covered unrelated controls. StarDict/SLOB HTML now shares MDict's shadow
+  boundary. All three also use an outer trusted layout/paint/style containment
+  and isolated stacking boundary, outside the reach of supplied `:host` rules.
+  Cross-shadow external-link delegation uses a boundary-checked composed path.
+  Dictionary styling, `::part` font scaling, safe links, MDD images/audio and
+  ordinary plain-text providers remain supported. Targeted checks: 168 dictionary
+  unit tests and 6 real-browser security/font tests pass. Native/full/package
+  requalification of this application-source change is pending.
+- Exact head 242707945 hosted results: application checks, both unit shards,
+  full coverage, static build, security audit, Chromium, native Windows and all
+  CodeQL analyses pass. The installer/runtime job is still running at this
+  checkpoint. Those results precede the new dictionary containment change.
 
 ## Remaining internal closure work (no 0.5)
 
@@ -157,10 +173,10 @@ assets. A green old CI run does not qualify changed source or new advisories.
 3. Verify model-dependent OCR/inpainting evidence from already authorized local
    packs where available; do not download models or claim deferred corpus/human
    quality/minimum-host/signing/legal gates passed.
-4. Review dictionary stylesheet scope as well as active-code/resource sanitizing:
-   MDict already uses a shadow root; confirm StarDict/SLOB style rules cannot
-   affect application chrome. This is a follow-up inspection target, not a
-   newly demonstrated script/native-code exploit.
+4. Requalify the dictionary stylesheet containment change in native WebView2 and
+   the new exact-source standard package. The demonstrated defects affected
+   stylesheet scope and overlay containment; no new script/native-code exploit
+   is claimed.
 5. Fresh final full regression and reviewed PR #10 CI (including the new real
    packaged-runtime gate), final documentation, normal protected merge, exact
    canonical-main package/provenance binding and safe cleanup. Do not move old

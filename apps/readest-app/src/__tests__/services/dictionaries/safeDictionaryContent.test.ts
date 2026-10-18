@@ -1,10 +1,47 @@
 import { describe, expect, it } from 'vitest';
 import {
   createDictionaryContent,
+  findDictionaryAnchor,
+  mountDictionaryContent,
   sanitizeDictionaryCss,
 } from '@/services/dictionaries/safeDictionaryContent';
 
 describe('local dictionary rendering boundary', () => {
+  it('mounts HTML in a shadow tree behind an untrusted-style-inaccessible paint boundary', () => {
+    const container = document.createElement('div');
+    const body = createDictionaryContent('<p>Definition</p>');
+    const shadow = mountDictionaryContent(container, body, { kind: 'slob' });
+    expect(body.getRootNode()).toBe(shadow);
+    expect(body.getAttribute('part')).toBe('dict-content');
+    expect(body.dataset['dictKind']).toBe('slob');
+    expect(shadow.host.parentElement?.style.contain).toBe('layout paint style');
+    expect(shadow.host.parentElement?.style.isolation).toBe('isolate');
+    expect(shadow.host.parentElement?.getRootNode()).not.toBe(shadow);
+  });
+
+  it('finds a clicked link through shadow retargeting only inside the delegated boundary', () => {
+    const container = document.createElement('div');
+    const host = document.createElement('div');
+    container.append(host);
+    const shadow = host.attachShadow({ mode: 'open' });
+    const anchor = document.createElement('a');
+    anchor.href = 'https://example.invalid/explicit-user-link';
+    const child = document.createElement('strong');
+    anchor.append(child);
+    shadow.append(anchor);
+    let actual: HTMLAnchorElement | null = null;
+    container.addEventListener('click', (event) => {
+      event.preventDefault();
+      expect(event.target).toBe(host);
+      actual = findDictionaryAnchor(event, container);
+      expect(findDictionaryAnchor(event, document.createElement('div'))).toBeNull();
+    });
+    child.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }),
+    );
+    expect(actual).toBe(anchor);
+  });
+
   it('removes executable elements and all event attributes before live DOM use', () => {
     const body = createDictionaryContent(
       '<p onclick="alert(1)">definition</p><img src="data:,x" onerror="alert(1)">' +

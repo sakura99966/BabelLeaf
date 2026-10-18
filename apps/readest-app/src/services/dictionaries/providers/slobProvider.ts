@@ -15,7 +15,7 @@
 import type { DictionaryProvider, ImportedDictionary } from '../types';
 import type { DictionaryFileOpener } from './starDictProvider';
 import { SlobReader } from '../slobReader';
-import { createDictionaryContent } from '../safeDictionaryContent';
+import { createDictionaryContent, mountDictionaryContent } from '../safeDictionaryContent';
 
 const renderEntry = (
   container: HTMLElement,
@@ -34,8 +34,7 @@ const renderEntry = (
     h1.className = 'text-lg font-bold';
     container.appendChild(h1);
     const div = createDictionaryContent(text);
-    div.className = 'mt-2 text-sm';
-    container.appendChild(div);
+    mountDictionaryContent(container, div, { kind: 'slob' });
     return { ok: true };
   }
   if (ct === 'text/plain' || ct === '') {

@@ -152,3 +152,57 @@ export function createDictionaryContent(
   body.append(fragment);
   return body;
 }
+
+/**
+ * Styles must never enter the application tree. The trusted outer element is
+ * outside the shadow tree, so even supplied :host rules cannot remove its
+ * containing block, paint clipping or stacking boundary.
+ */
+export function mountDictionaryContent(
+  container: HTMLElement,
+  body: HTMLDivElement,
+  {
+    kind,
+    stylesheets = [],
+  }: { kind: 'stardict' | 'slob' | 'mdict'; stylesheets?: readonly string[] },
+): ShadowRoot {
+  const boundary = document.createElement('div');
+  boundary.className = 'dict-content-sandbox mt-2';
+  boundary.style.contain = 'layout paint style';
+  boundary.style.isolation = 'isolate';
+  const host = document.createElement('div');
+  host.className = 'dict-shadow-host text-sm';
+  boundary.append(host);
+  const shadow = host.attachShadow({ mode: 'open' });
+  const baseline = document.createElement('style');
+  baseline.textContent =
+    ':host { display: block; overflow-wrap: anywhere; }' +
+    '[part="dict-content"] { display: flow-root; }' +
+    'img { max-width: 100%; height: auto; }';
+  shadow.append(baseline);
+  // Callers provide trusted application CSS or already-sanitized resource CSS.
+  for (const css of stylesheets) {
+    if (!css) continue;
+    const style = document.createElement('style');
+    style.textContent = css;
+    shadow.append(style);
+  }
+  body.dataset['dictKind'] = kind;
+  body.setAttribute('part', 'dict-content');
+  shadow.append(body);
+  container.append(boundary);
+  return shadow;
+}
+
+/** A delegated click target is retargeted to the host outside a shadow root. */
+export function findDictionaryAnchor(
+  event: Event,
+  boundary: EventTarget,
+): HTMLAnchorElement | null {
+  let anchor: HTMLAnchorElement | null = null;
+  for (const node of event.composedPath()) {
+    if (node === boundary) return anchor;
+    if (!anchor && node instanceof HTMLAnchorElement) anchor = node;
+  }
+  return null;
+}

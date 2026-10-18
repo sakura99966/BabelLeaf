@@ -22,6 +22,7 @@ import { getDictStyles } from '@/utils/style';
 import {
   createDictionaryContent,
   isLocalDictionaryPath,
+  mountDictionaryContent,
   sanitizeDictionaryCss,
 } from '../safeDictionaryContent';
 import type { DictionaryProvider, ImportedDictionary } from '../types';
@@ -570,7 +571,6 @@ export const createMdictProvider = ({
         // tooling can target dict-rendered content distinct from the host's
         // surrounding chrome.
         const body = createDictionaryContent(result.definition, { mdict: true });
-        body.dataset['dictKind'] = dict.kind;
         // Expose the content root as a shadow `part` (#4443). The MDict body
         // lives inside a shadow root, so the popup's font-size rule can't
         // reach it with an ordinary descendant selector — `::part(dict-content)`
@@ -611,30 +611,15 @@ export const createMdictProvider = ({
         // the audio key ourselves and bind a CSP-safe replacement.
         await wireMdictAudioOnclick(body, mdds, trackedUrls);
 
-        // Attach a shadow root to a dedicated host so the dict's CSS (loose
-        // .css files imported alongside + `<link>` references resolved from
-        // the MDD) is scoped to this card and cannot leak between dicts or
-        // into the app's layout. Click events still bubble naturally so the
-        // `sound://` / `entry://` / external-link delegation keeps working.
-        const shadowHost = document.createElement('div');
-        // `dict-shadow-host` is the stable host selector the popup's
-        // `::part(dict-content)` font-size rule targets (#4443).
-        shadowHost.className = 'dict-shadow-host mt-2 text-sm';
-        ctx.container.appendChild(shadowHost);
-        const shadow = shadowHost.attachShadow({ mode: 'open' });
         // Baseline app-level styles first (theme-aware blend rules for
         // icons, etc.), then the dict's own loose CSS, then any
         // MDD-resident stylesheets the MDX referenced via `<link>`.
         // Cascade order matches authoring order.
         const dictStyles = getDictStyles(ctx.bg ?? '', ctx.fg ?? '', !!ctx.isDarkMode);
-        const allStylesheets = [dictStyles, ...looseStylesheets, ...mddStylesheets];
-        for (const cssText of allStylesheets) {
-          if (!cssText) continue;
-          const style = document.createElement('style');
-          style.textContent = cssText;
-          shadow.appendChild(style);
-        }
-        shadow.appendChild(body);
+        const shadow = mountDictionaryContent(ctx.container, body, {
+          kind: 'mdict',
+          stylesheets: [dictStyles, ...looseStylesheets, ...mddStylesheets],
+        });
 
         // Hide our auto-prepended headword when the dict's own rendering
         // already ships one with the same text. Many dicts put a large

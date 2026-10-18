@@ -35,9 +35,10 @@ it('SLOB HTML reaches the same sanitized boundary as StarDict', async () => {
       })
     ).ok,
   ).toBe(true);
-  expect(container.textContent).toContain('safe meaning');
-  expect(container.querySelector('[src],[onerror],iframe,script')).toBeNull();
-  expect(container.textContent).not.toContain('invalid.example');
+  const shadow = container.querySelector('.dict-shadow-host')!.shadowRoot!;
+  expect(shadow.textContent).toContain('safe meaning');
+  expect(shadow.querySelector('[src],[onerror],iframe,script')).toBeNull();
+  expect(shadow.textContent).not.toContain('invalid.example');
 });
 
 it('MDict strips hostile HTML before resource lookup, including redirect detection', async () => {

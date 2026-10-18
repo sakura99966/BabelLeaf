@@ -1,5 +1,6 @@
 import { afterEach, expect, it } from 'vitest';
 import { createStarDictProvider } from '@/services/dictionaries/providers/starDictProvider';
+import { findDictionaryAnchor } from '@/services/dictionaries/safeDictionaryContent';
 import type { ImportedDictionary } from '@/services/dictionaries/types';
 
 const marker = '__babelleafDictionaryScriptSentinel';
@@ -66,7 +67,70 @@ it('renders legitimate local HTML without executing dictionary event handlers', 
       'onerror="globalThis.__babelleafDictionaryScriptSentinel=1">',
   );
   await new Promise((resolve) => setTimeout(resolve, 100));
-  expect(container.textContent).toContain('Safe definition');
+  const shadow = container.querySelector('.dict-shadow-host')!.shadowRoot!;
+  expect(shadow.textContent).toContain('Safe definition');
   expect(Reflect.get(globalThis, marker)).toBeUndefined();
-  expect(container.querySelector('[onerror],[src]')).toBeNull();
+  expect(shadow.querySelector('[onerror],[src]')).toBeNull();
+});
+
+it('keeps dictionary selectors out of application chrome while preserving local styles', async () => {
+  const chrome = document.createElement('div');
+  chrome.id = 'babelleaf-app-chrome-sentinel';
+  chrome.style.color = 'rgb(10, 20, 30)';
+  chrome.textContent = 'Application chrome';
+  containers.push(chrome);
+  document.body.append(chrome);
+  const container = await lookupHtml(
+    '<style>#babelleaf-app-chrome-sentinel { color: rgb(210, 20, 30) !important; }' +
+      '.local-definition { color: rgb(4, 50, 60); }</style>' +
+      '<p class="local-definition">Scoped definition</p>',
+  );
+  expect(getComputedStyle(chrome).color).toBe('rgb(10, 20, 30)');
+  const shadow = container.querySelector('.dict-shadow-host')?.shadowRoot;
+  expect(shadow).toBeTruthy();
+  expect(getComputedStyle(shadow!.querySelector('.local-definition')!).color).toBe(
+    'rgb(4, 50, 60)',
+  );
+});
+
+it('clips fixed dictionary overlays to a trusted outer boundary', async () => {
+  const chrome = document.createElement('div');
+  chrome.style.cssText = 'position:fixed;left:0;top:0;width:50px;height:50px;z-index:1';
+  chrome.textContent = 'Application controls';
+  containers.push(chrome);
+  document.body.append(chrome);
+  const container = await lookupHtml(
+    '<style>:host { position: fixed !important; inset: 0 !important; z-index: 2147483647; }' +
+      '.hostile-overlay { position: fixed; inset: 0; z-index: 2147483647; background: red; }' +
+      '</style><p>Definition</p><div class="hostile-overlay">Not application UI</div>',
+  );
+  container.style.cssText = 'position:relative;margin-top:200px;width:200px';
+  expect(document.elementFromPoint(20, 20)).toBe(chrome);
+});
+
+it('preserves font scaling and composed explicit link clicks for isolated HTML', async () => {
+  const container = await lookupHtml(
+    '<p>Local definition</p><a href="https://example.invalid/explicit"><strong>Reference</strong></a>',
+  );
+  container.dataset['dictContent'] = '';
+  const style = document.createElement('style');
+  style.textContent =
+    '[data-dict-content] .dict-shadow-host::part(dict-content) {' +
+    'font-size: calc(var(--dict-font-scale, 1) * 0.875rem); }';
+  container.append(style);
+  const shadow = container.querySelector('.dict-shadow-host')!.shadowRoot!;
+  const body = shadow.querySelector('[part="dict-content"]')!;
+  const base = parseFloat(getComputedStyle(body).fontSize);
+  container.style.setProperty('--dict-font-scale', '1.5');
+  expect(parseFloat(getComputedStyle(body).fontSize)).toBeCloseTo(base * 1.5, 1);
+  let delegatedLink: HTMLAnchorElement | null = null;
+  container.addEventListener('click', (event) => {
+    event.preventDefault();
+    expect(event.target).toBe(shadow.host);
+    delegatedLink = findDictionaryAnchor(event, container);
+  });
+  shadow
+    .querySelector('strong')!
+    .dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true, cancelable: true }));
+  expect(delegatedLink).toBe(shadow.querySelector('a'));
 });

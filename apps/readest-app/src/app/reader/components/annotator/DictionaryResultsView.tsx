@@ -11,6 +11,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { useCustomDictionaryStore } from '@/store/customDictionaryStore';
 import { getEnabledProviders } from '@/services/dictionaries/registry';
 import { buildLookupCandidates } from '@/services/dictionaries/lookupCandidates';
+import { findDictionaryAnchor } from '@/services/dictionaries/safeDictionaryContent';
 import { isTauriAppPlatform } from '@/services/environment';
 import { cancelWordPronounce, pronounceWord, warmWordAudio } from '@/services/tts/wordPronouncer';
 import type { DictionaryLookupOutcome, DictionaryProvider } from '@/services/dictionaries/types';
@@ -186,7 +187,7 @@ export function useDictionaryResults({
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
     if (!isTauri) return;
     if (e.defaultPrevented) return;
-    const anchor = (e.target as Element | null)?.closest?.('a');
+    const anchor = findDictionaryAnchor(e.nativeEvent, e.currentTarget);
     if (!anchor) return;
     const rawHref = anchor.getAttribute('href');
     if (!rawHref || !/^https?:\/\//i.test(rawHref)) return;
