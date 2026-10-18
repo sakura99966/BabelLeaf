@@ -197,6 +197,20 @@ describe('TTSSessionManager', () => {
     expect(saveConfig).toHaveBeenCalled();
   });
 
+  test('reports rejected headless persistence without an unhandled rejection', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    saveConfig.mockRejectedValueOnce(new Error('disk full'));
+    try {
+      claim();
+      manager.detach('hashA');
+      controller.emitMark('epubcfi(/6/8!/4/2)');
+      await flush();
+      expect(warning).toHaveBeenCalledWith('TTS headless persistence failed:', expect.any(Error));
+    } finally {
+      warning.mockRestore();
+    }
+  });
+
   test('persistence is a no-op while the view is attached (the hook owns it)', () => {
     claim();
     controller.emitMark('epubcfi(/6/8!/4/4)');

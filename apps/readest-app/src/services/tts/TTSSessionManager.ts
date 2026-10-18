@@ -297,7 +297,10 @@ export class TTSSessionManager extends EventTarget {
       const config = getConfig(session.bookKey);
       if (!config) return;
       const settings = useSettingsStore.getState().settings;
-      void saveConfig(env, session.bookKey, config, settings);
+      void saveConfig(env, session.bookKey, config, settings).catch((error) => {
+        // bookDataStore retains the dirty snapshot and reader close veto.
+        console.warn('TTS headless persistence failed:', error);
+      });
     } catch (err) {
       console.warn('TTS headless persistence failed:', err);
     }
