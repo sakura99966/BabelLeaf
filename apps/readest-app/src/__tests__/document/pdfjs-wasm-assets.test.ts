@@ -29,7 +29,12 @@ describe('pdfjs vendor wasm assets', () => {
     for (const file of available) {
       const packaged = resolve(process.cwd(), 'public/vendor/pdfjs', file);
       expect(existsSync(packaged), 'Missing PDF decoder: ' + file).toBe(true);
-      expect(readFileSync(packaged)).toEqual(readFileSync(resolve(source, 'wasm', file)));
+      // Native byte equality avoids millions of instrumented deep-comparison
+      // operations in the coverage lane while checking every byte exactly.
+      expect(
+        readFileSync(packaged).equals(readFileSync(resolve(source, 'wasm', file))),
+        'Modified PDF decoder: ' + file,
+      ).toBe(true);
     }
   });
 });

@@ -26,7 +26,10 @@ describe('Tesseract WASM packaged runtime assets', () => {
       const source = resolve(appRoot, 'node_modules/tesseract-wasm/dist', file);
       const packaged = resolve(appRoot, 'public/vendor/tesseract', file);
       expect(statSync(packaged).size).toBe(statSync(source).size);
-      expect(readFileSync(packaged)).toEqual(readFileSync(source));
+      expect(
+        readFileSync(packaged).equals(readFileSync(source)),
+        'Modified OCR asset: ' + file,
+      ).toBe(true);
     }
   }, 60_000);
 });
