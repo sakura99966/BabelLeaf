@@ -157,8 +157,17 @@ assets. A green old CI run does not qualify changed source or new advisories.
   requalification of this application-source change is pending.
 - Exact head 242707945 hosted results: application checks, both unit shards,
   full coverage, static build, security audit, Chromium, native Windows and all
-  CodeQL analyses pass. The installer/runtime job is still running at this
-  checkpoint. Those results precede the new dictionary containment change.
+  CodeQL analyses pass. The installer lifecycle passed, but the actual-package
+  probe failed again (no CDP endpoint, application process still alive).
+  Bootstrap ordering alone did not resolve it; it is not a waived gate.
+  Those results precede the new dictionary containment change.
+- Full post-containment Chromium regression passes 324 tests / 1 inherited
+  skipped. The packaged probe now uses direct bounded loopback HTTP instead of
+  a global fetch dispatcher, and reports the last endpoint error plus bounded
+  owned-process startup diagnostics when it fails. The new transport tests
+  cover direct communication, malformed/oversized responses, redirects and
+  invalid ports. This improves diagnostic/security boundaries; the hosted root
+  cause and final outcome are not assumed.
 
 ## Remaining internal closure work (no 0.5)
 

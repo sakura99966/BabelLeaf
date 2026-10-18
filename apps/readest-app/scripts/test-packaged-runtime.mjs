@@ -3,11 +3,12 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
-import { mkdtemp, mkdir, copyFile, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, copyFile, writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validatePackagedRuntimeManifest, dispatchPackagedProbeResponse } from './packaged-runtime-manifest.mjs';
+import { readPackagedProbeTargets } from './packaged-runtime-transport.mjs';
 import net from 'node:net';
 
 if (process.platform !== 'win32') throw new Error('Windows-only standard package acceptance probe');
@@ -48,15 +49,49 @@ let result;
 let cdpReached = false;
 let observedPageCount = 0;
 let observedOrigins = [];
+let endpointError;
+let startupOutput = '';
+const captureStartupOutput = (chunk) => {
+  startupOutput = (startupOutput + chunk.toString()).slice(-8192);
+};
+const collectOwnedProcessDiagnostics = () => {
+  if (!child?.pid) return undefined;
+  try {
+    const script = `
+      $all = @(Get-CimInstance Win32_Process -OperationTimeoutSec 5);
+      $owned = @{}; $owned[${child.pid}] = $true;
+      for ($round = 0; $round -lt 16; $round++) {
+        foreach ($row in $all) {
+          if ($owned.ContainsKey([int]$row.ParentProcessId)) { $owned[[int]$row.ProcessId] = $true }
+        }
+      }
+      $rows = @($all | Where-Object { $owned.ContainsKey([int]$_.ProcessId) } | Select-Object -First 64 | ForEach-Object {
+        $process = Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue;
+        [pscustomobject]@{
+          pid = $_.ProcessId; parent = $_.ParentProcessId; name = $_.Name;
+          version = $process.FileVersion; hasWindow = ($process.MainWindowHandle -ne [IntPtr]::Zero);
+          responding = $process.Responding;
+          remotePortArgument = ([string]$_.CommandLine -match '--remote-debugging-port=${port}(?:\\s|$)');
+          hasUserDataArgument = ([string]$_.CommandLine -match '--user-data-dir=')
+        }
+      });
+      ConvertTo-Json -InputObject $rows -Compress
+    `;
+    return JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
+      { encoding: 'utf8', windowsHide: true, timeout: 15000 }));
+  } catch (error) { return { diagnosticError: String(error) }; }
+};
 const messages = new Map();
 let sequence = 0;
 try {
   child = spawn(binary, [], {
-    cwd: runtime, windowsHide: true, stdio: 'ignore',
+    cwd: runtime, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, APPDATA: join(runtime, 'Roaming'), LOCALAPPDATA: join(runtime, 'Local'),
       WEBVIEW2_USER_DATA_FOLDER: join(runtime, 'WebView2'),
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=' + port + ' --remote-debugging-address=127.0.0.1' },
   });
+  child.stdout.on('data', captureStartupOutput);
+  child.stderr.on('data', captureStartupOutput);
   child.once('error', (error) => { launchError = error; });
   let target;
   const deadline = Date.now() + 45000;
@@ -64,10 +99,7 @@ try {
     if (launchError) throw launchError;
     if (child.exitCode !== null || Date.now() > deadline) throw new Error('Owned packaged WebView did not become ready');
     try {
-      const response = await fetch('http://127.0.0.1:' + port + '/json/list', {
-        signal: AbortSignal.timeout(1000), redirect: 'error',
-      });
-      const pages = await response.json();
+      const pages = await readPackagedProbeTargets(port);
       cdpReached = true;
       if (!Array.isArray(pages) || pages.length > 32) throw new Error('Invalid CDP target list');
       observedPageCount = pages.length;
@@ -75,7 +107,7 @@ try {
         try { return new URL(page.url).origin; } catch { return 'unparseable'; }
       }))];
       target = pages.find((page) => page.type === 'page' && /^(?:http:\/\/tauri\.localhost|tauri:\/\/localhost)(?:\/|$)/.test(page.url));
-    } catch {}
+    } catch (error) { endpointError = String(error); }
     if (!target) await delay(200);
   }
   const ownerCheck = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
@@ -165,7 +197,10 @@ try {
 } catch (error) {
   result = { passed: false, executableSha256, runtime, error: String(error),
     processExitCode: child?.exitCode, processSignal: child?.signalCode,
-    cdpReached, observedPageCount, observedOrigins, timestamp: new Date().toISOString() };
+    cdpReached, observedPageCount, observedOrigins, endpointError,
+    ownedProcesses: collectOwnedProcessDiagnostics(), startupOutput,
+    portableProfileCreated: await stat(join(runtime, 'EBWebView/Default/Preferences')).then((file) => file.isFile(), () => false),
+    timestamp: new Date().toISOString() };
 } finally {
   socket?.close();
   if (child && child.exitCode === null && child.signalCode === null) {
