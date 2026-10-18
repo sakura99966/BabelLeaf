@@ -410,15 +410,17 @@ jobs:
         shell: pwsh
         run: pnpm build-win-x64:unsigned
 
-      - name: verify packaged UI hydration and embedded runtime hashes
-        working-directory: apps/readest-app
-        shell: pwsh
-        run: pnpm test:windows-packaged-runtime
-
       - name: install and launch final NSIS artifact
         working-directory: apps/readest-app
         shell: pwsh
         run: pnpm test:windows-installer
+
+      # NSIS supplies the offline WebView2 runtime on a genuinely clean runner.
+      # The portable EXE probe must run only after that bootstrap/lifecycle gate.
+      - name: verify packaged UI hydration and embedded runtime hashes
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: pnpm test:windows-packaged-runtime
 
       - name: upload installer smoke failure logs
         if: failure()

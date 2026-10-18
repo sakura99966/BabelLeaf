@@ -108,7 +108,8 @@ assets. A green old CI run does not qualify changed source or new advisories.
   owned portable profile. The reusable test:windows-packaged-runtime command
   now checks loopback endpoint process ownership, source manifest equivalence,
   variant/version, bounds, streamed bytes and cleanup; Windows CI runs it
-  before the installer lifecycle. Twelve input/CI-contract regressions added.
+  after the installer lifecycle has supplied WebView2 on a clean runner.
+  Input/CI-contract and protocol-dispatch regressions are included.
 - Same-product frozen regressions: Chromium 321 passes / 1 inherited skip;
   native integration 121 passes / 1 skip; native UI 27 passes; 11-phase
   process interruption/recovery PASS. The dedicated smoke package installs,
@@ -136,6 +137,12 @@ assets. A green old CI run does not qualify changed source or new advisories.
   numeric/has/callable guard. Added malformed/non-callable/duplicate-response
   regression, explicit validation and safe JSON handling; hosted reanalysis
   must confirm closure, not a manual dismissal.
+- The first hosted actual-package probe timed out before discovering a CDP
+  target. It had run before NSIS could bootstrap WebView2 on a clean host.
+  Reordered the dependency with a failing-before contract test; added bounded
+  process/endpoint diagnostics (no page contents or user data) if it recurs.
+  The next hosted run must establish the outcome; do not infer PASS from the
+  current-host result alone.
 
 ## Remaining internal closure work (no 0.5)
 

@@ -60,6 +60,9 @@ it('makes actual packaged-library hydration and embedded asset checks a Windows 
     'utf8',
   );
   expect(workflow).toContain('run: pnpm test:windows-packaged-runtime');
+  expect(workflow.indexOf('run: pnpm test:windows-installer')).toBeLessThan(
+    workflow.indexOf('run: pnpm test:windows-packaged-runtime'),
+  );
 });
 
 it('dispatches only an outstanding numeric protocol id to an owned callable, once', () => {

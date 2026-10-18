@@ -45,6 +45,9 @@ let launchError;
 let socket;
 let passed = false;
 let result;
+let cdpReached = false;
+let observedPageCount = 0;
+let observedOrigins = [];
 const messages = new Map();
 let sequence = 0;
 try {
@@ -65,6 +68,12 @@ try {
         signal: AbortSignal.timeout(1000), redirect: 'error',
       });
       const pages = await response.json();
+      cdpReached = true;
+      if (!Array.isArray(pages) || pages.length > 32) throw new Error('Invalid CDP target list');
+      observedPageCount = pages.length;
+      observedOrigins = [...new Set(pages.map((page) => {
+        try { return new URL(page.url).origin; } catch { return 'unparseable'; }
+      }))];
       target = pages.find((page) => page.type === 'page' && /^(?:http:\/\/tauri\.localhost|tauri:\/\/localhost)(?:\/|$)/.test(page.url));
     } catch {}
     if (!target) await delay(200);
@@ -154,7 +163,9 @@ try {
     timestamp: new Date().toISOString() };
   passed = true;
 } catch (error) {
-  result = { passed: false, executableSha256, runtime, error: String(error), timestamp: new Date().toISOString() };
+  result = { passed: false, executableSha256, runtime, error: String(error),
+    processExitCode: child?.exitCode, processSignal: child?.signalCode,
+    cdpReached, observedPageCount, observedOrigins, timestamp: new Date().toISOString() };
 } finally {
   socket?.close();
   if (child && child.exitCode === null && child.signalCode === null) {
