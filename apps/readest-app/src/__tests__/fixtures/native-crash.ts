@@ -48,7 +48,9 @@ const run = async () => {
     targetLang: 'zh-CN',
   });
   const store = new TranslationArtifactStore(service);
-  if (phase === 'workload') {
+  if (phase === 'performance') {
+    report(await (await import('./native-performance')).runNativePerformance(root));
+  } else if (phase === 'workload') {
     report(await (await import('./native-workload')).runNativeWorkload(root));
   } else if (phase === 'veto-close') {
     await getCurrentWindow().onCloseRequested((event) => event.preventDefault());

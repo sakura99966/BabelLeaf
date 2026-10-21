@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import {
   validatePackagedRuntimeManifest,
   dispatchPackagedProbeResponse,
+  makePackagedProbePolicy,
 } from '../../../scripts/packaged-runtime-manifest.mjs';
 
 const fixture = () => ({
@@ -14,6 +15,24 @@ const fixture = () => ({
   ],
   totalBytes: 1,
 });
+
+it('scopes an elevated WebView2 probe policy to one random disposable executable', () => {
+  const name = 'BabelLeafProbe-' + 'a'.repeat(32) + '.exe';
+  const policy = makePackagedProbePolicy(name, 55000);
+  expect(policy.name).toBe(name);
+  expect(policy.key).toBe(
+    'SOFTWARE\\Policies\\Microsoft\\Edge\\WebView2\\AdditionalBrowserArguments',
+  );
+  expect(policy.value).toBe('--remote-debugging-port=55000 --remote-debugging-address=127.0.0.1');
+});
+
+it.each([
+  '*',
+  'babelleaf.exe',
+  'other.exe',
+  '../BabelLeafProbe-' + 'a'.repeat(32) + '.exe',
+])('refuses a policy target outside the disposable binary allowlist', (name) =>
+  expect(() => makePackagedProbePolicy(name, 55000)).toThrow());
 
 it('accepts the bounded generated runtime-copy shape', () => {
   const input = fixture();

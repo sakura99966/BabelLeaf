@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { createServer } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import { waitForNativeWindow } from './native-probe-readiness.mjs';
+import { waitForNativeWindow, parseNativeProbePage } from './native-probe-readiness.mjs';
 import { observeSampler, waitForSamplerReady, finishSampler, cleanupSampler } from './native-workload-sampler.mjs';
 // Reuse the native test provider's declared WebDriver dependency.
 const providerRequire = createRequire(import.meta.resolve('@vitest/browser-webdriverio'));
@@ -18,6 +18,7 @@ const { remote } = await import(pathToFileURL(providerRequire.resolve('webdriver
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = path.resolve(appRoot, '../..');
+const performanceOnly = process.argv.includes('--performance');
 const executable = path.join(repoRoot, 'target/debug/Readest.exe');
 if (process.platform !== 'win32') throw new Error('Windows-only process interruption probe');
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -35,7 +36,7 @@ const runtime = await mkdtemp(path.join(os.tmpdir(), 'babelleaf-crash-'));
 const root = path.join(runtime, '.readest-test-sandbox-tauri');
 const profile = path.join(runtime, 'WebView2/EBWebView');
 const evidence = [];
-const output = path.join(repoRoot, 'target/windows-crash-recovery/result.json');
+const output = path.join(repoRoot, performanceOnly ? 'target/windows-performance-matrix/result.json' : 'target/windows-crash-recovery/result.json');
 let currentPhase;
 let lastPage;
 let server;
@@ -74,19 +75,19 @@ try {
     plugins: [tsconfigPaths({ root: appRoot })],
     define: { 'process.env': JSON.stringify({ NEXT_PUBLIC_APP_PLATFORM: 'tauri' }) },
     resolve: { conditions: ['development'] },
-    optimizeDeps: { include: ['zustand', '@tauri-apps/api/window', '@tauri-apps/api/webviewWindow', '@tauri-apps/api/event', '@tauri-apps/plugin-process', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-http', '@tauri-apps/api/path', '@tauri-apps/api/core', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-os', '@choochmeque/tauri-plugin-sharekit-api', '@zip.js/zip.js', 'franc-min', 'iso-639-2', 'iso-639-3', 'js-md5'], exclude: ['@pdfjs/pdf.min.mjs'] },
+    optimizeDeps: { include: ['react', 'react-dom/client', 'react-dom', 'zustand', '@tauri-apps/api/window', '@tauri-apps/api/webviewWindow', '@tauri-apps/api/event', '@tauri-apps/plugin-process', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-http', '@tauri-apps/api/path', '@tauri-apps/api/core', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-os', '@choochmeque/tauri-plugin-sharekit-api', '@zip.js/zip.js', 'franc-min', 'iso-639-2', 'iso-639-3', 'js-md5'], exclude: ['@pdfjs/pdf.min.mjs'] },
     // A native probe must not reload/re-execute an in-flight fixture when Vite
     // discovers another dependency. HMR is not part of the tested application.
     server: { port: 3000, strictPort: true, host: '127.0.0.1', hmr: false },
   });
   await server.listen();
-  for (const [phase, expected] of [
+  for (const [phase, expected] of (performanceOnly ? [['performance', 'performance']] : [
     ['quit-guard', 'quit-guard'], ['workload', 'workload'], ['directory-scope', 'directory-scope'],
     ['before-main', 'before-main'], ['after-main', 'after-main'], ['recover', 'recovered'],
     ['config-before-main', 'config-before-main'], ['config-after-main', 'config-after-main'],
     ['recover-config', 'recover-config'], ['artifact-journal', 'artifact-journal'],
     ['recover-artifact', 'recovered-artifact'],
-  ]) {
+  ])) {
     currentPhase = phase;
     lastPage = undefined;
     console.log(`Native probe phase: ${phase}`);
@@ -106,7 +107,7 @@ try {
     }
     await waitForNativeWindow({ pidFile, expectedPid: child.pid, isAlive: () => child.exitCode === null && child.signalCode === null });
     console.log(`Native window ready for ${phase}, PID ${child.pid}`);
-    if (phase === 'workload') {
+    if (phase === 'workload' || phase === 'performance') {
       const samplerReadyFile = path.join(runtime, 'sampler-workload.pid');
       samplerStopFile = path.join(runtime, 'sampler-workload.stop');
       sampler = observeSampler(spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(appRoot, 'scripts/sample-windows-process-tree.ps1'), '-RootProcessId', String(child.pid), '-ExpectedExecutable', executable, '-ReadyFile', samplerReadyFile, '-StopFile', samplerStopFile], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] }));
@@ -117,13 +118,25 @@ try {
     const browser = await remote({ hostname: '127.0.0.1', port: 4445, capabilities: { browserName: 'chrome' }, logLevel: 'error', connectionRetryCount: 0, connectionRetryTimeout: 45000 });
     await browser.url(`http://127.0.0.1:3000/src/__tests__/fixtures/native-crash.html?${new URLSearchParams({ root, phase })}`);
     let result;
+    let lastScenario;
     await browser.waitUntil(async () => {
-      lastPage = await browser.execute(() => ({ url: location.href, body: document.body?.textContent ?? '' }));
-      try { result = JSON.parse(lastPage.body); } catch { return false; }
-      if (result.error) throw new Error(result.error);
-      return result.stage === expected;
-    }, { timeout: 60000, interval: 200 });
+      if (child.exitCode !== null || child.signalCode !== null) {
+        result = { error: 'Owned native probe process exited' };
+        return true;
+      }
+      lastPage = await browser.execute(() => ({ url: location.href, body: document.body?.textContent ?? '', hasViteError: !!document.querySelector('vite-error-overlay') }));
+      const state = parseNativeProbePage(lastPage, expected);
+      result = state.result;
+      if (result?.scenario && result.scenario !== lastScenario) {
+        lastScenario = result.scenario;
+        console.log('Native performance scenario: ' + lastScenario);
+      }
+      return state.complete;
+    }, { timeout: phase === 'performance' ? 900000 : 60000, interval: 200 });
     evidence.push({ phase, processId: child.pid, result });
+    if (result.error) throw new Error(result.error);
+    if (phase === 'performance' && result.passed !== true)
+      throw new Error('Native performance scenario exceeded its recorded budget');
     if (sampler) {
       // Finish measurement before taskkill, without relying on CIM observing process exit.
       const memory = await finishSampler(sampler, samplerStopFile);
@@ -138,7 +151,7 @@ try {
     await stop();
   }
   await mkdir(path.dirname(output), { recursive: true });
-  await writeFile(output, JSON.stringify({ passed: true, timestamp: new Date().toISOString(), sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true }).trim(), sourceDirty: execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true }).trim().length > 0, scope: 'process kill, not power loss or storage-controller failure', evidence }, null, 2));
+  await writeFile(output, JSON.stringify({ passed: true, timestamp: new Date().toISOString(), sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true }).trim(), sourceDirty: execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true }).trim().length > 0, scope: performanceOnly ? 'isolated native performance subset, not complete release qualification' : 'process kill, not power loss or storage-controller failure', evidence }, null, 2));
   console.log(JSON.stringify(evidence));
   passed = true;
 } catch (error) {

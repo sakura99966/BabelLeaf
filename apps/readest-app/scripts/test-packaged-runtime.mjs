@@ -2,12 +2,12 @@
 // No dev server, WebDriver build, user profile, key or external request.
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, copyFile, writeFile, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve, relative, isAbsolute, dirname } from 'node:path';
+import { join, resolve, relative, isAbsolute, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validatePackagedRuntimeManifest, dispatchPackagedProbeResponse } from './packaged-runtime-manifest.mjs';
+import { validatePackagedRuntimeManifest, dispatchPackagedProbeResponse, makePackagedProbePolicy } from './packaged-runtime-manifest.mjs';
 import { readPackagedProbeTargets } from './packaged-runtime-transport.mjs';
 import net from 'node:net';
 
@@ -31,7 +31,7 @@ const declaredBuildSource = option('--source-revision', probeSourceCommit);
 if (!/^[0-9a-f]{40}$/i.test(declaredBuildSource)) throw new Error('Invalid build source revision');
 await mkdir(dirname(output), { recursive: true });
 const runtime = await mkdtemp(join(tmpdir(), 'babelleaf-packaged-probe-'));
-const binary = join(runtime, 'babelleaf.exe');
+const binary = join(runtime, 'BabelLeafProbe-' + randomUUID().replaceAll('-', '') + '.exe');
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 const listener = net.createServer();
 await new Promise((done, fail) => listener.once('error', fail).listen(0, '127.0.0.1', done));
@@ -45,6 +45,7 @@ let child;
 let launchError;
 let socket;
 let passed = false;
+let policyApplied = false;
 let result;
 let cdpReached = false;
 let observedPageCount = 0;
@@ -84,6 +85,13 @@ const collectOwnedProcessDiagnostics = () => {
 const messages = new Map();
 let sequence = 0;
 try {
+  const policy = makePackagedProbePolicy(basename(binary), port);
+  const policyResult = JSON.parse(execFileSync('powershell.exe', [
+    '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+    '-File', join(root, 'apps/readest-app/scripts/packaged-probe-policy.ps1'),
+    '-Action', 'create', '-ExecutableName', policy.name, '-Port', String(port),
+  ], { encoding: 'utf8', windowsHide: true, timeout: 15000 }));
+  policyApplied = policyResult.applied === true;
   child = spawn(binary, [], {
     cwd: runtime, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, APPDATA: join(runtime, 'Roaming'), LOCALAPPDATA: join(runtime, 'Local'),
@@ -208,6 +216,24 @@ try {
     await Promise.race([once(child, 'exit'), delay(3000)]);
   }
   await delay(1500);
+  if (policyApplied) {
+    try {
+      const removed = JSON.parse(execFileSync('powershell.exe', [
+        '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-File', join(root, 'apps/readest-app/scripts/packaged-probe-policy.ps1'),
+        '-Action', 'remove', '-ExecutableName', basename(binary), '-Port', String(port),
+      ], { encoding: 'utf8', windowsHide: true, timeout: 15000 }));
+      if (removed.removed !== true) throw new Error('Probe policy was not restored');
+      result.policyCleanupPass = true;
+    } catch (error) {
+      passed = false;
+      result.passed = false;
+      result.policyCleanupPass = false;
+      result.policyCleanupError = String(error);
+      result.policyName = basename(binary);
+    }
+  }
+  result.elevatedPolicyApplied = policyApplied;
   if (passed) {
     const owned = relative(tmpdir(), runtime);
     if (!owned.startsWith('babelleaf-packaged-probe-') || owned.includes('/') || owned.includes('\\') || isAbsolute(owned)) {

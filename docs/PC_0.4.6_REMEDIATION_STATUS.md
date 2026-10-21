@@ -168,6 +168,29 @@ assets. A green old CI run does not qualify changed source or new advisories.
   cover direct communication, malformed/oversized responses, redirects and
   invalid ports. This improves diagnostic/security boundaries; the hosted root
   cause and final outcome are not assumed.
+- 2026-10-22 continuation: the fresh hosted diagnostics identify WebView2
+  154.0.4258.62, an alive/responding owned application and browser subprocesses,
+  but no remote-port argument. Microsoft documents that Runtime 150+ drops
+  WEBVIEW2_* overrides from elevated hosts:
+  https://github.com/MicrosoftEdge/WebView2Feedback/issues/5645 .
+  The probe now gives its disposable copy a nonce-only executable name, and
+  only on elevated hosts creates one exact HKLM AdditionalBrowserArguments
+  value for that name. It never targets babelleaf.exe or a wildcard. Cleanup
+  checks the value is still ours before removing it and fails visibly on
+  restore failure; normal non-elevated runs continue using process-local env.
+  No normal product policy/ACL, runtime downgrade or general debug flag was added.
+- The same hosted run passed Windows native security/regression, but the hidden
+  Linux WebKitGTK test window exposed no hit-testing surface. The overlay test
+  now always checks actual fixed-containing-block geometry with a deliberate
+  containment-removal positive control; visible surfaces additionally retain
+  hit-testing. It does not skip the safety assertion or waive the failing job.
+- Added a native performance subset for actual 20/5000-segment controllers,
+  atomic sidecars, pause/checkpoint reconstruction and warmed React overlay
+  layout. Fixture shape/p95 calculations have unit guards. The initial probe
+  failed during module loading (not a measured product latency); fail-fast page
+  error handling and eager dependency preparation prevent a silent 15-minute
+  wait. ComicTranslationOverlay imports its narrow pure helpers instead of the
+  all-provider/all-model barrel. Fresh native measurements remain pending.
 
 ## Remaining internal closure work (no 0.5)
 

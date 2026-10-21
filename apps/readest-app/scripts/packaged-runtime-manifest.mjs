@@ -1,3 +1,15 @@
+/** Only a nonce-named temporary copy may receive a test-only WebView2 policy. */
+export function makePackagedProbePolicy(name, port) {
+  if (typeof name !== 'string' || !/^BabelLeafProbe-[a-f0-9]{32}\.exe$/.test(name)
+    || !Number.isInteger(port) || port < 1024 || port > 65535)
+    throw new Error('Invalid disposable packaged-probe policy');
+  return {
+    key: 'SOFTWARE\\Policies\\Microsoft\\Edge\\WebView2\\AdditionalBrowserArguments',
+    name,
+    value: '--remote-debugging-port=' + port + ' --remote-debugging-address=127.0.0.1',
+  };
+}
+
 /** Strict input budget for the build-only packaged-runtime acceptance probe. */
 export function validatePackagedRuntimeManifest(value) {
   const fail = () => { throw new Error('Invalid or unbounded packaged runtime manifest'); };

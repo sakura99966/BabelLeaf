@@ -99,13 +99,27 @@ it('clips fixed dictionary overlays to a trusted outer boundary', async () => {
   chrome.textContent = 'Application controls';
   containers.push(chrome);
   document.body.append(chrome);
+  const canHitTest = document.elementFromPoint(20, 20) === chrome;
   const container = await lookupHtml(
     '<style>:host { position: fixed !important; inset: 0 !important; z-index: 2147483647; }' +
       '.hostile-overlay { position: fixed; inset: 0; z-index: 2147483647; background: red; }' +
       '</style><p>Definition</p><div class="hostile-overlay">Not application UI</div>',
   );
   container.style.cssText = 'position:relative;margin-top:200px;width:200px';
-  expect(document.elementFromPoint(20, 20)).toBe(chrome);
+  const shadow = container.querySelector('.dict-shadow-host')!.shadowRoot!;
+  const boundary = shadow.host.parentElement!;
+  const overlay = shadow.querySelector('.hostile-overlay')!;
+  const containedRect = overlay.getBoundingClientRect();
+  expect(containedRect.y).toBeCloseTo(boundary.getBoundingClientRect().y, 1);
+  expect(containedRect.width).toBeCloseTo(boundary.getBoundingClientRect().width, 1);
+  // Hidden WebKitGTK windows do not expose a hit-testing surface. Geometry
+  // remains exercised there; visible Chromium/WebView2 additionally hit-test.
+  if (canHitTest) expect(document.elementFromPoint(20, 20)).toBe(chrome);
+  // Positive control: removing our trusted containment really lets fixed
+  // content escape to the viewport, so the geometry assertion is meaningful.
+  boundary.style.contain = 'none';
+  expect(overlay.getBoundingClientRect().y).not.toBeCloseTo(containedRect.y, 1);
+  boundary.style.contain = 'layout paint style';
 });
 
 it('preserves font scaling and composed explicit link clicks for isolated HTML', async () => {

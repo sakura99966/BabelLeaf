@@ -5,8 +5,8 @@ import type { CSSProperties } from 'react';
 import {
   comicOverlayPolygonToCss,
   createComicOverlayBlocks,
-  type ComicWorkspacePage,
-} from '@/services/translators';
+} from '@/services/translators/comicOverlay';
+import type { ComicWorkspacePage } from '@/services/translators/comicWorkspace';
 
 export interface ComicTranslationOverlayProps {
   page: ComicWorkspacePage;

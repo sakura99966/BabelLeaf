@@ -1,5 +1,14 @@
 import { readFile } from 'node:fs/promises';
 
+/** Return errors as completed states so WebDriver waitUntil cannot swallow them. */
+export function parseNativeProbePage(page, expected) {
+  if (page.hasViteError) return { complete: true, result: { error: 'Native probe module loading failed' } };
+  let result;
+  try { result = JSON.parse(page.body); } catch { return { complete: false }; }
+  if (!result || typeof result !== 'object') return { complete: false };
+  return { complete: !!result.error || result.stage === expected, result };
+}
+
 /**
  * The WebDriver listener starts before the native WebView finishes construction.
  * Wait for the marker written AFTER build(), belonging to this spawned process.
