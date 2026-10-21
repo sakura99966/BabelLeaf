@@ -46,6 +46,7 @@ let launchError;
 let socket;
 let passed = false;
 let policyApplied = false;
+let policyAttempted = false;
 let result;
 let cdpReached = false;
 let observedPageCount = 0;
@@ -86,6 +87,7 @@ const messages = new Map();
 let sequence = 0;
 try {
   const policy = makePackagedProbePolicy(basename(binary), port);
+  policyAttempted = true;
   const policyResult = JSON.parse(execFileSync('powershell.exe', [
     '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
     '-File', join(root, 'apps/readest-app/scripts/packaged-probe-policy.ps1'),
@@ -216,15 +218,20 @@ try {
     await Promise.race([once(child, 'exit'), delay(3000)]);
   }
   await delay(1500);
-  if (policyApplied) {
+  if (policyAttempted) {
     try {
       const removed = JSON.parse(execFileSync('powershell.exe', [
         '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
         '-File', join(root, 'apps/readest-app/scripts/packaged-probe-policy.ps1'),
         '-Action', 'remove', '-ExecutableName', basename(binary), '-Port', String(port),
       ], { encoding: 'utf8', windowsHide: true, timeout: 15000 }));
-      if (removed.removed !== true) throw new Error('Probe policy was not restored');
-      result.policyCleanupPass = true;
+      result.policyCleanupPass = removed.removed === true;
+      if (!result.policyCleanupPass) {
+        passed = false;
+        result.passed = false;
+        result.policyCleanupError = 'Probe policy was not restored';
+        result.policyName = basename(binary);
+      }
     } catch (error) {
       passed = false;
       result.passed = false;

@@ -16,8 +16,19 @@ $ErrorActionPreference = 'Stop'
 $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
 $elevated = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $elevated) {
-    if ($Action -eq 'remove') { throw 'Cannot restore an elevated probe policy from a non-elevated process.' }
-    [pscustomobject]@{ applied = $false; elevated = $false } | ConvertTo-Json -Compress
+    if ($Action -eq 'remove') {
+        $readOnlyKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey('SOFTWARE\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments')
+        try {
+            if ($null -ne $readOnlyKey -and ($readOnlyKey.GetValueNames() -contains $ExecutableName)) {
+                throw 'Cannot restore an elevated probe policy from a non-elevated process.'
+            }
+        } finally {
+            if ($null -ne $readOnlyKey) { $readOnlyKey.Dispose() }
+        }
+        [pscustomobject]@{ removed = $true; elevated = $false } | ConvertTo-Json -Compress
+    } else {
+        [pscustomobject]@{ applied = $false; elevated = $false } | ConvertTo-Json -Compress
+    }
     exit 0
 }
 
