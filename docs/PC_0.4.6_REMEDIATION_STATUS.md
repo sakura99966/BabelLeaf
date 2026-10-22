@@ -190,7 +190,21 @@ assets. A green old CI run does not qualify changed source or new advisories.
   failed during module loading (not a measured product latency); fail-fast page
   error handling and eager dependency preparation prevent a silent 15-minute
   wait. ComicTranslationOverlay imports its narrow pure helpers instead of the
-  all-provider/all-model barrel. Fresh native measurements remain pending.
+  all-provider/all-model barrel. The native subset subsequently passed: chapter
+  426.6 ms, 5000-segment durable recovery 21,358.6 ms, workspace save p95 98.1 ms
+  and warmed overlay commit/layout p95 1.7 ms. Peak owned process-tree working
+  set was 566,743,040 bytes; private bytes 375,848,960. These generated-fixture
+  measurements do not qualify import, page turns, full-book search, cold startup
+  or model/corpus quality. Canonical workspace serialization, rather than raw
+  JSON object-key order, verifies restored content; changed text still fails.
+- 2026-10-23: hosted run 39639782805 confirms the actual elevated policy path:
+  installer lifecycle and standard-package hydration/226 embedded asset hashes
+  PASS, elevatedPolicyApplied=true, policyCleanupPass=true, profileCleanupPass=true.
+  Native Windows, Linux build/native, browser, coverage and CodeQL checks pass.
+  The remaining failed CI job is the newly published Vite development-tool
+  advisory set. Vite is locally pinned to >=7.3.7 <8; the fresh dependency gate
+  reports production unresolved=0, full unresolved=0, with the same three
+  explicitly reviewed development backports. New-source CI is still required.
 
 ## Remaining internal closure work (no 0.5)
 

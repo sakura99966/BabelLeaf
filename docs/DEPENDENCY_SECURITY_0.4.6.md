@@ -99,3 +99,20 @@ raw security reports provide current evidence; they cannot manufacture historic
 reviews/badges or erase unpatched-version identifiers. Retain these findings and
 distinguish them from current PC vulnerability records. Owner/admin governance
 decisions and external legal approval are not silently performed.
+
+## 2026-10-23 development-tool follow-up
+
+Hosted run 39639782805 failed the complete JavaScript dependency gate after
+three Vite advisories were updated on October 20: GHSA-698v-4r3x-3vcv,
+GHSA-r825-w8mm-5pxw and GHSA-587h-7wmj-h5pm. They concern the development
+server/editor-launch path, not a demonstrated packaged-reader exploit.
+The Vite override and lockfile now require >=7.3.7 <8, the patched upstream
+line. Fresh local security evidence reports production unresolved=0 and full
+unresolved=0; the existing three pinned development backports remain explicit.
+No new suppression, false version or reduced threshold was introduced.
+
+Primary references:
+- https://github.com/advisories/GHSA-698v-4r3x-3vcv
+- https://github.com/advisories/GHSA-r825-w8mm-5pxw
+- https://github.com/advisories/GHSA-587h-7wmj-h5pm
+- https://github.com/vitejs/vite/releases/tag/v7.3.7

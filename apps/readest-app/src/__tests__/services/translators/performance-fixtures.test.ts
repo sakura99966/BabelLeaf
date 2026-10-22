@@ -5,12 +5,21 @@ import {
   percentile95,
 } from '../../fixtures/performanceFixtures';
 import { createComicOverlayBlocks } from '@/services/translators/comicOverlay';
-import { parseComicWorkspace } from '@/services/translators/comicWorkspace';
+import {
+  parseComicWorkspace,
+  serializeComicWorkspace,
+} from '@/services/translators/comicWorkspace';
 
 it('authors a deterministic bounded workspace with corrections and stale translations', () => {
   const workspace = createPerformanceWorkspace();
   expect(createPerformanceWorkspace()).toEqual(workspace);
   expect(parseComicWorkspace(workspace)).toEqual(workspace);
+  expect(serializeComicWorkspace(parseComicWorkspace(workspace))).toBe(
+    serializeComicWorkspace(workspace),
+  );
+  const changed = createPerformanceWorkspace();
+  changed.pages[0]!.regions[1]!.translation!.translatedText = 'Unexpected changed result';
+  expect(serializeComicWorkspace(changed)).not.toBe(serializeComicWorkspace(workspace));
   expect(workspace.pages).toHaveLength(20);
   const regions = workspace.pages.flatMap((page) => page.regions);
   expect(regions).toHaveLength(1000);

@@ -134,9 +134,6 @@ try {
       return state.complete;
     }, { timeout: phase === 'performance' ? 900000 : 60000, interval: 200 });
     evidence.push({ phase, processId: child.pid, result });
-    if (result.error) throw new Error(result.error);
-    if (phase === 'performance' && result.passed !== true)
-      throw new Error('Native performance scenario exceeded its recorded budget');
     if (sampler) {
       // Finish measurement before taskkill, without relying on CIM observing process exit.
       const memory = await finishSampler(sampler, samplerStopFile);
@@ -147,6 +144,9 @@ try {
       evidence[evidence.length - 1].memory = { ...memory, memoryBudgetBytes };
       sampler = undefined;
     }
+    if (result.error) throw new Error(result.error);
+    if (phase === 'performance' && result.passed !== true)
+      throw new Error('Native performance scenario exceeded its recorded budget');
     // Deliberately do not close the WebDriver session/window gracefully.
     await stop();
   }
