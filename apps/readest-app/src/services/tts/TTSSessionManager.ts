@@ -33,6 +33,8 @@ export interface TTSSession {
   controller: TTSController;
 }
 
+type OwnedTTSSession = TTSSession & { releaseBookOwner: () => void };
+
 export type TTSSessionStopReason =
   | 'user'
   | 'replaced'
@@ -49,7 +51,7 @@ export const getBookHashFromKey = (bookKey: string): string => bookKey.split('-'
 const PERSIST_THROTTLE_MS = 10_000;
 
 export class TTSSessionManager extends EventTarget {
-  #session: TTSSession | null = null;
+  #session: OwnedTTSSession | null = null;
   #meta: TTSSessionMeta | null = null;
   #onStateChange: ((e: Event) => void) | null = null;
   #onSessionEnded: ((e: Event) => void) | null = null;
@@ -73,9 +75,16 @@ export class TTSSessionManager extends EventTarget {
       // manager owns the replaced controller's teardown — and must
       // unsubscribe first so the old controller's async tail can't relay.
       this.#unsubscribe(existing.controller);
-      existing.controller.shutdown().catch(() => {});
+      void existing.controller
+        .shutdown()
+        .catch(() => {})
+        .then(() => this.#releaseBookResources(existing));
     }
-    this.#session = { bookHash, bookKey, controller };
+    const releaseBookOwner =
+      existing?.controller === controller && existing.bookHash === bookHash
+        ? existing.releaseBookOwner
+        : ttsSessionPresence.retainBook(bookHash);
+    this.#session = { bookHash, bookKey, controller, releaseBookOwner };
     ttsSessionPresence.setActive(true);
     this.#meta = meta;
     this.#lastRelayedState = null;
@@ -169,26 +178,49 @@ export class TTSSessionManager extends EventTarget {
       });
     }
 
-    const { releaseUnblockAudio, ttsMediaBridge } = await getTTSMediaBridgeModule();
-    ttsMediaBridge.unbind();
-    releaseUnblockAudio();
+    try {
+      const { releaseUnblockAudio, ttsMediaBridge } = await getTTSMediaBridgeModule();
+      try {
+        ttsMediaBridge.unbind();
+      } catch (error) {
+        console.warn('TTS media unbind failed:', error);
+      }
+      try {
+        releaseUnblockAudio();
+      } catch (error) {
+        console.warn('TTS keep-alive release failed:', error);
+      }
+    } catch (error) {
+      console.warn('TTS media cleanup failed:', error);
+    }
     // No use_background_audio(false) here: bridge.unbind() deactivates the
     // native media session, which releases the iOS audio session itself.
     await session.controller.shutdown().catch((err) => console.warn('TTS shutdown failed:', err));
+    await this.#releaseBookResources(session);
     this.#stopping = false;
   }
 
   // Clear the slot without tearing the controller down (the caller already
   // ran the full stop path).
   release(bookHash: string): void {
-    const session = this.getSessionByHash(bookHash);
-    if (!session) return;
+    const session = this.#session;
+    if (!session || session.bookHash !== bookHash) return;
     this.#unsubscribe(session.controller);
     this.#clearSleepTimer();
     this.#session = null;
     ttsSessionPresence.setActive(false);
     this.#meta = null;
     this.#emitSessionChanged('released');
+    void this.#releaseBookResources(session);
+  }
+
+  async #releaseBookResources(session: OwnedTTSSession): Promise<void> {
+    // UI playback state may already say stopped while native shutdown awaits.
+    // The independent owner survives until that teardown has actually settled.
+    session.releaseBookOwner();
+    await import('@/services/bookResourceLifecycle')
+      .then(({ releaseClosedBookContent }) => releaseClosedBookContent(session.bookKey))
+      .catch((error) => console.warn('Speech resource cleanup failed:', error));
   }
 
   // Sleep timer lives here so a timer armed in the reader survives unmount

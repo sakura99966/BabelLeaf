@@ -189,7 +189,7 @@ async function* extractPdfImages(file: File): AsyncGenerator<File> {
   const { makePDF } = await import('foliate-js/pdf.js');
   const book = (await makePDF(file)) as {
     sections?: Array<{ load: () => Promise<PdfPageRender> }>;
-    destroy?: () => void;
+    destroy?: () => void | Promise<void>;
   };
   try {
     const sections = book.sections || [];
@@ -260,7 +260,7 @@ async function* extractPdfImages(file: File): AsyncGenerator<File> {
       }
     }
   } finally {
-    book.destroy?.();
+    await book.destroy?.();
   }
 }
 

@@ -48,7 +48,9 @@ const run = async () => {
     targetLang: 'zh-CN',
   });
   const store = new TranslationArtifactStore(service);
-  if (phase === 'performance') {
+  if (phase === 'reading-performance') {
+    report(await (await import('./native-reading-performance')).runNativeReadingPerformance(root));
+  } else if (phase === 'performance') {
     report(await (await import('./native-performance')).runNativePerformance(root));
   } else if (phase === 'workload') {
     report(await (await import('./native-workload')).runNativeWorkload(root));

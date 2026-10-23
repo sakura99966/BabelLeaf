@@ -7,7 +7,7 @@ import { mkdtemp, mkdir, copyFile, writeFile, readFile, rm, stat } from 'node:fs
 import { tmpdir } from 'node:os';
 import { join, resolve, relative, isAbsolute, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { validatePackagedRuntimeManifest, dispatchPackagedProbeResponse, makePackagedProbePolicy } from './packaged-runtime-manifest.mjs';
+import { validatePackagedRuntimeManifest, dispatchPackagedProbeResponse, makePackagedProbePolicy, validatePackagedLibraryTiming } from './packaged-runtime-manifest.mjs';
 import { readPackagedProbeTargets } from './packaged-runtime-transport.mjs';
 import net from 'node:net';
 
@@ -53,6 +53,7 @@ let observedPageCount = 0;
 let observedOrigins = [];
 let endpointError;
 let startupOutput = '';
+let launchedAt;
 const captureStartupOutput = (chunk) => {
   startupOutput = (startupOutput + chunk.toString()).slice(-8192);
 };
@@ -94,6 +95,7 @@ try {
     '-Action', 'create', '-ExecutableName', policy.name, '-Port', String(port),
   ], { encoding: 'utf8', windowsHide: true, timeout: 15000 }));
   policyApplied = policyResult.applied === true;
+  launchedAt = Date.now();
   child = spawn(binary, [], {
     cwd: runtime, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, APPDATA: join(runtime, 'Roaming'), LOCALAPPDATA: join(runtime, 'Local'),
@@ -147,10 +149,27 @@ try {
   });
   let ready = false;
   for (let i = 0; i < 100 && !ready; i++) {
-    ready = await evaluate("!!document.querySelector('[data-testid=\"library-page\"]') && !!document.querySelector('[data-testid=\"library-empty-state\"]')");
+    ready = await evaluate("!!document.querySelector('[data-testid=\"library-page\"]') && !!document.querySelector('[data-testid=\"library-empty-state\"]') && performance.getEntriesByName('babelleaf:library-interactive').length === 1");
     if (!ready) await delay(100);
   }
   if (!ready) throw new Error('Packaged application did not hydrate its empty local library');
+  const timing = validatePackagedLibraryTiming(await evaluate(`(() => {
+    const marks = performance.getEntriesByName('babelleaf:library-interactive');
+    const button = document.querySelector('[data-testid="library-empty-state"] button[aria-haspopup="menu"]');
+    return { timeOrigin: performance.timeOrigin, startTime: marks[0]?.startTime,
+      marks: marks.length, enabledImportButton: !!button && !button.disabled && button.getBoundingClientRect().width > 0 };
+  })()`), launchedAt);
+  const startupBudgetMs = 2500;
+  const startupBudgetEnforced = process.argv.includes('--enforce-startup-budget');
+  if (startupBudgetEnforced && timing.launchToInteractiveMs > startupBudgetMs)
+    throw new Error('Reference-host interactive startup exceeds the recorded budget: ' + JSON.stringify(timing));
+  await evaluate(`document.querySelector('[data-testid="library-empty-state"] button[aria-haspopup="menu"]').click()`);
+  let menuInteractive = false;
+  for (let i = 0; i < 100 && !menuInteractive; i++) {
+    menuInteractive = await evaluate(`!!document.querySelector('[data-testid="import-books-from-files"]')`);
+    if (!menuInteractive) await delay(100);
+  }
+  if (!menuInteractive) throw new Error('Packaged library import action is not interactive');
   const version = await evaluate("window.__TAURI_INTERNALS__.invoke('plugin:app|version')");
   if (version !== productVersion) throw new Error('Packaged version does not match source version');
   const name = await evaluate("window.__TAURI_INTERNALS__.invoke('plugin:app|name')");
@@ -201,6 +220,8 @@ try {
   result = { passed: true, executableSha256, declaredBuildSource, probeSourceCommit, productVersion, productName,
     components: expected.components.length, assets: expected.assets.length, verifiedBytes: checked.verifiedBytes,
     libraryHydrated: checked.ready, origin: checked.origin, profile: 'owned portable temporary copy',
+    startup: { ...timing, budgetMs: startupBudgetMs, budgetEnforced: startupBudgetEnforced,
+      budgetPassed: timing.launchToInteractiveMs <= startupBudgetMs, menuInteractive },
     scope: 'standard release executable, not webdriver/dev-server build; read-only asset hash probe',
     timestamp: new Date().toISOString() };
   passed = true;

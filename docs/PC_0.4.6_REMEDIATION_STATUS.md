@@ -208,6 +208,43 @@ assets. A green old CI run does not qualify changed source or new advisories.
 
 ## Remaining internal closure work (no 0.5)
 
+October 23 follow-up (not a final qualification):
+
+- Fresh advisory data required official @vitest/mocker 4.1.12 and TLS root/
+  verification patch updates. JavaScript gate passes with zero unresolved
+  records; Windows Rust audit has zero vulnerabilities / 18 reviewed warnings.
+- Added bounded, local-only library readiness timing after a committed UI paint
+  opportunity. The standard-package probe additionally clicks the real Import
+  button and requires its local menu, with a separately enforced reference-host
+  2500 ms budget. No telemetry, requests or persistent timing log in the product.
+- Native reading scenarios passed on generated/copied repository fixtures:
+  EPUB import 526.8 ms / turn p95 102.5 ms / full-book search p95 182.8 ms;
+  PDF import 707.9 ms / turn p95 59.1 ms / search p95 258.4 ms. Each format
+  includes 50 real changed-CFI turns and 5 complete searches. Peak owned process
+  tree working set 800,440,320 bytes; private bytes 694,087,680. Sampled entire
+  owned profile/test-tool footprint peaked at 33,845,696 bytes, including fixtures;
+  this is an observed high-water sample, not an unsampled absolute peak. Source
+  and sandbox fixture SHA-256 were unchanged; the passing profile was removed.
+- Those tests exposed a real PDF.js 6 resource disposal incompatibility. A
+  failing-before real Chromium test reproduced pdf.destroy being absent. The
+  checked reader preparer now reproducibly uses and returns loadingTask.destroy;
+  comic PDF rasterization awaits teardown. Real repeated-disposal regression
+  passes; native equivalent added. No unpublished submodule gitlink is staged.
+- Closed document content is now released independently from retained metadata/
+  annotations, after the final reader and speech owners finish. Another pane,
+  background speech and a concurrent reopen retain their resources; tests cover
+  failure cleanup and an old teardown not erasing a reopened document. Full
+  speech/native/UI regression of this follow-up remains pending.
+- Review additionally reproduced early release during pending native speech
+  shutdown and skipped controller shutdown after a media-unbind exception.
+  Speech now has a separate idempotent book-owner lease through settled teardown;
+  stopped UI state cannot release that lease early, and media cleanup failures
+  do not prevent controller/file cleanup. Replacement-owner regressions pass.
+- Local source checks after these changes: TypeScript/Biome pass; 416 unit files,
+  5,077 tests passed / 1 inherited skip. The prior full Chromium run passed
+  325 tests / 1 inherited skip; exact frozen native/browser/package qualification
+  remains in progress. No gate or timeout budget was reduced to obtain PASS.
+
 1. Reconcile the latest full local checks and PR #10 checks, including the
    protocol-dispatch fix and real packaged-runtime CI step. Preserve current
    candidate identities; do not merge main while internal gates remain open.

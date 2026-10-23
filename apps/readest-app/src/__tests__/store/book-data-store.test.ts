@@ -89,6 +89,55 @@ describe('bookDataStore', () => {
   });
 
   describe('clearBookData', () => {
+    test('an old asynchronous teardown cannot erase a reopened document', async () => {
+      const data = makeBookData('book1');
+      let finish: (() => void) | undefined;
+      data.bookDoc = {
+        destroy: () =>
+          new Promise<void>((done) => {
+            finish = done;
+          }),
+      } as unknown as NonNullable<BookData['bookDoc']>;
+      useBookDataStore.setState({ booksData: { book1: data } });
+      const pending = useBookDataStore.getState().releaseBookContent('book1');
+      const reopened = makeBookData('book1');
+      reopened.file = new File(['new content'], 'new.pdf');
+      useBookDataStore.setState({ booksData: { book1: reopened } });
+      finish?.();
+      await pending;
+      expect(useBookDataStore.getState().booksData['book1']).toBe(reopened);
+    });
+    test('releases native file/parser resources without dropping annotations or metadata', async () => {
+      const data = makeBookData('book1');
+      const destroy = vi.fn().mockResolvedValue(undefined);
+      const close = vi.fn().mockResolvedValue(undefined);
+      data.bookDoc = { destroy } as unknown as NonNullable<BookData['bookDoc']>;
+      data.file = Object.assign(new File(['local'], 'local.pdf'), { close });
+      useBookDataStore.setState({ booksData: { book1: data } });
+      const pending = useBookDataStore.getState().releaseBookContent('book1-view0');
+      expect(useBookDataStore.getState().booksData['book1']!.bookDoc).toBeNull();
+      expect(useBookDataStore.getState().booksData['book1']!.file).toBeNull();
+      expect(useBookDataStore.getState().booksData['book1']!.config).toBe(data.config);
+      await pending;
+      await useBookDataStore.getState().releaseBookContent('book1');
+      expect(destroy).toHaveBeenCalledTimes(1);
+      expect(close).toHaveBeenCalledTimes(1);
+    });
+
+    test('attempts file cleanup even if parser teardown fails', async () => {
+      const data = makeBookData('book1');
+      const close = vi.fn().mockResolvedValue(undefined);
+      data.bookDoc = {
+        destroy: () => {
+          throw new Error('parser failure');
+        },
+      } as unknown as NonNullable<BookData['bookDoc']>;
+      data.file = Object.assign(new File(['local'], 'local.pdf'), { close });
+      useBookDataStore.setState({ booksData: { book1: data } });
+      await expect(useBookDataStore.getState().releaseBookContent('book1')).rejects.toThrow();
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(useBookDataStore.getState().booksData['book1']!.config).toBe(data.config);
+    });
     test('removes the book data entry', () => {
       const data = makeBookData('book1');
       useBookDataStore.setState({ booksData: { book1: data } });

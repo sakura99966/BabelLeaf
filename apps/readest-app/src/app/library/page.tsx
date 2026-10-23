@@ -20,6 +20,7 @@ import { getBookWithUpdatedMetadata, listFormater } from '@/utils/book';
 import { getImportErrorMessage } from '@/services/errors';
 import { ingestFile } from '@/services/ingestService';
 import { eventDispatcher } from '@/utils/event';
+import { scheduleLibraryInteractiveMark } from '@/utils/libraryPerformance';
 import { getDirPath, getFilename, joinPaths } from '@/utils/path';
 import { parseOpenWithFiles } from '@/helpers/openWith';
 import { isTauriAppPlatform, isWebAppPlatform } from '@/services/environment';
@@ -1350,6 +1351,18 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     setIsSelectNone(false);
     handleLibraryNavigation(group);
   };
+
+  const libraryInteractive = Boolean(
+    appService &&
+      insets &&
+      !checkOpenWithBooks &&
+      !checkLastOpenBooks &&
+      (libraryLoaded || libraryBooks.length > 0),
+  );
+  useEffect(() => {
+    if (libraryInteractive) return scheduleLibraryInteractiveMark();
+    return undefined;
+  }, [libraryInteractive]);
 
   if (!appService || !insets || checkOpenWithBooks || checkLastOpenBooks) {
     return <div className='full-height bg-base-200' />;

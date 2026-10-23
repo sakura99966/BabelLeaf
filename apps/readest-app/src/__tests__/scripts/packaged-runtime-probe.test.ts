@@ -5,6 +5,7 @@ import {
   validatePackagedRuntimeManifest,
   dispatchPackagedProbeResponse,
   makePackagedProbePolicy,
+  validatePackagedLibraryTiming,
 } from '../../../scripts/packaged-runtime-manifest.mjs';
 
 const fixture = () => ({
@@ -14,6 +15,37 @@ const fixture = () => ({
     { path: 'vendor/fixture/codec.wasm', component: 'fixture', bytes: 1, sha256: '0'.repeat(64) },
   ],
   totalBytes: 1,
+});
+
+it('measures launch to an interactive painted library, not observer polling', () => {
+  expect(
+    validatePackagedLibraryTiming(
+      { timeOrigin: 1_000_100, startTime: 600, marks: 1, enabledImportButton: true },
+      1_000_000,
+    ),
+  ).toEqual({
+    launchToInteractiveMs: 700,
+    navigationToInteractiveMs: 600,
+    scope: 'committed library after a paint opportunity',
+  });
+});
+
+it.each([
+  { timeOrigin: Number.NaN },
+  { timeOrigin: 0 },
+  { startTime: -1 },
+  { startTime: Number.POSITIVE_INFINITY },
+  { startTime: 61_000 },
+  { marks: 0 },
+  { marks: 2 },
+  { enabledImportButton: false },
+])('rejects missing, duplicate, unbounded or noninteractive startup evidence', (override) => {
+  expect(() =>
+    validatePackagedLibraryTiming(
+      { timeOrigin: 1_000_100, startTime: 600, marks: 1, enabledImportButton: true, ...override },
+      1_000_000,
+    ),
+  ).toThrow();
 });
 
 it('scopes an elevated WebView2 probe policy to one random disposable executable', () => {

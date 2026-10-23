@@ -26,8 +26,14 @@ const pdfSource = readFileSync(pdfPath, 'utf8');
 const annotationTarget = /annotations: await page\.getAnnotations\(\),(?:\r?\n[ \t]*enableScripting: false,\r?\n[ \t]*hasJSActions: false,)?/g;
 if ([...pdfSource.matchAll(annotationTarget)].length !== 1)
   throw new Error('Unexpected PDF annotation scripting target');
-const hardenedPdf = pdfSource.replace(annotationTarget,
+let hardenedPdf = pdfSource.replace(annotationTarget,
   'annotations: await page.getAnnotations(),\n        enableScripting: false,\n        hasJSActions: false,');
 if (!hardenedPdf.includes('isEvalSupported: false'))
   throw new Error('PDF JavaScript evaluation must remain disabled');
+// PDF.js 6 owns worker teardown on PDFDocumentLoadingTask, not DocumentProxy.
+// Return its promise so owners can await complete worker/transport disposal.
+const disposalTarget = /(?:return pdf\.loadingTask\.destroy\(\)|pdf\.destroy\(\))/g;
+if ([...hardenedPdf.matchAll(disposalTarget)].length !== 1)
+  throw new Error('Unexpected PDF document disposal target');
+hardenedPdf = hardenedPdf.replace(disposalTarget, 'return pdf.loadingTask.destroy()');
 if (hardenedPdf !== pdfSource) writeFileSync(pdfPath, hardenedPdf);

@@ -8,6 +8,7 @@ import { useEnv } from '@/context/EnvContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
+import { releaseClosedBookContent } from '@/services/bookResourceLifecycle';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useGamepad } from '@/hooks/useGamepad';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -180,6 +181,9 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
       bookKey,
     });
     clearViewState(bookKey);
+    await releaseClosedBookContent(bookKey).catch((error) => {
+      console.warn('Closed book resource cleanup failed:', error);
+    });
   };
 
   const navigateBackToLibrary = () => {

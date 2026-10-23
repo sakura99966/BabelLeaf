@@ -104,6 +104,8 @@ export interface BookDoc {
   transformTarget?: EventTarget;
   splitTOCHref(href: string): Array<string | number>;
   getCover(): Promise<Blob | null>;
+  /** Release parser/worker resources after all views and speech owners finish. */
+  destroy?: () => void | Promise<void>;
 }
 
 export const EXTS: Record<BookFormat, string> = {

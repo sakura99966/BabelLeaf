@@ -21,6 +21,7 @@
     "test:tauri": "node scripts/test-tauri.mjs",
     "test:windows-crash-recovery": "node scripts/test-windows-crash-recovery.mjs",
     "test:windows-performance:subset": "node scripts/test-windows-crash-recovery.mjs --performance",
+    "test:windows-performance:reading": "node scripts/test-windows-crash-recovery.mjs --reading-performance",
     "test:windows-packaged-runtime": "node scripts/test-packaged-runtime.mjs",
     "test:android": "bash scripts/test-android.sh",
     "test:all": "pnpm test -- --watch=false && pnpm test:browser && pnpm test:e2e:web && pnpm test:tauri && pnpm test:e2e",

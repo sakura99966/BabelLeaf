@@ -91,6 +91,7 @@ interface BookDataState {
   updateBooknotes: (key: string, booknotes: BookNote[]) => BookConfig | undefined;
   getBookData: (keyOrId: string) => BookData | null;
   clearBookData: (keyOrId: string) => void;
+  releaseBookContent: (keyOrId: string) => Promise<void>;
 }
 
 export const useBookDataStore = create<BookDataState>((set, get) => ({
@@ -103,6 +104,9 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
   },
   clearBookData: (keyOrId: string) => {
     const id = keyOrId.split('-')[0]!;
+    void get()
+      .releaseBookContent(id)
+      .catch((error) => console.warn('Book resource cleanup failed:', error));
     set((state) => {
       const newBooksData = { ...state.booksData };
       delete newBooksData[id];
@@ -110,6 +114,30 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
         booksData: newBooksData,
       };
     });
+  },
+  releaseBookContent: async (keyOrId: string) => {
+    const id = keyOrId.split('-')[0]!;
+    const data = get().booksData[id];
+    if (!data || (!data.bookDoc && !data.file)) return;
+    const { bookDoc, file } = data;
+    // Detach synchronously, before teardown can yield. A reopen must create
+    // new resources, and an old completion must not erase that new document.
+    set((state) => ({
+      booksData: { ...state.booksData, [id]: { ...data, bookDoc: null, file: null } },
+    }));
+    const errors: unknown[] = [];
+    try {
+      await bookDoc?.destroy?.();
+    } catch (error) {
+      errors.push(error);
+    }
+    const nativeFile = file as (File & { close?: () => void | Promise<void> }) | null;
+    try {
+      await nativeFile?.close?.();
+    } catch (error) {
+      errors.push(error);
+    }
+    if (errors.length) throw new AggregateError(errors, 'Failed to release book resources');
   },
   getConfig: (key: string | null) => {
     if (!key) return null;

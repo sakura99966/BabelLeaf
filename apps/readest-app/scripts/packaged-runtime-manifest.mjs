@@ -11,6 +11,19 @@ export function makePackagedProbePolicy(name, port) {
 }
 
 /** Strict input budget for the build-only packaged-runtime acceptance probe. */
+export function validatePackagedLibraryTiming(value, launchedAt) {
+  if (!value || !Number.isFinite(launchedAt) || launchedAt <= 0
+    || !Number.isFinite(value.timeOrigin) || value.timeOrigin < launchedAt
+    || !Number.isFinite(value.startTime) || value.startTime < 0
+    || value.startTime > 60000 || value.marks !== 1 || value.enabledImportButton !== true)
+    throw new Error('Invalid packaged library readiness timing');
+  const elapsed = value.timeOrigin + value.startTime - launchedAt;
+  if (elapsed < 0 || elapsed > 60000) throw new Error('Unbounded library readiness timing');
+  return { launchToInteractiveMs: elapsed, navigationToInteractiveMs: value.startTime,
+    scope: 'committed library after a paint opportunity' };
+}
+
+/** Strict input budget for the build-only packaged-runtime acceptance probe. */
 export function validatePackagedRuntimeManifest(value) {
   const fail = () => { throw new Error('Invalid or unbounded packaged runtime manifest'); };
   if (!value || value.schemaVersion !== 1 || !Array.isArray(value.components)

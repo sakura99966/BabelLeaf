@@ -13,6 +13,14 @@ it('disables PDF document scripting at the annotation-layer boundary', () => {
   expect(source).toMatch(/AnnotationLayer[\s\S]*?render\(\{[\s\S]*?hasJSActions:\s*false/);
 });
 
+it('reproducibly disposes the PDF.js loading task and awaits comic extraction teardown', () => {
+  const source = read('packages/foliate-js/pdf.js');
+  expect(source).toContain('return pdf.loadingTask.destroy()');
+  expect(source).not.toMatch(/\bpdf\.destroy\(\)/);
+  const owner = read('apps/readest-app/src/app/reader/components/ComicWorkspaceDialog.tsx');
+  expect(owner).toContain('await book.destroy?.();');
+});
+
 it('requires verified copied-runtime evidence before declaring SBOM source completeness', () => {
   const source = read('scripts/generate-sbom.mjs');
   expect(source).toContain('verifyRuntimeVendorEvidence');
