@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { File as NodeFile } from 'node:buffer';
 import { Book } from '@/types/book';
 import { getMetadataHash } from '@/utils/book';
 
@@ -53,6 +54,27 @@ class TestAppService extends BaseAppService {
     getImageURL: vi.fn(),
     getPrefix: vi.fn(),
   };
+
+  constructor() {
+    super();
+    const written = new Map<string, string>();
+    this.fs.writeFile.mockImplementation(
+      async (path: string, _base: unknown, value: string | ArrayBuffer | File) => {
+        if (typeof value === 'string') written.set(path, value);
+      },
+    );
+    this.fs.openFile.mockImplementation(async (path: string) => {
+      if (/\/config\.json(?:\.(?:bak|invalid))?$/.test(path)) {
+        let data = written.get(path);
+        if (data === undefined) {
+          if (!(await this.fs.exists(path, 'Books'))) throw new Error('File not found: ' + path);
+          data = (await this.fs.readFile(path, 'Books', 'text')) as string;
+        }
+        return new NodeFile([data], path) as unknown as File;
+      }
+      return new File(['content'], path);
+    });
+  }
 
   protected resolvePath() {
     return { baseDir: 0, basePrefix: async () => '', fp: '', base: 'Books' as const };
@@ -129,7 +151,6 @@ describe('importBook metaHash deduplication', () => {
     const fs = service.getFs();
     fs.exists.mockResolvedValue(false);
     fs.createDir.mockResolvedValue(undefined);
-    fs.writeFile.mockResolvedValue(undefined);
     fs.removeDir.mockResolvedValue(undefined);
     fs.readFile.mockResolvedValue('{}');
   });
@@ -265,9 +286,6 @@ describe('importBook metaHash deduplication', () => {
     mockPartialMD5.mockResolvedValue('new-hash');
     setupMockBookDoc();
 
-    const fs = service.getFs();
-    fs.openFile.mockResolvedValue(new File(['content'], 'test.epub'));
-
     // Transient import requires string file path
     const result = await service.importBook('/path/to/test.epub', books, { transient: true });
 
@@ -305,7 +323,6 @@ describe('importBook metaHash aggregation', () => {
     const fs = service.getFs();
     fs.exists.mockResolvedValue(false);
     fs.createDir.mockResolvedValue(undefined);
-    fs.writeFile.mockResolvedValue(undefined);
     fs.removeDir.mockResolvedValue(undefined);
     fs.readFile.mockResolvedValue('{}');
   });
@@ -632,7 +649,6 @@ describe('importBook with BookLookupIndex', () => {
     const fs = service.getFs();
     fs.exists.mockResolvedValue(false);
     fs.createDir.mockResolvedValue(undefined);
-    fs.writeFile.mockResolvedValue(undefined);
     fs.removeDir.mockResolvedValue(undefined);
     fs.readFile.mockResolvedValue('{}');
   });

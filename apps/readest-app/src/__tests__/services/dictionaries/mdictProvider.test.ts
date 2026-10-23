@@ -57,8 +57,8 @@ const makeFs = () => ({
 // MDict cards render the body in a shadow root so each dictionary's CSS
 // stays scoped. Helper for tests that need to peek inside.
 const getMdictShadow = (container: HTMLElement): ShadowRoot => {
-  const host = container.lastElementChild as HTMLElement | null;
-  if (!host?.shadowRoot) throw new Error('expected mdict shadow host as last child of container');
+  const host = container.querySelector('.dict-shadow-host');
+  if (!host?.shadowRoot) throw new Error('expected mdict shadow host inside trusted boundary');
   return host.shadowRoot;
 };
 
@@ -877,8 +877,9 @@ describe('mdictProvider', () => {
       expect(body!.getAttribute('part')).toBe('dict-content');
       // The host must be selectable from the outer tree for the `::part()`
       // rule's host selector to match.
-      const host = container.lastElementChild as HTMLElement;
-      expect(host.classList.contains('dict-shadow-host')).toBe(true);
+      expect(shadow.host.classList.contains('dict-shadow-host')).toBe(true);
+      expect(container.contains(shadow.host)).toBe(true);
+      expect(shadow.host.parentElement?.style.contain).toBe('layout paint style');
     } finally {
       jsmdict.MDX.create = origMDXCreate;
     }

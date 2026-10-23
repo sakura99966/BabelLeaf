@@ -23,6 +23,11 @@ import { getDirFromLanguage } from '@/utils/rtl';
 import type { TranslationDisplayMode } from '@/types/book';
 import { PendingArtifactWrites } from '@/services/translators/pendingArtifactWrites';
 import { readerCloseGuard } from '@/services/translators/readerCloseGuard';
+import {
+  getTranslationConsentContext,
+  useTranslationSessionStore,
+} from '@/store/translationSessionStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
 const resolveTranslationDisplayMode = (
   settings:
@@ -117,6 +122,13 @@ export function useTextTranslation(
   const progress = useBookProgress(bookKey);
 
   const enabled = useRef(viewSettings?.translationEnabled);
+  // React to model/endpoint configuration changes, but never persist consent.
+  useSettingsStore((state) => state.settings.aiSettings);
+  const sessionGrant = useTranslationSessionStore((state) => state.grants[bookKey]);
+  const consentContext = getTranslationConsentContext(
+    viewSettings?.translationProvider,
+    viewSettings?.translateTargetLang || getLocale(),
+  );
   const [provider, setProvider] = useState(viewSettings?.translationProvider);
   const [targetLang, setTargetLang] = useState(viewSettings?.translateTargetLang);
   const displayModeRef = useRef<TranslationDisplayMode>(
@@ -247,6 +259,7 @@ export function useTextTranslation(
   const observeTextNodes = () => {
     if (!view || !enabled.current) return;
 
+    observerRef.current?.disconnect();
     const observer = createTranslationObserver();
     observerRef.current = observer;
     const nodes = walkTextNodes(view, ['pre', 'code', 'math']);
@@ -490,7 +503,16 @@ export function useTextTranslation(
         }
       }
 
-      const translated = await translateRef.current([text]);
+      const consent = useTranslationSessionStore.getState().grants[bookKey];
+      if (
+        !consent ||
+        consent.controller.signal.aborted ||
+        consent.context !== getTranslationConsentContext(artifactProvider, artifactTargetLang)
+      )
+        return;
+      const translated = await translateRef.current([text], {
+        signal: consent.controller.signal,
+      });
       const translatedText = translated[0];
       if (!translatedText || text === translatedText) return;
 
@@ -593,6 +615,26 @@ export function useTextTranslation(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progress]);
+
+  useEffect(() => {
+    if (sessionGrant && sessionGrant.context !== consentContext) {
+      useTranslationSessionStore.getState().revoke(bookKey);
+      return;
+    }
+    // Re-observe on a fresh button grant: cache-only visits must not mark
+    // missing blocks as translated or prevent a later explicit request.
+    if (enabled.current) observeTextNodes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookKey, sessionGrant, consentContext]);
+
+  useEffect(
+    () => () => {
+      // The TOC uses this hook too. Closing a sidebar must not revoke the
+      // primary reader's consent. clearViewState is the final lifecycle owner.
+      if (view && 'renderer' in view) useTranslationSessionStore.getState().revoke(bookKey);
+    },
+    [bookKey, view],
+  );
 
   useEffect(() => {
     if (!viewSettings) return;

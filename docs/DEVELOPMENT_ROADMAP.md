@@ -3,12 +3,12 @@
 ## Document status
 
 - Status: authoritative project roadmap
-- Current implementation baseline: `0.4.5` PC audit remediation. It retains the 0.4 feature boundary and closes internal security, recovery, lifecycle and resource findings after the historical `v0.4.4` release. No platform-port feature or model weight is added.
-- Acceptance status: **0.4.5 INTERNAL IMPLEMENTATION PASS / EXTERNAL VALIDATION DEFERRED**. Current frozen-source tests, CI, package, SBOM and performance are recorded in `docs/PC_0.4.5_INTERNAL_ACCEPTANCE_2026-10-11.md`; final main/package identity is bound by PR 7 and post-commit release evidence. Do not reuse historical package hashes for changed code. External provider, corpus-quality, independent minimum-host, voice, signing and legal gates remain **DEFERRED**, not PASS, by owner instruction. No 0.5 implementation is authorized by this deferral. Historical 0.4.4 traceability remains in `docs/PC_0.4.4_RELEASE_ACCEPTANCE_2026-08-23.md` and its immutable tag/release.
-- Roadmap revision: 15
+- Current implementation baseline: `0.4.6` PC audit remediation, within the unchanged 0.4 feature boundary. No platform-port feature or model weight is added.
+- Acceptance status: **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED** for the October 18 audit remediation. Current-source test, code-review, native, installer and reference-host performance evidence is in `docs/PC_0.4.6_INTERNAL_ACCEPTANCE.md`; final protected merge, main checks and exact rebuilt main package are independently bound by the generated RELEASE_EVIDENCE receipt. Earlier reports remain historical evidence, not qualification of changed source or new advisories. Do not reuse historical package hashes or change old tags/assets. External provider, corpus-quality, independent minimum-host, voice, signing and legal gates remain **DEFERRED**, not PASS, by owner instruction. No 0.5 implementation is authorized by this deferral.
+- Roadmap revision: 17
 - Approved scope date: 2026-08-23
-- Last closure update: 2026-08-23
-- Last remediation update: 2026-10-11
+- Last internal qualification update: 2026-10-23
+- Last remediation update: 2026-10-23
 - Target stable release: `1.0.0`
 
 This document is the source of truth for BabelLeaf version planning, implementation sequencing, code review, and release acceptance. Release notes record what a version actually delivered; this roadmap records what must be delivered before work advances to the next version.
@@ -112,6 +112,7 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | 0.4.3 | PC feature closure | The desktop reader exposes the comic workspace, local OCR sidecar/model workflow, selectable text, translation, cleanup, typesetting, and separate CBZ/PDF export. The public tag is retained as historical evidence and is not moved. |
 | 0.4.4 | Traceable PC release closure | Preserve the 0.4 feature set while binding the post-0.4.3 acceptance fixes to one reviewed commit, exact package, checksums, SBOM, remote checks, immutable tag, and published release record. |
 | 0.4.5 | PC audit remediation | Close reopened internal security, persistence, lifecycle and resource gates with new exact-source evidence; carry owner-deferred external gates forward without changing the PC scope. |
+| 0.4.6 | Independent-audit closure | Close October 18 dictionary, consent, ordinary configuration and supply-chain findings, with new copied-runtime and exact-artifact evidence. |
 | 0.5.0 | macOS and portable-core qualification | macOS ships natively and desktop assumptions are removed from the shared core |
 | 0.6.0 | Android | Android imports, reads, translates, looks up, speaks, and persists supported local content |
 | 0.7.0 | iOS/iPadOS | iOS and iPadOS meet equivalent native import, reading, translation, speech, and persistence requirements |
@@ -430,6 +431,26 @@ or claiming complete externally verified acceptance.
 Current status: **INTERNAL IMPLEMENTATION PASS / EXTERNAL VALIDATION DEFERRED**.
 See `PC_0.4.5_INTERNAL_ACCEPTANCE_2026-10-11.md`, `RELEASE_0.4.5.md` and the
 post-commit provenance record. No 0.5 implementation has started.
+
+## 0.4.6 - Independent-audit security and persistence closure
+
+- Close AUD18-01 through AUD18-05 from `INDEPENDENT_AUDIT_0.4.5_2026-10-18.md`.
+- Make local dictionary markup inert/sanitized; require fresh session-scoped
+  consent before any resumed viewport translation request.
+- Protect ordinary book configurations/annotations with validated atomic writes,
+  retained dirty snapshots, close protection, conflict merging, bounded recovery
+  copies and visible failure/recovery state.
+- Upgrade reachable vulnerable dependencies; keep exact development-only
+  security backports, raw audit findings and unmaintained warnings transparent.
+  No global advisory suppression or lower security threshold is permitted.
+- Bind copied PDF/OCR/WASM/font assets to exact provenance, notices and hashes,
+  including verified static output and artifact-bound SBOM evidence.
+- Requalify all applicable regression, native interruption, installer lifecycle,
+  resource budgets and protected remote merge gates before internal closure.
+- Current status: **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED**.
+  See `PC_0.4.6_INTERNAL_ACCEPTANCE.md` and final canonical-main release receipts;
+  preserve `PC_0.4.6_REMEDIATION_STATUS.md` as the execution/failing-before ledger.
+  Owner-deferred external gates remain deferred; no 0.5 development is authorized.
 
 ## 0.5.0 - macOS and portable-core qualification
 

@@ -66,7 +66,7 @@ const BookmarkToggler: React.FC<BookmarkTogglerProps> = ({ bookKey }) => {
       }
       const updatedConfig = updateBooknotes(bookKey, bookmarks);
       if (updatedConfig) {
-        saveConfig(envConfig, bookKey, updatedConfig, settings);
+        void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
       }
     } else {
       setIsBookmarked(false);
@@ -77,7 +77,7 @@ const BookmarkToggler: React.FC<BookmarkTogglerProps> = ({ bookKey }) => {
       });
       const updatedConfig = updateBooknotes(bookKey, bookmarks);
       if (updatedConfig) {
-        saveConfig(envConfig, bookKey, updatedConfig, settings);
+        void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
       }
     }
   };

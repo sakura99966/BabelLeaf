@@ -5,6 +5,10 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { tauriQuitApp } from '@/utils/window';
 import {
+  loadRecoverableBookConfig,
+  saveRecoverableBookConfig,
+} from '@/services/bookConfigPersistence';
+import {
   createTranslationArtifact,
   getTranslationArtifactPath,
   TranslationArtifactStore,
@@ -44,7 +48,11 @@ const run = async () => {
     targetLang: 'zh-CN',
   });
   const store = new TranslationArtifactStore(service);
-  if (phase === 'workload') {
+  if (phase === 'reading-performance') {
+    report(await (await import('./native-reading-performance')).runNativeReadingPerformance(root));
+  } else if (phase === 'performance') {
+    report(await (await import('./native-performance')).runNativePerformance(root));
+  } else if (phase === 'workload') {
     report(await (await import('./native-workload')).runNativeWorkload(root));
   } else if (phase === 'veto-close') {
     await getCurrentWindow().onCloseRequested((event) => event.preventDefault());
@@ -138,6 +146,89 @@ const run = async () => {
     const resumed = await load();
     if (resumed?.count !== 44) throw new Error('Process death left persistence locked');
     report({ stage: 'recovered', main: main.count, backup: backup.count, resumed: resumed.count });
+  } else if (phase === 'config-before-main') {
+    await service.createDir('', 'Books', true);
+    const original = {
+      schemaVersion: 3,
+      updatedAt: 1,
+      booknotes: [
+        { id: 'one', type: 'annotation', cfi: 'original', text: 'Original note', updatedAt: 1 },
+      ],
+    };
+    await saveRecoverableBookConfig(service, 'config-crash.json', original);
+    const writeAtomic = service.writeFileAtomic.bind(service);
+    service.writeFileAtomic = async (...args) => {
+      if (args[0] === 'config-crash.json') {
+        report({ stage: 'config-before-main', committedNotes: 1 });
+        await new Promise<void>(() => {});
+      }
+      return writeAtomic(...args);
+    };
+    await saveRecoverableBookConfig(service, 'config-crash.json', {
+      ...original,
+      updatedAt: 2,
+      booknotes: [
+        ...original.booknotes,
+        { id: 'unsaved', type: 'annotation', text: 'Not committed' },
+      ],
+    });
+  } else if (phase === 'config-after-main') {
+    const recovered = await loadRecoverableBookConfig(service, 'config-crash.json');
+    if (!Array.isArray(recovered['booknotes']) || recovered['booknotes'].length !== 1)
+      throw new Error('Interrupted annotation replacement lost committed notes');
+    await saveRecoverableBookConfig(service, 'config-crash.json', {
+      schemaVersion: 3,
+      updatedAt: 3,
+      booknotes: [
+        {
+          id: 'one',
+          type: 'annotation',
+          cfi: 'original',
+          text: 'Original note',
+          deletedAt: 3,
+          updatedAt: 3,
+        },
+        {
+          id: 'two',
+          type: 'annotation',
+          cfi: 'next',
+          text: 'Committed after restart',
+          updatedAt: 3,
+        },
+      ],
+    });
+    report({ stage: 'config-after-main', committedNotes: 2 });
+  } else if (phase === 'recover-config') {
+    const committed = await loadRecoverableBookConfig(service, 'config-crash.json');
+    const notes = committed['booknotes'];
+    if (!Array.isArray(notes) || notes.length !== 2 || !notes.some((note) => note.deletedAt === 3))
+      throw new Error('Committed annotation or deletion did not survive process kill');
+    const damaged = new Uint8Array([0xff, 0xfe, 0x00]);
+    await service.writeFile('config-crash.json', 'Books', damaged.buffer);
+    let notified = false;
+    const restored = await loadRecoverableBookConfig(service, 'config-crash.json', {
+      onRecovered: () => {
+        notified = true;
+      },
+    });
+    const archived = new Uint8Array(
+      (await service.readFile('config-crash.json.invalid', 'Books', 'binary')) as ArrayBuffer,
+    );
+    if (
+      !notified ||
+      archived.length !== damaged.length ||
+      archived.some((byte, i) => byte !== damaged[i]) ||
+      !Array.isArray(restored['booknotes']) ||
+      restored['booknotes'].length !== 1
+    )
+      throw new Error('Native annotation backup recovery or exact-byte archive failed');
+    report({
+      stage: 'recover-config',
+      committedNotes: 2,
+      restoredNotes: 1,
+      invalidBytesPreserved: true,
+      notified,
+    });
   } else if (phase === 'artifact-journal') {
     await store.save(artifact);
     const writeAtomic = service.writeFileAtomic.bind(service);

@@ -1936,5 +1936,8 @@
   "— William Shakespeare, As You Like It": "— Uilyam Shekspir, Xohishingizga ko‘ra",
   "Failed to download and install update": "Yangilanishni yuklab olish va o'rnatishda xatolik yuz berdi",
   "Additional Margin (%)": "Qoʻshimcha chet (%)",
-  "Translation not saved. Keep this book open and retry saving.": "Tarjima saqlanmadi. Ushbu kitobni ochiq qoldiring va qayta saqlashga urinib ko‘ring."
+  "Translation not saved. Keep this book open and retry saving.": "Tarjima saqlanmadi. Ushbu kitobni ochiq qoldiring va qayta saqlashga urinib ko‘ring.",
+  "Book changes not saved. Keep this book open and retry saving.": "Kitobdagi o‘zgarishlar saqlanmadi. Kitobni ochiq qoldiring va qayta saqlashga urinib ko‘ring.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "Kitob sozlamalari mahalliy zaxiradan tiklandi. Davom etishdan oldin izohlarni tekshiring.",
+  "Dismiss": "Yopish"
 }

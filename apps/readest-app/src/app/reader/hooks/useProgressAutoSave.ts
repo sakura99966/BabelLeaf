@@ -40,8 +40,13 @@ export const useProgressAutoSave = (bookKey: string) => {
         }
         if (currentLocation === lastSavedLocationRef.current) return;
         const settings = useSettingsStore.getState().settings;
-        await saveConfig(envConfig, bookKey, config, settings);
-        lastSavedLocationRef.current = currentLocation;
+        try {
+          await saveConfig(envConfig, bookKey, config, settings);
+          lastSavedLocationRef.current = currentLocation;
+        } catch {
+          // The dirty snapshot, visible warning and close veto are owned by
+          // bookDataStore's configuration save queue, not by this timer.
+        }
       }, 500);
     }, 1000),
     [],

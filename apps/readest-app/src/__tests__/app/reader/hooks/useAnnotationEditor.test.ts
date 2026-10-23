@@ -10,7 +10,7 @@ import type { BookNote } from '@/types/book';
 const h = vi.hoisted(() => ({
   view: { getCFI: vi.fn(() => 'new-cfi'), addAnnotation: vi.fn() },
   updateBooknotes: vi.fn(() => ({})),
-  saveConfig: vi.fn(),
+  saveConfig: vi.fn(async () => {}),
   annotations: [] as BookNote[],
 }));
 

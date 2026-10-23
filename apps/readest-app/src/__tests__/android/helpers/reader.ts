@@ -11,6 +11,7 @@ import {
   writeAppFile,
 } from './adb';
 import { CdpPage, forwardWebViewDevtools, listPages } from './cdp';
+import { javascriptLiteral } from './javascriptLiteral';
 
 export const APP_PKG = 'com.bilingify.readest';
 const CDP_PORT = Number(process.env['READEST_CDP_PORT'] ?? 9333);
@@ -211,7 +212,7 @@ export const gotoChapter = async (page: CdpPage, labelPattern: string): Promise<
       }
     };
     walk(view.book.toc);
-    const re = new RegExp(${JSON.stringify(labelPattern)}, 'i');
+    const re = new RegExp(${javascriptLiteral(labelPattern)}, 'i');
     const match = flat.find((item) => re.test(item.label ?? ''));
     if (!match) return false;
     await view.goTo(match.href);
@@ -338,7 +339,7 @@ const findTargetsOnCurrentPage = (page: CdpPage) =>
 const turnPage = (page: CdpPage, dir: 'next' | 'prev') =>
   page.evaluate<boolean>(`
     const view = document.querySelector('foliate-view');
-    await view.renderer.${dir}();
+    await view.renderer[${javascriptLiteral(dir)}]();
     await new Promise((r) => setTimeout(r, 200));
     return true;
   `);
@@ -364,12 +365,12 @@ export const locateWord = (page: CdpPage, prefix: string, ref: WordRef) =>
       const walker = c.doc.createTreeWalker(c.doc.body, NodeFilter.SHOW_TEXT);
       let node;
       while ((node = walker.nextNode())) {
-        if (!node.data.trim().startsWith(${JSON.stringify(prefix)})) continue;
-        if (node.data.slice(${JSON.stringify(ref.index)}, ${ref.index + ref.word.length}) !==
-            ${JSON.stringify(ref.word)}) continue;
+        if (!node.data.trim().startsWith(${javascriptLiteral(prefix)})) continue;
+        if (node.data.slice(${javascriptLiteral(ref.index)}, ${javascriptLiteral(ref.index + ref.word.length)}) !==
+            ${javascriptLiteral(ref.word)}) continue;
         const range = c.doc.createRange();
-        range.setStart(node, ${ref.index});
-        range.setEnd(node, ${ref.index + ref.word.length});
+        range.setStart(node, ${javascriptLiteral(ref.index)});
+        range.setEnd(node, ${javascriptLiteral(ref.index + ref.word.length)});
         const rect = range.getBoundingClientRect();
         const frame = c.doc.defaultView.frameElement.getBoundingClientRect();
         const dpr = window.devicePixelRatio || 1;
@@ -438,7 +439,7 @@ export const getReaderMetrics = (page: CdpPage, sectionIndex?: number) =>
     const renderer = view.renderer;
     const contents = renderer.getContents();
     const content =
-      contents.find((c) => c.doc && c.index === ${sectionIndex ?? -1}) ??
+      contents.find((c) => c.doc && c.index === ${javascriptLiteral(sectionIndex ?? -1)}) ??
       contents.find((c) => c.doc);
     return {
       dpr: window.devicePixelRatio || 1,
@@ -456,13 +457,13 @@ export const gotoFrameX = (page: CdpPage, frameX: number, sectionIndex?: number)
     const view = document.querySelector('foliate-view');
     const contents = view.renderer.getContents();
     const content =
-      contents.find((c) => c.doc && c.index === ${sectionIndex ?? -1}) ??
+      contents.find((c) => c.doc && c.index === ${javascriptLiteral(sectionIndex ?? -1)}) ??
       contents.find((c) => c.doc);
     const fx = () => content.doc.defaultView.frameElement.getBoundingClientRect().x;
     for (let i = 0; i < 60; i++) {
       const x = fx();
-      if (Math.abs(x - ${frameX}) < 2) break;
-      if (x < ${frameX}) await view.renderer.prev();
+      if (Math.abs(x - ${javascriptLiteral(frameX)}) < 2) break;
+      if (x < ${javascriptLiteral(frameX)}) await view.renderer.prev();
       else await view.renderer.next();
       await new Promise((r) => setTimeout(r, 150));
     }
@@ -512,7 +513,7 @@ export const dismissSelection = async (page: CdpPage): Promise<void> => {
     if (!popup) return candidates[0];
     const rect = popup.getBoundingClientRect();
     const clear = candidates.find(
-      (f) => ${viewHeight} * f < rect.top - 24 || ${viewHeight} * f > rect.bottom + 24,
+      (f) => ${javascriptLiteral(viewHeight)} * f < rect.top - 24 || ${javascriptLiteral(viewHeight)} * f > rect.bottom + 24,
     );
     return clear ?? candidates[0];
   `);

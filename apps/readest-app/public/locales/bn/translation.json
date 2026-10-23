@@ -1936,5 +1936,8 @@
   "— William Shakespeare, As You Like It": "— উইলিয়াম শেক্সপিয়ার, অ্যাজ ইউ লাইক ইট",
   "Failed to download and install update": "আপডেট ডাউনলোড এবং ইনস্টল করতে ব্যর্থ হয়েছে",
   "Additional Margin (%)": "অতিরিক্ত মার্জিন (%)",
-  "Translation not saved. Keep this book open and retry saving.": "অনুবাদ সংরক্ষিত হয়নি। এই বইটি খোলা রাখুন এবং আবার সংরক্ষণের চেষ্টা করুন।"
+  "Translation not saved. Keep this book open and retry saving.": "অনুবাদ সংরক্ষিত হয়নি। এই বইটি খোলা রাখুন এবং আবার সংরক্ষণের চেষ্টা করুন।",
+  "Book changes not saved. Keep this book open and retry saving.": "বইয়ের পরিবর্তনগুলি সংরক্ষিত হয়নি। এই বইটি খোলা রাখুন এবং আবার সংরক্ষণের চেষ্টা করুন।",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "স্থানীয় ব্যাকআপ থেকে বইয়ের সেটিংস পুনরুদ্ধার করা হয়েছে। চালিয়ে যাওয়ার আগে টীকাগুলি পরীক্ষা করুন।",
+  "Dismiss": "বন্ধ করুন"
 }

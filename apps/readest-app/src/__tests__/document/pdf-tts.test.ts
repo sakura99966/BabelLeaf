@@ -6,13 +6,11 @@ import { TTS } from 'foliate-js/tts.js';
 import { createRejectFilter } from '@/utils/node';
 import { DocumentLoader } from '@/libs/document';
 import type { BookDoc } from '@/libs/document';
+import { ssmlText as stripTags } from '../helpers/ssmlText';
 
 // The @pdfjs alias in vitest.config.mts resolves to public/vendor/pdfjs,
 // mirroring how foliate-js/pdf.js does `import '@pdfjs/pdf.min.mjs'`.
 const vendorDir = join(process.cwd(), 'public/vendor');
-
-/** Strip all XML/SSML tags to get plain text content */
-const stripTags = (ssml: string): string => ssml.replace(/<[^>]+\/?>/g, '').trim();
 
 const highlight = vi.fn();
 

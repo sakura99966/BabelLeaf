@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 const bridgeBind = vi.fn().mockResolvedValue(undefined);
 const bridgeUnbind = vi.fn();
 const releaseKeepAlive = vi.fn();
+const releaseClosedBookContent = vi.fn().mockResolvedValue(false);
+vi.mock('@/services/bookResourceLifecycle', () => ({ releaseClosedBookContent }));
 
 vi.mock('@/services/tts/ttsMediaBridge', () => ({
   ttsMediaBridge: {
@@ -96,9 +98,11 @@ describe('TTSSessionManager', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     eventDispatcher.off('tts-playback-state', playbackListener as never);
     manager.setSleepTimer(0);
+    await manager.stopActive('quit');
+    await flush();
     ttsSessionPresence.setActive(false);
   });
 
@@ -110,6 +114,58 @@ describe('TTSSessionManager', () => {
     expect(ttsSessionPresence.isActive()).toBe(true);
     expect(bridgeBind).toHaveBeenCalled();
     expect(sessionEvents.at(-1)?.reason).toBe('claimed');
+  });
+
+  test('retains the document until asynchronous speech shutdown has settled', async () => {
+    let complete: (() => void) | undefined;
+    controller.shutdown.mockImplementation(
+      () =>
+        new Promise<void>((done) => {
+          complete = done;
+        }),
+    );
+    claim();
+    const pending = manager.stopActive('user');
+    await flush();
+    expect(ttsSessionPresence.isActive()).toBe(false);
+    expect(ttsSessionPresence.hasBookOwner('hashA')).toBe(true);
+    complete?.();
+    await pending;
+    expect(ttsSessionPresence.hasBookOwner('hashA')).toBe(false);
+  });
+
+  test('a replaced controller cannot release a newer same-book speech owner', async () => {
+    let complete: (() => void) | undefined;
+    controller.shutdown.mockImplementation(
+      () =>
+        new Promise<void>((done) => {
+          complete = done;
+        }),
+    );
+    claim();
+    const replacement = new FakeController();
+    claim('hashA-r2', replacement);
+    await manager.stopActive('user');
+    expect(ttsSessionPresence.hasBookOwner('hashA')).toBe(true);
+    complete?.();
+    await flush();
+    expect(ttsSessionPresence.hasBookOwner('hashA')).toBe(false);
+  });
+
+  test('still shuts down speech and releases resources if media unbind fails', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      claim();
+      bridgeUnbind.mockImplementationOnce(() => {
+        throw new Error('native bridge failure');
+      });
+      await expect(manager.stopActive('user')).resolves.toBeUndefined();
+      expect(controller.shutdown).toHaveBeenCalled();
+      expect(releaseKeepAlive).toHaveBeenCalled();
+      expect(ttsSessionPresence.hasBookOwner('hashA')).toBe(false);
+    } finally {
+      warning.mockRestore();
+    }
   });
 
   test('claim for the same hash replaces the controller without stopping the slot', async () => {
@@ -195,6 +251,20 @@ describe('TTSSessionManager', () => {
     vi.useRealTimers();
     await manager.stopActive('user');
     expect(saveConfig).toHaveBeenCalled();
+  });
+
+  test('reports rejected headless persistence without an unhandled rejection', async () => {
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    saveConfig.mockRejectedValueOnce(new Error('disk full'));
+    try {
+      claim();
+      manager.detach('hashA');
+      controller.emitMark('epubcfi(/6/8!/4/2)');
+      await flush();
+      expect(warning).toHaveBeenCalledWith('TTS headless persistence failed:', expect.any(Error));
+    } finally {
+      warning.mockRestore();
+    }
   });
 
   test('persistence is a no-op while the view is attached (the hook owns it)', () => {

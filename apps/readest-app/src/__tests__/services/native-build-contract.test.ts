@@ -18,6 +18,20 @@ describe('BabelLeaf native build contract', () => {
       probe.indexOf('await remote('),
     );
   });
+  test('freezes native probe prebundles before dynamic reading and speech imports', () => {
+    const probe = readSource('scripts/test-windows-crash-recovery.mjs');
+    expect(probe).toMatch(/optimizeDeps:\s*\{\s*noDiscovery:\s*true/);
+    for (const dependency of [
+      'i18next',
+      'i18next-browser-languagedetector',
+      'react-i18next',
+      'i18next-http-backend',
+    ]) {
+      expect(probe).toContain(`'${dependency}'`);
+    }
+    expect(probe).toContain('hmr: false');
+  });
+
   test('aligns the application MSRV with the vendored Tauri workspace', () => {
     const rootManifest = readSource('../../Cargo.toml');
     const appManifest = readSource('src-tauri/Cargo.toml');

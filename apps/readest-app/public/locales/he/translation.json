@@ -1972,5 +1972,8 @@
   "— William Shakespeare, As You Like It": "— ויליאם שייקספיר, כטוב בעיניכם",
   "Failed to download and install update": "הורדת העדכון והתקנתו נכשלו",
   "Additional Margin (%)": "שוליים נוספים (%)",
-  "Translation not saved. Keep this book open and retry saving.": "התרגום לא נשמר. יש להשאיר את הספר פתוח ולנסות לשמור שוב."
+  "Translation not saved. Keep this book open and retry saving.": "התרגום לא נשמר. יש להשאיר את הספר פתוח ולנסות לשמור שוב.",
+  "Book changes not saved. Keep this book open and retry saving.": "השינויים בספר לא נשמרו. השאירו את הספר פתוח ונסו לשמור שוב.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "הגדרות הספר שוחזרו מגיבוי מקומי. יש לבדוק את ההערות לפני ההמשך.",
+  "Dismiss": "סגירה"
 }

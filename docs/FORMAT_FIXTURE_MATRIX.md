@@ -1,4 +1,9 @@
-# BabelLeaf 0.4.3 format, OCR, and comic-pipeline fixture matrix
+# BabelLeaf local format, OCR, and comic-pipeline fixture matrix
+
+Current executable matrix verified during 0.4.6 remediation: 39 generated files,
+48 manifest entries, and zero missing/external-required entries. These are
+bounded parser/diagnostic fixtures, not representative-book or manga quality
+acceptance. The owner's separate lawful-corpus quality gate remains deferred.
 
 This matrix is the release gate for local text extraction and translation. It
 uses only repository-owned or legally obtained DRM-free samples. The test
@@ -10,7 +15,8 @@ rewrites an imported source.
 | EPUB | `sample-alice.epub` | malformed ZIP/container | empty spine | encryption marker | text extraction |
 | PDF | `sample-alice.pdf` | malformed header/xref | `sample-paper.pdf` or image-only page | encrypted document | text-layer/mixed/image-only diagnostic |
 | MOBI | `sample-war-peace.mobi` | truncated PalmDB | empty record | DRM marker | MOBI parser |
-| AZW/AZW3 | external legal native samples required | generated truncated record | generated empty/limit case | generated marker | MOBI-family parser |
+| AZW | classic DRM-free MOBI-container copy under the AZW extension | generated truncated record | generated empty/limit case | generated marker | classic MOBI-family extension route only |
+| AZW3 | repository-authored `sample-babelleaf.azw3`, genuine KF8 generated with pinned Kindling v0.31.0 and adjacent provenance | generated truncated record | generated limit case | generated marker | KF8 parser, not renamed MOBI |
 | FB2 | `sample-metadata.fb2` | malformed XML/entity | empty body | rights marker | XML parser |
 | CBZ | `sample-metadata.cbz` | malformed ZIP/traversal entry | image-only archive | encrypted ZIP | local OCR text layer |
 | TXT | `sample-alice.txt` | invalid/oversized input | zero-byte file | rights marker | bounded text conversion |
@@ -40,10 +46,13 @@ The OCR-specific fixtures are represented by `OCR_FORMAT_FIXTURE_MATRIX` in
 `apps/readest-app/src/services/translators/formatMatrix.ts`. They cover local
 CBZ/FBZ pages, image-only and mixed PDFs, and platform-provided image-folder
 manifests. Generated cases cover malformed, image-only, traversal, and
-resource-limit routing. Native AZW/AZW3, FBZ, scanned-PDF, and user-folder
-samples are marked `external-required` until a legally obtained sample is
-recorded with its hash; renaming a MOBI or ZIP file does not satisfy those
-entries. The matrix does not cause directory scanning or network downloads.
+resource-limit routing. FBZ, scanned-PDF and image-folder manifests have
+repository-authored deterministic cases. AZW covers the legitimate classic
+MOBI-container extension route; it is not evidence for every Amazon variant.
+AZW3 uses the separate genuine KF8 fixture and recorded generator provenance,
+not a renamed MOBI. Hashes and exact case kinds live in the executable manifest.
+Representative user documents and OCR quality remain external. The matrix does
+not cause directory scanning or network downloads.
 
 ## Comic workspace matrix
 

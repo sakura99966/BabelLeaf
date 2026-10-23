@@ -2050,5 +2050,8 @@
   "Preview local LaMa cleanup": "预览本地 LaMa 修复",
   "Clear cleanup preview": "清除修复预览",
   "Local LaMa cleanup preview rendered without changing the source.": "本地 LaMa 修复预览已生成，源文件未被修改。",
-  "Translation not saved. Keep this book open and retry saving.": "译文尚未保存。请保持本书打开，并重试保存。"
+  "Translation not saved. Keep this book open and retry saving.": "译文尚未保存。请保持本书打开，并重试保存。",
+  "Book changes not saved. Keep this book open and retry saving.": "书籍更改尚未保存。请保持本书打开，并重试保存。",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "已从本地备份恢复书籍设置。请检查批注后再继续。",
+  "Dismiss": "关闭"
 }

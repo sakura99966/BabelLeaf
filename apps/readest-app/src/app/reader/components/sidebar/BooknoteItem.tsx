@@ -90,7 +90,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, isNearest, o
     });
     const updatedConfig = updateBooknotes(bookKey, booknotes);
     if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+      void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
     }
   };
 
@@ -140,7 +140,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, isNearest, o
     annotations[existingIndex]!.text = editorDraft;
     const updatedConfig = updateBooknotes(bookKey, annotations);
     if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+      void saveConfig(envConfig, bookKey, updatedConfig, settings).catch(() => {});
     }
   };
 

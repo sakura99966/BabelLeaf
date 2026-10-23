@@ -4,7 +4,7 @@ This document defines the Windows desktop baseline that must be satisfied
 before 0.4 can be accepted. It is not, by itself, a statement that the current
 candidate has passed. The authoritative current verdict is recorded in
 `DEVELOPMENT_ROADMAP.md` and the active
-`PC_0.4.5_INTERNAL_ACCEPTANCE_2026-10-11.md` qualification record. The
+`PC_0.4.6_INTERNAL_ACCEPTANCE.md` qualification record. The
 `AUDIT_REMEDIATION_0.4.4_2026-09-19.md` ledger preserves failing-before evidence.
 `PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md` and
 `PC_0.4.4_RELEASE_ACCEPTANCE_2026-08-23.md` are historical evidence, not proof

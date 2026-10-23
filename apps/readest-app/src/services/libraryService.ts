@@ -1,7 +1,8 @@
 import { FileSystem, SaveLibraryBooksOptions } from '@/types/system';
 import { Book } from '@/types/book';
 import { getLibraryFilename } from '@/utils/book';
-import { safeLoadJSON, safeSaveJSON } from './persistence';
+import { safeLoadJSON, updateJSON } from './persistence';
+import { validateLibrarySnapshot } from './localStateValidation';
 
 const COVER_CONCURRENCY = 20;
 
@@ -25,7 +26,13 @@ export async function loadLibraryBooks(
     await fs.createDir('', 'Books', true);
   }
 
-  const books = await safeLoadJSON<Book[]>(fs, libraryFilename, 'Books', []);
+  const books = await safeLoadJSON<Book[]>(
+    fs,
+    libraryFilename,
+    'Books',
+    [],
+    validateLibrarySnapshot,
+  );
 
   await processInBatches(books, COVER_CONCURRENCY, async (book) => {
     book.coverImageUrl = await generateCoverImageUrl(book);
@@ -44,7 +51,7 @@ export async function saveLibraryBooks(
   const incoming = books.map(({ coverImageUrl, ...rest }) => rest);
 
   if (options?.replace) {
-    await safeSaveJSON(fs, getLibraryFilename(), 'Books', incoming);
+    await updateJSON(fs, getLibraryFilename(), 'Books', () => incoming, validateLibrarySnapshot);
     return;
   }
 
@@ -54,9 +61,17 @@ export async function saveLibraryBooks(
   // This stops a stale or partially-loaded in-memory library (e.g. the
   // cold-start "Open with" race) from wiping library.json. Deliberate removals
   // must go through `{ replace: true }`.
-  const existing = await safeLoadJSON<Book[]>(fs, getLibraryFilename(), 'Books', []);
-  const merged = new Map<string, Book>();
-  for (const book of existing) merged.set(book.hash, book);
-  for (const book of incoming) merged.set(book.hash, book); // incoming wins per hash
-  await safeSaveJSON(fs, getLibraryFilename(), 'Books', Array.from(merged.values()));
+  await updateJSON(
+    fs,
+    getLibraryFilename(),
+    'Books',
+    (value) => {
+      const existing = (value ?? []) as Book[];
+      const merged = new Map<string, Book>();
+      for (const book of existing) merged.set(book.hash, book);
+      for (const book of incoming) merged.set(book.hash, book);
+      return Array.from(merged.values());
+    },
+    validateLibrarySnapshot,
+  );
 }

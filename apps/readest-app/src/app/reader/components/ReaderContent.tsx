@@ -8,6 +8,7 @@ import { useEnv } from '@/context/EnvContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
+import { releaseClosedBookContent } from '@/services/bookResourceLifecycle';
 import { useSidebarStore } from '@/store/sidebarStore';
 import { useGamepad } from '@/hooks/useGamepad';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -35,6 +36,7 @@ import SideBar from './sidebar/SideBar';
 import Notebook from './notebook/Notebook';
 import BooksGrid from './BooksGrid';
 import SettingsDialog from '@/components/settings/SettingsDialog';
+import { BookConfigSaveWarning } from './BookConfigSaveWarning';
 
 const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ ids, settings }) => {
   const _ = useTranslation();
@@ -148,7 +150,15 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
     const { isPrimary } = getViewState(bookKey) || {};
     if (isPrimary && book && config) {
       const settings = useSettingsStore.getState().settings;
-      await saveConfig(envConfig, bookKey, config, settings);
+      try {
+        await saveConfig(envConfig, bookKey, config, settings);
+      } catch (error) {
+        void eventDispatcher.dispatch('toast', {
+          message: _('Book changes not saved. Keep this book open and retry saving.'),
+          type: 'error',
+        });
+        throw error;
+      }
     }
   };
 
@@ -171,6 +181,9 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
       bookKey,
     });
     clearViewState(bookKey);
+    await releaseClosedBookContent(bookKey).catch((error) => {
+      console.warn('Closed book resource cleanup failed:', error);
+    });
   };
 
   const navigateBackToLibrary = () => {
@@ -191,7 +204,9 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
       await readerCloseGuard.prepare(keys);
     } catch (error) {
       void eventDispatcher.dispatch('toast', {
-        message: _('Translation not saved. Keep this book open and retry saving.'),
+        message: keys.some((key) => useBookDataStore.getState().configSaveErrors[key])
+          ? _('Book changes not saved. Keep this book open and retry saving.')
+          : _('Translation not saved. Keep this book open and retry saving.'),
         type: 'error',
       });
       throw error;
@@ -273,6 +288,7 @@ const ReaderContent: React.FC<{ ids?: string; settings: SystemSettings }> = ({ i
 
   return (
     <div className='reader-content full-height flex'>
+      <BookConfigSaveWarning bookKeys={bookKeys} />
       <SideBar />
       <BooksGrid
         bookKeys={bookKeys}

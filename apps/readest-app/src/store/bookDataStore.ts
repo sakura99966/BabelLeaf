@@ -4,6 +4,17 @@ import { Book, BookConfig, BookNote } from '@/types/book';
 import { EnvConfigType } from '@/services/environment';
 import { BookDoc } from '@/libs/document';
 import { useLibraryStore } from './libraryStore';
+import { BookConfigSaveQueue } from '@/services/bookConfigSaveQueue';
+import { mergeBooknoteSnapshots } from '@/utils/booknoteMerge';
+
+const configSaveQueue = new BookConfigSaveQueue(undefined, (bookKey, error) => {
+  useBookDataStore.setState((state) => {
+    const configSaveErrors = { ...state.configSaveErrors };
+    if (error) configSaveErrors[bookKey] = error;
+    else delete configSaveErrors[bookKey];
+    return { configSaveErrors };
+  });
+});
 
 // Throttle library.json writes triggered by per-book saveConfig.
 //
@@ -67,6 +78,8 @@ export interface BookData {
 
 interface BookDataState {
   booksData: { [id: string]: BookData };
+  configSaveErrors: Record<string, string>;
+  retryConfigSave: (bookKey: string) => Promise<void>;
   getConfig: (key: string | null) => BookConfig | null;
   setConfig: (key: string, partialConfig: Partial<BookConfig>) => void;
   saveConfig: (
@@ -78,16 +91,22 @@ interface BookDataState {
   updateBooknotes: (key: string, booknotes: BookNote[]) => BookConfig | undefined;
   getBookData: (keyOrId: string) => BookData | null;
   clearBookData: (keyOrId: string) => void;
+  releaseBookContent: (keyOrId: string) => Promise<void>;
 }
 
 export const useBookDataStore = create<BookDataState>((set, get) => ({
   booksData: {},
+  configSaveErrors: {},
+  retryConfigSave: (bookKey) => configSaveQueue.retry(bookKey),
   getBookData: (keyOrId: string) => {
     const id = keyOrId.split('-')[0]!;
     return get().booksData[id] || null;
   },
   clearBookData: (keyOrId: string) => {
     const id = keyOrId.split('-')[0]!;
+    void get()
+      .releaseBookContent(id)
+      .catch((error) => console.warn('Book resource cleanup failed:', error));
     set((state) => {
       const newBooksData = { ...state.booksData };
       delete newBooksData[id];
@@ -95,6 +114,30 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
         booksData: newBooksData,
       };
     });
+  },
+  releaseBookContent: async (keyOrId: string) => {
+    const id = keyOrId.split('-')[0]!;
+    const data = get().booksData[id];
+    if (!data || (!data.bookDoc && !data.file)) return;
+    const { bookDoc, file } = data;
+    // Detach synchronously, before teardown can yield. A reopen must create
+    // new resources, and an old completion must not erase that new document.
+    set((state) => ({
+      booksData: { ...state.booksData, [id]: { ...data, bookDoc: null, file: null } },
+    }));
+    const errors: unknown[] = [];
+    try {
+      await bookDoc?.destroy?.();
+    } catch (error) {
+      errors.push(error);
+    }
+    const nativeFile = file as (File & { close?: () => void | Promise<void> }) | null;
+    try {
+      await nativeFile?.close?.();
+    } catch (error) {
+      errors.push(error);
+    }
+    if (errors.length) throw new AggregateError(errors, 'Failed to release book resources');
   },
   getConfig: (key: string | null) => {
     if (!key) return null;
@@ -126,40 +169,51 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
     config: BookConfig,
     settings: SystemSettings,
   ) => {
-    const appService = await envConfig.getAppService();
-    const { library, hashIndex, setLibrary } = useLibraryStore.getState();
-    const hash = bookKey.split('-')[0]!;
-    const idx = hashIndex.get(hash);
-    if (idx === undefined) return;
+    const current = get().getConfig(bookKey);
+    const snapshot = JSON.parse(
+      JSON.stringify({
+        ...config,
+        ...(current?.booknotes !== undefined || config.booknotes !== undefined
+          ? { booknotes: mergeBooknoteSnapshots(current?.booknotes, config.booknotes) }
+          : {}),
+      }),
+    ) as BookConfig;
+    return configSaveQueue.save(bookKey, async () => {
+      const appService = await envConfig.getAppService();
+      const { library, hashIndex, setLibrary } = useLibraryStore.getState();
+      const hash = bookKey.split('-')[0]!;
+      const idx = hashIndex.get(hash);
+      if (idx === undefined) throw new Error('Book not found in library; changes remain unsaved');
 
-    // Immutably move the book to the front of the library with updated
-    // progress and timestamps. We do NOT mutate the existing book object or
-    // the existing library array — Zustand subscribers see fresh references
-    // and the visibleLibrary cache stays in sync via setLibrary's full update.
-    const now = Date.now();
-    const original = library[idx]!;
-    const updatedBook: Book = {
-      ...original,
-      progress: config.progress,
-      updatedAt: now,
-      downloadedAt: original.downloadedAt || now,
-    };
-    const newLibrary = [updatedBook, ...library.slice(0, idx), ...library.slice(idx + 1)];
-    setLibrary(newLibrary);
+      // Immutably move the book to the front of the library with updated
+      // progress and timestamps. We do NOT mutate the existing book object or
+      // the existing library array — Zustand subscribers see fresh references
+      // and the visibleLibrary cache stays in sync via setLibrary's full update.
+      const now = Date.now();
+      const original = library[idx]!;
+      const updatedBook: Book = {
+        ...original,
+        progress: snapshot.progress,
+        updatedAt: now,
+        downloadedAt: original.downloadedAt || now,
+      };
+      const newLibrary = [updatedBook, ...library.slice(0, idx), ...library.slice(idx + 1)];
+      setLibrary(newLibrary);
 
-    // Refresh updatedAt immutably via the store rather than mutating the
-    // caller-provided object. This notifies Zustand subscribers and works
-    // regardless of whether the caller passed the shared store config.
-    get().setConfig(bookKey, { updatedAt: now });
-    const configToSave = { ...config, updatedAt: now };
-    // Per-book config: still write eagerly — it's small (one book's
-    // settings + booknotes) and is the source of truth used by sync to
-    // reconstruct the shelf if library.json is missing or stale.
-    await appService.saveBookConfig(updatedBook, configToSave, settings);
-    // Library JSON write: throttled (see scheduleLibrarySave docs) so a
-    // burst of saveConfig calls during reading doesn't fire IPC on every
-    // page turn.
-    scheduleLibrarySave(appService);
+      // Refresh updatedAt immutably via the store rather than mutating the
+      // caller-provided object. This notifies Zustand subscribers and works
+      // regardless of whether the caller passed the shared store config.
+      get().setConfig(bookKey, { updatedAt: now });
+      const configToSave = { ...snapshot, updatedAt: now };
+      // Per-book config: still write eagerly — it's small (one book's
+      // settings + booknotes) and is the source of truth used by sync to
+      // reconstruct the shelf if library.json is missing or stale.
+      await appService.saveBookConfig(updatedBook, configToSave, settings);
+      // Library JSON write: throttled (see scheduleLibrarySave docs) so a
+      // burst of saveConfig calls during reading doesn't fire IPC on every
+      // page turn.
+      scheduleLibrarySave(appService);
+    });
   },
   updateBooknotes: (key: string, booknotes: BookNote[]) => {
     let updatedConfig: BookConfig | undefined;

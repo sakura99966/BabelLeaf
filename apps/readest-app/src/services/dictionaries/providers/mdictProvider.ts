@@ -19,6 +19,12 @@
 import { eventDispatcher } from '@/utils/event';
 import { stubTranslation as _ } from '@/utils/misc';
 import { getDictStyles } from '@/utils/style';
+import {
+  createDictionaryContent,
+  isLocalDictionaryPath,
+  mountDictionaryContent,
+  sanitizeDictionaryCss,
+} from '../safeDictionaryContent';
 import type { DictionaryProvider, ImportedDictionary } from '../types';
 import type { DictionaryFileOpener } from './starDictProvider';
 
@@ -61,7 +67,6 @@ export interface CreateMdictProviderArgs {
 // MDX entries often reference resources via paths like `/images/foo.png`,
 // which are intra-MDD relative paths (not document-absolute), so the
 // resolver should still try them via `mdd.locateBytes`.
-const IMG_SRC_PROTOCOL_RX = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 const SOUND_HREF_RX = /^sound:\/\//i;
 // `entry://word` is the canonical MDict cross-reference. `bword://word` is an
 // alias used by some Babylon-derived dictionaries; both should re-look-up the
@@ -79,15 +84,15 @@ async function resolveImageResources(
   signal: AbortSignal,
   trackedUrls: string[],
 ): Promise<void> {
-  if (!mdds.length) return;
-  const imgs = Array.from(container.querySelectorAll<HTMLImageElement>('img[src]'));
+  const imgs = Array.from(container.querySelectorAll<HTMLImageElement>('img[data-dict-image]'));
   if (!imgs.length) return;
 
   await Promise.all(
     imgs.map(async (img) => {
       if (signal.aborted) return;
-      const src = img.getAttribute('src');
-      if (!src || IMG_SRC_PROTOCOL_RX.test(src)) return;
+      const src = img.getAttribute('data-dict-image');
+      img.removeAttribute('data-dict-image');
+      if (!src || !isLocalDictionaryPath(src)) return;
       // Try the path as-is first; if the MDD doesn't have it, retry with
       // a single leading `/` stripped (some MDX bundles emit
       // `/images/foo.png` while the MDD stores `images/foo.png`).
@@ -143,12 +148,12 @@ async function resolveMddStylesheets(
   mdds: MDDInstance[],
   signal: AbortSignal,
 ): Promise<string[]> {
-  const links = Array.from(body.querySelectorAll<HTMLLinkElement>('link[rel~="stylesheet"][href]'));
+  const links = Array.from(body.querySelectorAll<HTMLLinkElement>('link[data-dict-stylesheet]'));
   const out: string[] = [];
   for (const link of links) {
-    const href = link.getAttribute('href');
+    const href = link.getAttribute('data-dict-stylesheet');
     link.remove();
-    if (!href || !mdds.length) continue;
+    if (!href || !isLocalDictionaryPath(href) || !mdds.length) continue;
     for (const mdd of mdds) {
       try {
         const located = await mdd.locateBytes(href);
@@ -182,16 +187,18 @@ async function resolveCssUrls(
   signal: AbortSignal,
   trackedUrls: string[],
 ): Promise<string> {
-  if (!mdds.length || !cssText.includes('url(')) return cssText;
+  if (!mdds.length || !cssText.includes('url(')) {
+    return sanitizeDictionaryCss(cssText, trackedUrls);
+  }
 
   const paths = new Set<string>();
   for (const m of cssText.matchAll(CSS_URL_RX)) {
     const path = (m[1] ?? m[2] ?? m[3] ?? '').trim();
     if (!path) continue;
-    if (IMG_SRC_PROTOCOL_RX.test(path)) continue;
+    if (!isLocalDictionaryPath(path)) continue;
     paths.add(path);
   }
-  if (paths.size === 0) return cssText;
+  if (paths.size === 0) return sanitizeDictionaryCss(cssText, trackedUrls);
 
   const resolved = new Map<string, string>();
   await Promise.all(
@@ -215,11 +222,14 @@ async function resolveCssUrls(
     }),
   );
 
-  return cssText.replace(CSS_URL_RX, (match, dq, sq, unq) => {
-    const path = ((dq ?? sq ?? unq ?? '') as string).trim();
-    const url = resolved.get(path);
-    return url ? `url("${url}")` : match;
-  });
+  return sanitizeDictionaryCss(
+    cssText.replace(CSS_URL_RX, (_match, dq, sq, unq) => {
+      const path = ((dq ?? sq ?? unq ?? '') as string).trim();
+      const url = resolved.get(path);
+      return url ? 'url("' + url + '")' : 'none';
+    }),
+    trackedUrls,
+  );
 }
 
 // Pattern for the audio-play handler used by Vocabulary.com-derived MDicts:
@@ -231,7 +241,6 @@ async function resolveCssUrls(
 // XSS reasons — never execute MDX-supplied JavaScript inside the shadow root)
 // resolves that key to a path like `E/BDAWTHU6YF46.mp3` and plays it. We do
 // the same lookup ourselves from a CSP-safe click handler.
-const V0R_PLAY_RX = /v0r\.v\s*\(\s*this\s*,\s*['"]([^'"]+)['"]\s*\)/i;
 const AUDIO_EXTS = ['.mp3', '.m4a', '.aac', '.ogg', '.opus', '.wav'] as const;
 
 async function wireMdictAudioOnclick(
@@ -239,27 +248,13 @@ async function wireMdictAudioOnclick(
   mdds: MDDInstance[],
   trackedUrls: string[],
 ): Promise<void> {
-  // Note: we deliberately leave `<script>` tags and other inline `onclick`
-  // attributes in place. innerHTML parsing does NOT execute scripts, and
-  // inline handlers attached via attributes only fire when the element is
-  // actually clicked — most dictionaries' MDX layouts include them only to
-  // power their own helper JS (which we never load) and leaving them alone
-  // avoids touching CSS rules that depend on attribute presence
-  // (`[onclick]`, `:empty` interactions, etc.). Only the audio-play
-  // pattern below gets rewritten so the icon actually does something.
-  const elements = Array.from(container.querySelectorAll<HTMLElement>('[onclick]'));
+  // Only the entire recognized audio call was parsed in the inert template.
+  // No dictionary-supplied handler or data-mdd-* cache survives sanitization.
+  const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-dict-audio-key]'));
   for (const el of elements) {
-    const onclick = el.getAttribute('onclick') ?? '';
-    const playMatch = onclick.match(V0R_PLAY_RX);
-    if (!playMatch || !mdds.length) continue;
-    const key = playMatch[1]!.trim();
-    if (!key) continue;
-
-    // Drop the inline handler ONLY for the v0r.v audio call we're about to
-    // replace. The dict's `j.js` isn't loaded inside the shadow root, so the
-    // original handler would throw `ReferenceError: v0r is not defined` on
-    // every click; our listener handles the playback instead.
-    el.removeAttribute('onclick');
+    const key = (el.getAttribute('data-dict-audio-key') ?? '').trim();
+    el.removeAttribute('data-dict-audio-key');
+    if (!key || !mdds.length) continue;
 
     el.style.cursor ||= 'pointer';
     el.addEventListener('click', async (e) => {
@@ -541,11 +536,9 @@ export const createMdictProvider = ({
         //   `@@@LINK=question\u0000`           trailing NUL
         //   `<div>@@@LINK=question</div>`   wrapped in markup by some bundles
         // Use the DOM as a tolerant tag-stripper, then look for the prefix.
-        const redirectScratch = document.createElement('div');
         const extractRedirect = (def: string | null): string | null => {
           if (!def) return null;
-          redirectScratch.innerHTML = def;
-          const text = (redirectScratch.textContent ?? '').trim();
+          const text = (createDictionaryContent(def).textContent ?? '').trim();
           if (!text.startsWith('@@@LINK=')) return null;
           // Stop at the first whitespace / control char so trailing NULs
           // or carriage returns embedded in the redirect line are dropped.
@@ -577,17 +570,30 @@ export const createMdictProvider = ({
         // with `data-dict-kind="mdict"` so app-level CSS or external
         // tooling can target dict-rendered content distinct from the host's
         // surrounding chrome.
-        const body = document.createElement('div');
-        body.dataset['dictKind'] = dict.kind;
+        const body = createDictionaryContent(result.definition, { mdict: true });
         // Expose the content root as a shadow `part` (#4443). The MDict body
         // lives inside a shadow root, so the popup's font-size rule can't
         // reach it with an ordinary descendant selector — `::part(dict-content)`
         // is the only hook that crosses the boundary. The matching host class
         // (`dict-shadow-host`, set below) is the selector subject for that rule.
         body.setAttribute('part', 'dict-content');
-        body.innerHTML = result.definition;
-
         await resolveImageResources(body, mdds, ctx.signal, trackedUrls);
+        for (const element of body.querySelectorAll<HTMLElement>(
+          '[data-dict-inline-style],style[data-dict-css]',
+        )) {
+          const inlineStyle = element.getAttribute('data-dict-inline-style');
+          const stylesheet = element.getAttribute('data-dict-css');
+          element.removeAttribute('data-dict-inline-style');
+          element.removeAttribute('data-dict-css');
+          if (inlineStyle)
+            element.setAttribute(
+              'style',
+              await resolveCssUrls(inlineStyle, mdds, ctx.signal, trackedUrls),
+            );
+          if (stylesheet)
+            element.textContent = await resolveCssUrls(stylesheet, mdds, ctx.signal, trackedUrls);
+          if (ctx.signal.aborted) return { ok: false, reason: 'error', message: 'aborted' };
+        }
         const rawMddStylesheets = await resolveMddStylesheets(body, mdds, ctx.signal);
         if (ctx.signal.aborted) return { ok: false, reason: 'error', message: 'aborted' };
         // Rewrite any `url(...)` refs inside MDD-resident stylesheets so
@@ -605,30 +611,15 @@ export const createMdictProvider = ({
         // the audio key ourselves and bind a CSP-safe replacement.
         await wireMdictAudioOnclick(body, mdds, trackedUrls);
 
-        // Attach a shadow root to a dedicated host so the dict's CSS (loose
-        // .css files imported alongside + `<link>` references resolved from
-        // the MDD) is scoped to this card and cannot leak between dicts or
-        // into the app's layout. Click events still bubble naturally so the
-        // `sound://` / `entry://` / external-link delegation keeps working.
-        const shadowHost = document.createElement('div');
-        // `dict-shadow-host` is the stable host selector the popup's
-        // `::part(dict-content)` font-size rule targets (#4443).
-        shadowHost.className = 'dict-shadow-host mt-2 text-sm';
-        ctx.container.appendChild(shadowHost);
-        const shadow = shadowHost.attachShadow({ mode: 'open' });
         // Baseline app-level styles first (theme-aware blend rules for
         // icons, etc.), then the dict's own loose CSS, then any
         // MDD-resident stylesheets the MDX referenced via `<link>`.
         // Cascade order matches authoring order.
         const dictStyles = getDictStyles(ctx.bg ?? '', ctx.fg ?? '', !!ctx.isDarkMode);
-        const allStylesheets = [dictStyles, ...looseStylesheets, ...mddStylesheets];
-        for (const cssText of allStylesheets) {
-          if (!cssText) continue;
-          const style = document.createElement('style');
-          style.textContent = cssText;
-          shadow.appendChild(style);
-        }
-        shadow.appendChild(body);
+        const shadow = mountDictionaryContent(ctx.container, body, {
+          kind: 'mdict',
+          stylesheets: [dictStyles, ...looseStylesheets, ...mddStylesheets],
+        });
 
         // Hide our auto-prepended headword when the dict's own rendering
         // already ships one with the same text. Many dicts put a large

@@ -79,15 +79,14 @@ export function libraryTests(getService: () => AppService) {
       expect(loaded[0]!.hash).toBe('good');
     });
 
-    it('should return empty array when both main and backup are corrupted', async () => {
+    it('should refuse to silently reset when both main and backup are corrupted', async () => {
       const service = getService();
       await service.saveLibraryBooks([makeBook()]);
 
       await service.writeFile('library.json', 'Books', 'bad');
       await service.writeFile('library.json.bak', 'Books', 'bad');
 
-      const loaded = await service.loadLibraryBooks();
-      expect(loaded).toEqual([]);
+      await expect(service.loadLibraryBooks()).rejects.toThrow(/readable JSON/);
     });
 
     it('should overwrite (and shrink) the library only when replace is set', async () => {

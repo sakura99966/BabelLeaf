@@ -1,5 +1,31 @@
 import { expect, test, vi } from 'vitest';
-import { waitForNativeWindow } from '../../../scripts/native-probe-readiness.mjs';
+import {
+  waitForNativeWindow,
+  parseNativeProbePage,
+} from '../../../scripts/native-probe-readiness.mjs';
+
+test('stops polling a reported module error instead of waiting the whole workload timeout', () => {
+  expect(
+    parseNativeProbePage({ body: JSON.stringify({ error: 'Module failed' }) }, 'performance'),
+  ).toEqual({
+    complete: true,
+    result: { error: 'Module failed' },
+  });
+  expect(parseNativeProbePage({ body: 'still loading' }, 'performance').complete).toBe(false);
+  expect(
+    parseNativeProbePage({ body: JSON.stringify({ stage: 'other' }) }, 'performance').complete,
+  ).toBe(false);
+  expect(
+    parseNativeProbePage(
+      { body: JSON.stringify({ stage: 'performance', passed: true }) },
+      'performance',
+    ).complete,
+  ).toBe(true);
+  expect(parseNativeProbePage({ body: '', hasViteError: true }, 'performance')).toEqual({
+    complete: true,
+    result: { error: 'Native probe module loading failed' },
+  });
+});
 
 test('waits for the owned window marker, not just a listening port or stale PID', async () => {
   const readMarker = vi

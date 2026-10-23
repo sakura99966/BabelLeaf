@@ -34,7 +34,7 @@ const assertJSONBudget = (json: string): void => {
 
 // Native adapters include stable OS error numbers even with localized messages.
 // Unknown I/O failures are not evidence that a file is absent.
-const isMissingFileError = (error: unknown): boolean => {
+export const isMissingFileError = (error: unknown): boolean => {
   if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT')
     return true;
   const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
@@ -158,8 +158,10 @@ async function loadJSONUnlocked<T>(
   if (validationError)
     throw new Error(`No schema-valid JSON copy: ${filename}`, { cause: validationError });
   if (
-    validate &&
-    (mainResult.corrupt || backupResult.corrupt || mainResult.readFailed || backupResult.readFailed)
+    mainResult.corrupt ||
+    backupResult.corrupt ||
+    mainResult.readFailed ||
+    backupResult.readFailed
   )
     throw new Error(`No readable JSON copy: ${filename}`, {
       cause: mainResult.error ?? backupResult.error,

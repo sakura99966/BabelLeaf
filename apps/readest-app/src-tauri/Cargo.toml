@@ -1,6 +1,6 @@
 [package]
 name = "Readest"
-version = "0.4.5"
+version = "0.4.6"
 description = "A local-first multilingual reader"
 authors = ["BabelLeaf contributors"]
 license = "AGPL-3.0-or-later"
@@ -68,7 +68,9 @@ tauri-plugin-webdriver = { version = "0.2", optional = true }
 # table) to do the mechanical zip work without ferrying multi-MB blobs
 # across the JS<->Rust IPC boundary. Pure-Rust crates so they ship to
 # every Tauri target (desktop, iOS, Android) without extra system deps.
-zip = { version = "2", default-features = false, features = ["deflate"] }
+# Keep extraction disabled; we read bounded individual archive entries only.
+# The explicit pure-Rust backend avoids unused encoders/other archive codecs.
+zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 quick-xml = "0.41"
 md-5 = "0.10"
 # Used by `epub_parser::read_zip_entry` as a fallback when an OPF/manifest

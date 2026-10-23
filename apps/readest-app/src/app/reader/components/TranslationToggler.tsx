@@ -9,6 +9,11 @@ import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { saveViewSettings } from '@/helpers/settings';
 import { isTranslationAvailable } from '@/services/translators/utils';
 import Button from '@/components/Button';
+import {
+  getTranslationConsentContext,
+  useTranslationSessionStore,
+} from '@/store/translationSessionStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
 const TranslationToggler = ({ bookKey }: { bookKey: string }) => {
   const _ = useTranslation();
@@ -19,6 +24,13 @@ const TranslationToggler = ({ bookKey }: { bookKey: string }) => {
   const iconSize20 = useResponsiveSize(20);
   const bookData = getBookData(bookKey);
   const viewSettings = getViewSettings(bookKey)!;
+  useSettingsStore((state) => state.settings.aiSettings);
+  const grant = useTranslationSessionStore((state) => state.grants[bookKey]);
+  const context = getTranslationConsentContext(
+    viewSettings.translationProvider,
+    viewSettings.translateTargetLang,
+  );
+  const requestEnabled = !!grant && grant.context === context && !grant.controller.signal.aborted;
   const [translationEnabled, setTranslationEnabled] = useState(viewSettings.translationEnabled!);
   const [translationAvailable, setTranslationAvailable] = useState(
     isTranslationAvailable(bookData?.book, viewSettings.translateTargetLang),
@@ -46,16 +58,22 @@ const TranslationToggler = ({ bookKey }: { bookKey: string }) => {
     <Button
       icon={
         <RiTranslate
-          className={translationEnabled ? 'text-blue-500' : 'text-base-content'}
+          className={requestEnabled ? 'text-blue-500' : 'text-base-content'}
           size={iconSize20}
         />
       }
       aria-label={_('Toggle Translation')}
       disabled={!translationAvailable && !translationEnabled}
-      onClick={() => setTranslationEnabled(!translationEnabled)}
+      onClick={() => {
+        const next = !requestEnabled;
+        const session = useTranslationSessionStore.getState();
+        if (next) session.grant(bookKey, context);
+        else session.revoke(bookKey);
+        setTranslationEnabled(next);
+      }}
       label={
         translationAvailable
-          ? translationEnabled
+          ? requestEnabled
             ? _('Disable Translation')
             : _('Enable Translation')
           : _('Translation Disabled')

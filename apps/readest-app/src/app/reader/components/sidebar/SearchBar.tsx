@@ -212,7 +212,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ isVisible, bookKey, onHideSearchB
   const handleSearchConfigChange = (searchConfig: BookSearchConfig) => {
     setConfig(bookKey, { searchConfig: { ...searchConfig } });
     // setConfig is synchronous, so getConfig now returns the merged config to persist.
-    saveConfig(envConfig, bookKey, getConfig(bookKey)!, settings);
+    void saveConfig(envConfig, bookKey, getConfig(bookKey)!, settings).catch(() => {});
     handleSearchTermChange(searchTerm);
   };
 

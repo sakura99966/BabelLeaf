@@ -1972,5 +1972,8 @@
   "— William Shakespeare, As You Like It": "— William Shakespeare, Como Gostais",
   "Failed to download and install update": "Falha ao transferir e instalar a atualização",
   "Additional Margin (%)": "Margem adicional (%)",
-  "Translation not saved. Keep this book open and retry saving.": "A tradução não foi guardada. Mantenha este livro aberto e tente guardar novamente."
+  "Translation not saved. Keep this book open and retry saving.": "A tradução não foi guardada. Mantenha este livro aberto e tente guardar novamente.",
+  "Book changes not saved. Keep this book open and retry saving.": "As alterações do livro não foram guardadas. Mantenha este livro aberto e tente guardar novamente.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "As definições do livro foram recuperadas de uma cópia local. Verifique as anotações antes de continuar.",
+  "Dismiss": "Fechar"
 }

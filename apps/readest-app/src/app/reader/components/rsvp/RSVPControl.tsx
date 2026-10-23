@@ -921,7 +921,7 @@ const RSVPControl = forwardRef<RSVPControlHandle, RSVPControlProps>(function RSV
       if (config) {
         const update = buildRsvpExitConfigUpdate(rsvpPosition);
         setConfig(bookKey, update);
-        saveConfig(envConfig, bookKey, { ...config, ...update }, settings);
+        void saveConfig(envConfig, bookKey, { ...config, ...update }, settings).catch(() => {});
       }
     }
 

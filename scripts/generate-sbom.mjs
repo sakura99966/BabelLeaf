@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readBabelLeafVersion } from './sbom-metadata.mjs';
+import { verifyRuntimeVendorEvidence } from './runtime-vendors.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const applicationVersion = readBabelLeafVersion(repoRoot);
@@ -268,7 +269,33 @@ const artifact = artifactPath
     })()
   : undefined;
 
-const gaps = [...npmGaps, ...cargoGaps];
+const runtimeGaps = [];
+const runtimeComponents = [];
+let runtimeEvidence;
+try {
+  // --artifact requires checking the actual static bundle, not only public/.
+  runtimeEvidence = await verifyRuntimeVendorEvidence(repoRoot, artifact ? {
+    publicRoot: 'apps/readest-app/out', allowNextBundles: true,
+  } : {});
+  for (const component of runtimeEvidence.components) {
+    runtimeComponents.push({
+      type: 'library',
+      'bom-ref': 'runtime-copy:' + component.id + '@' + component.version,
+      name: component.name, version: component.version, scope: 'required',
+      licenses: [{ license: { id: component.license } }],
+      properties: [
+        { name: 'babelleaf.runtime.copy.id', value: component.id },
+        ...(component.revision ? [{ name: 'git.revision', value: component.revision }] : []),
+      ],
+      ...(component.repository ? {
+        externalReferences: [{ type: 'vcs', url: component.repository }],
+      } : {}),
+    });
+  }
+} catch (error) {
+  runtimeGaps.push('Copied runtime evidence failed: ' + error.message);
+}
+const gaps = [...npmGaps, ...cargoGaps, ...runtimeGaps];
 const document = {
   bomFormat: 'CycloneDX',
   specVersion: '1.5',
@@ -285,11 +312,16 @@ const document = {
       { name: 'cargo.target', value: cargoTarget },
     ],
   },
-  components: [...npmComponents.values(), ...cargoComponents],
+  components: [...npmComponents.values(), ...cargoComponents, ...runtimeComponents],
   properties: [
     { name: 'babelleaf.compliance.status', value: gaps.length ? 'INCOMPLETE' : 'SOURCE_COMPLETE' },
     { name: 'babelleaf.compliance.licensePolicy', value: 'NOASSERTION requires manual review' },
     { name: 'babelleaf.npm.excludedAbsentPackages', value: String(skippedNpmPackages.size) },
+    { name: 'babelleaf.runtime.copies.verified', value: runtimeEvidence ? 'true' : 'false' },
+    ...(runtimeEvidence ? [{
+      name: 'babelleaf.runtime.assets',
+      value: JSON.stringify(runtimeEvidence),
+    }] : []),
     ...(submodules.length ? [{ name: 'babelleaf.submodules', value: JSON.stringify(submodules) }] : []),
     ...(artifact ? [{ name: 'babelleaf.artifact.sha256', value: artifact.sha256 }] : []),
   ],

@@ -89,6 +89,55 @@ describe('bookDataStore', () => {
   });
 
   describe('clearBookData', () => {
+    test('an old asynchronous teardown cannot erase a reopened document', async () => {
+      const data = makeBookData('book1');
+      let finish: (() => void) | undefined;
+      data.bookDoc = {
+        destroy: () =>
+          new Promise<void>((done) => {
+            finish = done;
+          }),
+      } as unknown as NonNullable<BookData['bookDoc']>;
+      useBookDataStore.setState({ booksData: { book1: data } });
+      const pending = useBookDataStore.getState().releaseBookContent('book1');
+      const reopened = makeBookData('book1');
+      reopened.file = new File(['new content'], 'new.pdf');
+      useBookDataStore.setState({ booksData: { book1: reopened } });
+      finish?.();
+      await pending;
+      expect(useBookDataStore.getState().booksData['book1']).toBe(reopened);
+    });
+    test('releases native file/parser resources without dropping annotations or metadata', async () => {
+      const data = makeBookData('book1');
+      const destroy = vi.fn().mockResolvedValue(undefined);
+      const close = vi.fn().mockResolvedValue(undefined);
+      data.bookDoc = { destroy } as unknown as NonNullable<BookData['bookDoc']>;
+      data.file = Object.assign(new File(['local'], 'local.pdf'), { close });
+      useBookDataStore.setState({ booksData: { book1: data } });
+      const pending = useBookDataStore.getState().releaseBookContent('book1-view0');
+      expect(useBookDataStore.getState().booksData['book1']!.bookDoc).toBeNull();
+      expect(useBookDataStore.getState().booksData['book1']!.file).toBeNull();
+      expect(useBookDataStore.getState().booksData['book1']!.config).toBe(data.config);
+      await pending;
+      await useBookDataStore.getState().releaseBookContent('book1');
+      expect(destroy).toHaveBeenCalledTimes(1);
+      expect(close).toHaveBeenCalledTimes(1);
+    });
+
+    test('attempts file cleanup even if parser teardown fails', async () => {
+      const data = makeBookData('book1');
+      const close = vi.fn().mockResolvedValue(undefined);
+      data.bookDoc = {
+        destroy: () => {
+          throw new Error('parser failure');
+        },
+      } as unknown as NonNullable<BookData['bookDoc']>;
+      data.file = Object.assign(new File(['local'], 'local.pdf'), { close });
+      useBookDataStore.setState({ booksData: { book1: data } });
+      await expect(useBookDataStore.getState().releaseBookContent('book1')).rejects.toThrow();
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(useBookDataStore.getState().booksData['book1']!.config).toBe(data.config);
+    });
     test('removes the book data entry', () => {
       const data = makeBookData('book1');
       useBookDataStore.setState({ booksData: { book1: data } });
@@ -287,6 +336,32 @@ describe('bookDataStore', () => {
   });
 
   describe('saveConfig', () => {
+    test('coalesces stale snapshots without losing unsaved in-memory annotations', async () => {
+      const saveBookConfig = vi.fn().mockResolvedValue(undefined);
+      const envConfig = makeEnvConfig({ saveBookConfig, saveLibraryBooks: vi.fn(async () => {}) });
+      useLibraryStore.getState().setLibrary([
+        {
+          hash: 'h1',
+          format: 'EPUB',
+          title: 'Owned fixture',
+          author: 'Fixture',
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ]);
+      const latest = makeBookData('h1', { booknotes: [makeBookNote({ id: 'unsaved' })] });
+      useBookDataStore.setState({ booksData: { h1: latest } });
+      const first = useBookDataStore
+        .getState()
+        .saveConfig(envConfig, 'h1', latest.config!, FAKE_SETTINGS);
+      const stale = useBookDataStore
+        .getState()
+        .saveConfig(envConfig, 'h1', { updatedAt: 1, booknotes: [] }, FAKE_SETTINGS);
+      await Promise.all([first, stale]);
+      const persisted = saveBookConfig.mock.calls.at(-1)?.[1] as BookConfig;
+      expect(persisted.booknotes?.some((note) => note.id === 'unsaved')).toBe(true);
+    });
+
     function makeLibraryBook(overrides: Partial<Book> = {}): Book {
       return {
         hash: 'h1',
@@ -391,7 +466,7 @@ describe('bookDataStore', () => {
       expect(saveLibraryBooks).toHaveBeenCalledOnce();
     });
 
-    test('does nothing for unknown book hash', async () => {
+    test('retains unknown-book writes and permits local retry after library recovery', async () => {
       const saveBookConfig = vi.fn().mockResolvedValue(undefined);
       const saveLibraryBooks = vi.fn().mockResolvedValue(undefined);
       const envConfig = makeEnvConfig({ saveBookConfig, saveLibraryBooks });
@@ -401,12 +476,18 @@ describe('bookDataStore', () => {
       const data = makeBookData('nonexistent', { progress: [1, 100] });
       useBookDataStore.setState({ booksData: { nonexistent: data } });
 
-      await useBookDataStore
-        .getState()
-        .saveConfig(envConfig, 'nonexistent', data.config!, FAKE_SETTINGS);
+      await expect(
+        useBookDataStore
+          .getState()
+          .saveConfig(envConfig, 'nonexistent', data.config!, FAKE_SETTINGS),
+      ).rejects.toThrow(/unsaved/);
 
       expect(saveBookConfig).not.toHaveBeenCalled();
       expect(saveLibraryBooks).not.toHaveBeenCalled();
+      expect(useBookDataStore.getState().configSaveErrors['nonexistent']).toMatch(/unsaved/);
+      useLibraryStore.getState().setLibrary([makeLibraryBook({ hash: 'nonexistent' })]);
+      await useBookDataStore.getState().retryConfigSave('nonexistent');
+      expect(useBookDataStore.getState().configSaveErrors['nonexistent']).toBeUndefined();
     });
 
     test('refreshes config.updatedAt in the store with a fresh reference', async () => {

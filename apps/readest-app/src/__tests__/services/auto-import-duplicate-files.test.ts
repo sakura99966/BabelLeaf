@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { File as NodeFile } from 'node:buffer';
 import type { Book } from '@/types/book';
 
 const mockOpen = vi.hoisted(() => vi.fn());
@@ -55,6 +56,27 @@ class TestAppService extends BaseAppService {
     getImageURL: vi.fn(),
     getPrefix: vi.fn(),
   };
+
+  constructor() {
+    super();
+    const written = new Map<string, string>();
+    this.fs.writeFile.mockImplementation(
+      async (path: string, _base: unknown, value: string | ArrayBuffer | File) => {
+        if (typeof value === 'string') written.set(path, value);
+      },
+    );
+    this.fs.openFile.mockImplementation(async (path: string) => {
+      if (/\/config\.json(?:\.(?:bak|invalid))?$/.test(path)) {
+        let data = written.get(path);
+        if (data === undefined) {
+          if (!(await this.fs.exists(path, 'Books'))) throw new Error('File not found: ' + path);
+          data = (await this.fs.readFile(path, 'Books', 'text')) as string;
+        }
+        return new NodeFile([data], path) as unknown as File;
+      }
+      return new File(['content'], path);
+    });
+  }
 
   protected resolvePath() {
     return { baseDir: 0, basePrefix: async () => '', fp: '', base: 'Books' as const };
@@ -118,10 +140,8 @@ describe('auto-import: watched folder with duplicated files', () => {
     const fs = service.getFs();
     fs.exists.mockResolvedValue(false);
     fs.createDir.mockResolvedValue(undefined);
-    fs.writeFile.mockResolvedValue(undefined);
     fs.removeDir.mockResolvedValue(undefined);
     fs.readFile.mockResolvedValue('{}');
-    fs.openFile.mockImplementation(async (path: string) => new File(['content'], path));
     // Same bytes under both names -> identical partial md5.
     mockPartialMD5.mockResolvedValue('dup-hash');
     mockOpen.mockResolvedValue({

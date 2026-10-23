@@ -2008,5 +2008,8 @@
   "— William Shakespeare, As You Like It": "— Вільям Шекспір, «Як вам це сподобається»",
   "Failed to download and install update": "Не вдалося завантажити та встановити оновлення",
   "Additional Margin (%)": "Додаткове поле (%)",
-  "Translation not saved. Keep this book open and retry saving.": "Переклад не збережено. Залиште цю книгу відкритою та повторіть збереження."
+  "Translation not saved. Keep this book open and retry saving.": "Переклад не збережено. Залиште цю книгу відкритою та повторіть збереження.",
+  "Book changes not saved. Keep this book open and retry saving.": "Зміни в книзі не збережено. Залиште цю книгу відкритою та повторіть збереження.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "Налаштування книги відновлено з локальної резервної копії. Перевірте примітки, перш ніж продовжувати.",
+  "Dismiss": "Закрити"
 }

@@ -48,7 +48,9 @@ const options = {
   },
   metadata: {},
   allowDynamicKeys: true,
-  removeUnusedKeys: true,
+  // Dynamic/stub translation calls are not all discoverable by the scanner.
+  // Removing keys is a separate reviewed cleanup, never an extraction side effect.
+  removeUnusedKeys: false,
 };
 
 module.exports = {

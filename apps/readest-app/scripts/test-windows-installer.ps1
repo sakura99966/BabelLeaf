@@ -354,6 +354,30 @@ try {
     if ([string]$applicationVersion.ProductName -ne $productName) {
         throw "Installed application product name '$($applicationVersion.ProductName)' does not match '$productName'."
     }
+    $builtExecutable = Join-Path $repoRoot "target\x86_64-pc-windows-msvc\release\$ExpectedMainBinaryName.exe"
+    if (-not (Test-Path -LiteralPath $builtExecutable -PathType Leaf)) {
+        throw "Built candidate executable is missing: $builtExecutable"
+    }
+    $identityOutput = & node (Join-Path $PSScriptRoot 'nsis-binary-identity.mjs') --built $builtExecutable --installed $applicationPath
+    $identityExit = $LASTEXITCODE
+    $binaryIdentity = $identityOutput | ConvertFrom-Json
+    if ($identityExit -ne 0 -or -not $binaryIdentity.passed -or
+        $binaryIdentity.markerReplacements -ne 1 -or
+        $binaryIdentity.builtSha256 -notmatch '^[a-f0-9]{64}$' -or
+        $binaryIdentity.installedSha256 -notmatch '^[a-f0-9]{64}$' -or
+        $binaryIdentity.expectedNsisSha256 -ne $binaryIdentity.installedSha256) {
+        throw "Installed executable hash differs from the built candidate."
+    }
+    # Use the bounded Node verifier's hashes, not a child PowerShell module
+    # lookup: hosted Windows PowerShell can inherit an incompatible PSModulePath.
+    $installedExecutableHash = $binaryIdentity.installedSha256
+    Write-SmokeArtifact -Name 'binary-identity.json' -Content $identityOutput
+    # Keep the bytes actually installed before uninstall removes them. A bare
+    # build EXE is restored by Tauri and is not the NSIS-patched payload.
+    $verifiedAppDirectory = Join-Path $ArtifactsDirectory 'verified-app'
+    if (Test-Path -LiteralPath $verifiedAppDirectory) { throw 'Refusing to overwrite installed-image evidence.' }
+    New-Item -ItemType Directory -Path $verifiedAppDirectory | Out-Null
+    Copy-Item -LiteralPath $applicationPath -Destination (Join-Path $verifiedAppDirectory "$ExpectedMainBinaryName.exe")
     Write-Host "Installed application: $applicationPath"
 
     $applicationProcess = Start-Process -FilePath $applicationPath -PassThru
@@ -436,6 +460,7 @@ try {
                             "Version: $packageVersion"
                             "Bundle identifier: $bundleIdentifier"
                             "Installed executable: $applicationPath"
+                            "Installed executable SHA256: $installedExecutableHash"
                             "Uninstall preserved user data: true"
                             "Timestamp: $([DateTimeOffset]::Now.ToString('o'))"
                         ) -join [Environment]::NewLine)

@@ -780,8 +780,8 @@ input[type='range'].slider-input {
  * container `font-size` alone can't move — so those utilities are re-based to
  * `em` WITHIN THIS SCOPE ONLY, letting them ride the scaled root.
  *
- * MDict renders into a shadow root, so its body is unreachable by ordinary
- * selectors; `::part(dict-content)` (exposed on the body in mdictProvider) is
+ * HTML definitions render into a shadow root, so their bodies are unreachable
+ * by ordinary selectors; `::part(dict-content)` (exposed by the shared boundary) is
  * the only hook that crosses the boundary. */
 [data-dict-content] {
   font-size: calc(var(--dict-font-scale, 1) * 1em);

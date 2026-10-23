@@ -1,6 +1,14 @@
 import { expect, it } from 'vitest';
 import { safeLoadJSON, safeSaveJSON, updateJSON } from '@/services/persistence';
 
+it('never treats unreadable untyped settings/library files as a fresh empty state', async () => {
+  const fs = {
+    readFile: async () => '{broken',
+    writeFile: async () => {},
+  };
+  await expect(safeLoadJSON(fs, 'state.json', 'Data', {})).rejects.toThrow(/readable JSON/);
+});
+
 it.each([
   'save',
   'update',

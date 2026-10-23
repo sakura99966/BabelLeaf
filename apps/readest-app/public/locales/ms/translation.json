@@ -1900,5 +1900,8 @@
   "— William Shakespeare, As You Like It": "— William Shakespeare, As You Like It",
   "Failed to download and install update": "Gagal memuat turun dan memasang kemas kini",
   "Additional Margin (%)": "Margin Tambahan (%)",
-  "Translation not saved. Keep this book open and retry saving.": "Terjemahan belum disimpan. Biarkan buku ini terbuka dan cuba simpan semula."
+  "Translation not saved. Keep this book open and retry saving.": "Terjemahan belum disimpan. Biarkan buku ini terbuka dan cuba simpan semula.",
+  "Book changes not saved. Keep this book open and retry saving.": "Perubahan buku belum disimpan. Biarkan buku ini terbuka dan cuba simpan semula.",
+  "Book settings recovered from a local backup. Check annotations before continuing.": "Tetapan buku dipulihkan daripada sandaran setempat. Semak anotasi sebelum meneruskan.",
+  "Dismiss": "Tutup"
 }

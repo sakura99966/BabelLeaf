@@ -15,6 +15,8 @@ onlyBuiltDependencies:
 
 patchedDependencies:
   '@ai-sdk/provider-utils@4.0.33': patches/@ai-sdk__provider-utils@4.0.33.patch
+  braces@3.0.3: patches/braces@3.0.3.patch
+  extract-zip@2.0.1: patches/extract-zip@2.0.1.patch
 
 overrides:
   '@ai-sdk/provider-utils': 4.0.33
@@ -23,14 +25,14 @@ overrides:
   fflate: '>=0.8.3 <0.9'
   glob: '>=11.1.0'
   jws: '>=4.0.1'
-  vite: '>=7.3.5 <8'
+  vite: '>=7.3.7 <8'
   esbuild: '>=0.28.1 <0.29'
   srvx: '>=0.11.13'
   rollup: '>=4.59.0'
-  undici: '>=7.28.0 <8'
+  undici: '>=7.29.1 <8'
   flatted: '>=3.4.2'
   body-parser: '>=2.3.0'
-  dompurify: '>=3.4.16 <4'
+  dompurify: '>=3.4.17 <4'
   i18next-http-backend: '>=4.0.2 <5'
   # Browser-only note rendering never uses Nunjucks' optional file watcher.
   'nunjucks>chokidar': '-'
@@ -40,19 +42,24 @@ overrides:
   protobufjs: '>=7.6.5 <8'
   serialize-javascript: 7.0.5
   fast-xml-parser: '>=5.7.0'
-  fast-uri: '>=3.1.4 <4'
+  fast-uri: '>=3.1.8 <4'
   lodash: '>=4.18.0'
   lodash-es: '>=4.18.0'
   postcss: '>=8.5.23 <9'
-  basic-ftp: '>=5.3.0'
+  basic-ftp: '>=6.2.1 <7'
   qs: '>=6.15.2'
-  shell-quote: '>=1.9.0'
+  shell-quote: '>=1.11.0 <2'
   sharp: '>=0.35.5 <0.36'
   form-data: '>=4.0.6'
-  js-yaml: '>=4.3.0 <5'
-  'brace-expansion@1': '>=1.1.16 <2'
-  'brace-expansion@2': '>=2.1.2 <3'
-  'brace-expansion@5': '>=5.0.8 <6'
+  js-yaml: '>=4.3.2 <5'
+  'brace-expansion@1': '>=1.1.21 <2'
+  'brace-expansion@2': '>=2.1.7 <3'
+  'brace-expansion@5': '>=5.0.12 <6'
+  ip-address: '>=10.7.1 <11'
+  deepmerge-ts: '>=8.0.0 <9'
+  postcss-selector-parser: '>=7.1.6 <8'
+  # Copied into the runtime despite upstream declaring it a development dependency.
+  pdfjs-dist: 6.2.108
   '@opentelemetry/core': '>=2.8.0'
   '@babel/runtime': '>=7.26.10'
   '@babel/helpers': '>=7.26.10'
@@ -61,5 +68,8 @@ overrides:
   ws: '>=8.21.0'
   '@emnapi/core': 1.8.1
   '@emnapi/runtime': 1.8.1
+  # The security-fixed mocker is a compatible upstream patch. The WebDriver
+  # adapter has no 4.1.12 release and still pins the coordinated 4.1.11 runner.
+  '@vitest/mocker@4.1.11': 4.1.12
 
 verifyDepsBeforeRun: false
