@@ -266,6 +266,20 @@ October 23 follow-up (not a final qualification):
   keep the hosted root cause/outcome explicit; fresh Linux CI must confirm it,
   without increasing timeouts or skipping a platform assertion.
 
+- The frozen 741b79236 PR run 39947068434 is fully green, including Linux
+  WebKitGTK's real PDF cover/disposal tests, Windows native UI/integration,
+  standard NSIS install/launch/uninstall/data retention, and all 226 packaged
+  asset hashes. The reference-host standard executable passes actual Import-menu
+  interaction at 767.1 ms launch-to-interactive, under the enforced 2500 ms
+  budget. Hosted Windows records 2664.9 ms on different shared hardware with
+  budget enforcement explicitly disabled; that is not minimum-host acceptance.
+- Fresh native reading exposed a test-server prebundle invalidation during
+  dynamic speech/resource-owner imports. The failed receipt is retained.
+  A failing-before contract plus explicit CJS prebundles and noDiscovery stop
+  mid-scenario module URL replacement, without test retries or product changes.
+  The repaired reading scenario passes with real renderer/search and teardown;
+  final clean-source performance, isolated installer and idle gates follow.
+
 1. Reconcile the latest full local checks and PR #10 checks, including the
    protocol-dispatch fix and real packaged-runtime CI step. Preserve current
    candidate identities; do not merge main while internal gates remain open.
