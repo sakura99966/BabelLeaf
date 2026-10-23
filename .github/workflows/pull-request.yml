@@ -420,7 +420,62 @@ jobs:
       - name: verify packaged UI hydration and embedded runtime hashes
         working-directory: apps/readest-app
         shell: pwsh
-        run: pnpm test:windows-packaged-runtime
+        run: pnpm test:windows-packaged-runtime --executable apps/readest-app/artifacts/windows-installer-smoke/verified-app/babelleaf.exe
+
+      - name: archive verified Windows candidate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content apps/readest-app/package.json -Raw | ConvertFrom-Json).version
+          $commit = (git rev-parse HEAD).Trim()
+          $tree = (git rev-parse 'HEAD^{tree}').Trim()
+          $binary = 'apps/readest-app/artifacts/windows-installer-smoke/verified-app/babelleaf.exe'
+          $installer = "target/x86_64-pc-windows-msvc/release/bundle/nsis/BabelLeaf_${version}_x64-setup.exe"
+          $probe = Get-Content target/windows-packaged-runtime/result.json -Raw | ConvertFrom-Json
+          $binaryHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant()
+          $successPath = 'apps/readest-app/artifacts/windows-installer-smoke/success.txt'
+          $success = Get-Content -LiteralPath $successPath -Raw
+          $identity = Get-Content 'apps/readest-app/artifacts/windows-installer-smoke/binary-identity.json' -Raw | ConvertFrom-Json
+          $builtHash = (Get-FileHash -LiteralPath 'target/x86_64-pc-windows-msvc/release/babelleaf.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          if (-not $probe.passed -or -not $probe.libraryHydrated -or
+              -not $probe.profileCleanupPass -or -not $probe.policyCleanupPass -or
+              $probe.productName -ne 'BabelLeaf' -or $probe.productVersion -ne $version -or
+              $probe.executableSha256 -ne $binaryHash -or
+              -not $identity.passed -or $identity.installedSha256 -ne $binaryHash -or
+              $identity.builtSha256 -ne $builtHash -or
+              $probe.probeSourceCommit -ne $commit -or $probe.declaredBuildSource -ne $commit -or
+              $success -notmatch [regex]::Escape("Installed executable SHA256: $binaryHash")) {
+            throw 'Candidate installation, runtime hashes, cleanup or source receipt mismatch'
+          }
+          $candidate = Join-Path $env:GITHUB_WORKSPACE 'target/windows-qualified-candidate'
+          if (Test-Path -LiteralPath $candidate) { throw 'Refusing to overwrite a candidate archive' }
+          New-Item -ItemType Directory -Path $candidate | Out-Null
+          Copy-Item -LiteralPath $binary -Destination (Join-Path $candidate 'babelleaf.exe')
+          Copy-Item -LiteralPath $installer -Destination (Join-Path $candidate "BabelLeaf_${version}_x64-setup.exe")
+          Copy-Item -LiteralPath 'apps/readest-app/out/vendor/runtime-manifest.json' -Destination (Join-Path $candidate 'runtime-manifest.json')
+          Copy-Item -LiteralPath 'target/windows-packaged-runtime/result.json' -Destination (Join-Path $candidate 'packaged-runtime.json')
+          Copy-Item -LiteralPath $successPath -Destination (Join-Path $candidate 'installer-success.txt')
+          Copy-Item -LiteralPath 'apps/readest-app/artifacts/windows-installer-smoke/binary-identity.json' -Destination (Join-Path $candidate 'binary-identity.json')
+          node scripts/generate-sbom.mjs --strict --artifact "$candidate/BabelLeaf_${version}_x64-setup.exe" --output "$candidate/sbom.json"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $files = @(Get-ChildItem -LiteralPath $candidate -File | Sort-Object Name | ForEach-Object {
+            [pscustomobject]@{ file=$_.Name; bytes=$_.Length; sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+          })
+          [pscustomobject]@{
+            schemaVersion=1; sourceCommit=$commit; sourceTree=$tree
+            workflowRun=$env:GITHUB_RUN_ID; workflowCommit=$env:GITHUB_SHA
+            installedExecutableSha256=$binaryHash; files=$files
+            scope='Exact unsigned candidate installed, launched, uninstalled and runtime-hash checked by this job; external acceptance remains deferred'
+          } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $candidate 'candidate-inventory.json') -Encoding UTF8
+
+      - name: upload verified Windows candidate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-qualified-candidate-${{ github.sha }}
+          path: target/windows-qualified-candidate/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
 
       - name: upload installer smoke failure logs
         if: failure()

@@ -17,14 +17,15 @@ This record supersedes current-source OPEN items in
 ## Source and reproducibility
 
 - Application-source freeze: `741b792366fd3b4afc30b35823383a44ccb08d7c`.
-- Test-tool freeze: `f44cd28f7d25c9067e41370c77822bb22afd50d1`. Its only later
-  code changes are a native-probe prebundle policy and its contract test;
-  production application/Rust/vendor/lock inputs are unchanged.
+- Native-test freeze: `f44cd28f7d25c9067e41370c77822bb22afd50d1`. After the
+  application freeze, changes cover native-probe prebundles, exact installed
+  EXE hashing and successful CI candidate archival with contract tests.
+  Production application/Rust/vendor/lock inputs are unchanged.
 - PR: https://github.com/sakura99966/BabelLeaf/pull/10, targeting protected main.
 - Full application PR run: https://github.com/sakura99966/BabelLeaf/actions/runs/39947068434,
   all twelve lanes PASS. CodeQL run 39947068215 PASS.
 - Intermediate test-tool PR run 39978330158 and passing CodeQL 39978329872
-  remain historical receipts. Final documentation-only head checks must pass
+  remain historical receipts. Final closure-head checks must pass
   before merge, even if pushing that head supersedes an intermediate run.
 - Normal protection remains strict and admin-enforced: required-checks and
   all three CodeQL analyses. No bypass, fake approval, ignored failure or
@@ -51,7 +52,7 @@ receipts are copied there before the reusable driver output is reused.
 | --- | --- |
 | pnpm / hooks / frozen resolution | pnpm 11.1.1 via corepack; normal format/lint/full-unit pre-push hooks retained; no bypass |
 | TypeScript / Biome / format | PASS; 1,153 lint files / 1,183 format files at code freeze; final docs still require diff/link review |
-| Full unit | PASS; 417 files, 5,079 passed / 1 inherited skip after probe contract; normal f44cd28f7 push |
+| Full unit | Native-test freeze: 417 files, 5,079 passed / 1 inherited skip; final archive/install identity contracts add seven tests; final normal push/CI receipts record 418 files / 5,086 passes / 1 inherited skip |
 | Full coverage | PASS; application freeze 5,078 passes / 1 inherited skip; statements 53.80%, branches 46.78%, functions 51.91%, lines 55.15%; unchanged thresholds; coverage-final-741b79236.log |
 | Real Chromium | PASS; 28 files, 326 passed / 1 inherited skip; browser-final-741b79236.log |
 | Production Web / contracts | PASS; production-web-20261023.log; static webpack export and runtime-copy checks |
@@ -69,6 +70,7 @@ receipts are copied there before the reusable driver output is reused.
 | Standard metadata preflight | PASS; current product/version/identifier, current-user NSIS and embedded offline WebView2 checked |
 | Local dedicated smoke lifecycle | PASS; exact f44cd28f7 smoke bytes, install/responding launch/uninstall/data retention/owned-state cleanup; installer-isolated-f44cd28f7-ready.log and success.txt |
 | Hosted standard lifecycle | PASS; real standard NSIS install/launch/uninstall/data retention plus actual packaged UI and embedded bytes; hosted-installer-741b79236-pass.log |
+| Exact CI candidate retention | Final workflow verifies the upstream first-marker-only UNK-to-NSS transformation against every installed byte, retains that installed EXE, requires matching source/runtime/cleanup receipts, generates strict SBOM and uploads the successful candidate with hashes for 30 days; canonical-main archive supplies the final deliverable |
 | Real standard packaged UI | PASS; actual Import menu, 7 components / 226 assets / 28,858,205 embedded bytes individually hashed; packaged-runtime-741b79236.json |
 | Strict installer-bound SBOM | PASS; target/releases/0.4.6/741b79236/sbom.json, 801 components / zero gaps; no copied-runtime component omitted |
 | Reference-host latency/workload | PASS; frozen native reading/subset receipts and detailed table below |
@@ -161,6 +163,16 @@ Smoke identity deliberately differs from the standard product and has no file
 associations. Hosted CI separately exercises the standard identity on a clean
 runner. Never confuse these with canonical-main bytes or replace older assets.
 
+October 24 installed-image check: Tauri's `bundle.rs` patches the first UNK
+bundle marker for NSIS, then restores the bare EXE. The installed smoke image
+is a41a36033f523159c25161f68efd2a45ca353f5a629b8f5582f43435508287e2,
+not the bare-build hash above. The byte-identity receipt and retained installed
+image are under remediation/installer-nsis-first-marker-qualified. Positive
+install/launch/uninstall/retention passes; changed payload, wrong marker,
+extra/missing bytes and changing later marker literals fail. The earlier naive
+bare-hash/unique-literal assumptions and their failed receipts are retained,
+not treated as product defects or hidden by broad normalization.
+
 ## Residual and owner-deferred conditions
 
 - Raw npm version scanning still reports three development-only advisories;
@@ -187,8 +199,10 @@ runner. Never confuse these with canonical-main bytes or replace older assets.
 ## Closure and cleanup controls
 
 After the local matrix and final required PR checks pass, merge normally,
-fetch/fast-forward actual main, rebuild/qualify/bind its artifacts and strict
-SBOM, verify local/remote/tag identities and main checks, then remove only this
+fetch/fast-forward actual main, let main CI rebuild/install/qualify/archive its
+exact artifact and strict SBOM, download/hash-check that immutable archive and
+run reference-host startup/idle checks on its EXE. Verify local/remote/tag
+identities and main checks, then remove only this
 merged remediation branch. An internal-qualified annotated tag is not a signed
 production acceptance statement or permission to replace historical releases.
 

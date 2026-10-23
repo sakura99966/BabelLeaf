@@ -74,3 +74,33 @@ it('builds notices without requiring the uninitialized OpenCC development submod
   expect(JSON.stringify(simplecc?.sources)).not.toContain('packages/simplecc-wasm/OpenCC/');
   expect(JSON.stringify(simplecc?.sources)).toContain('licenses/runtime/OpenCC-');
 });
+
+it('archives only successfully installed and hash-verified Windows candidates with a strict SBOM', () => {
+  const workflow = read('.github/workflows/pull-request.yml');
+  const verify = workflow.indexOf(
+    '- name: verify packaged UI hydration and embedded runtime hashes',
+  );
+  const archive = workflow.indexOf('- name: archive verified Windows candidate');
+  const upload = workflow.indexOf('- name: upload verified Windows candidate');
+  expect(archive).toBeGreaterThan(verify);
+  expect(upload).toBeGreaterThan(archive);
+  const step = workflow.slice(archive, upload);
+  expect(step).toContain('$probe.executableSha256');
+  expect(step).toContain('$probe.probeSourceCommit');
+  expect(step).toContain('success.txt');
+  expect(step).toContain('generate-sbom.mjs --strict --artifact');
+  expect(step).toContain('candidate-inventory.json');
+  expect(step).toContain('Get-FileHash');
+  expect(
+    workflow.slice(upload, workflow.indexOf('- name: upload installer smoke failure logs')),
+  ).toContain('if-no-files-found: error');
+});
+
+it('requires the installed executable to match the exact build before accepting its launch', () => {
+  const installer = read('apps/readest-app/scripts/test-windows-installer.ps1');
+  const check = installer.indexOf('Installed executable hash differs from the built candidate');
+  expect(check).toBeGreaterThan(0);
+  expect(check).toBeLessThan(installer.indexOf('$applicationProcess = Start-Process'));
+  expect(installer).toContain('Get-FileHash -LiteralPath $applicationPath');
+  expect(installer).toContain('Installed executable SHA256: $installedExecutableHash');
+});
