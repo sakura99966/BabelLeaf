@@ -2,6 +2,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 import { webdriverio } from '@vitest/browser-webdriverio';
 import { loadEnvFile } from './vitest.env.mts';
+import path from 'node:path';
 
 // Load .env and .env.tauri so tauri tests have the same env as the desktop app.
 const env = { ...loadEnvFile('.env'), ...loadEnvFile('.env.tauri'), CWD: process.cwd(), BABELLEAF_NATIVE_TEST_ROOT: process.env.BABELLEAF_NATIVE_TEST_ROOT };
@@ -12,10 +13,15 @@ export default defineConfig({
     'process.env': JSON.stringify(env),
   },
   resolve: {
+    alias: {
+      '@pdfjs': path.resolve(__dirname, 'public/vendor/pdfjs'),
+      '@simplecc': path.resolve(__dirname, '../../packages/simplecc-wasm/dist/web'),
+    },
     conditions: ['development'],
   },
   optimizeDeps: {
     include: [
+      'construct-style-sheets-polyfill',
       '@tauri-apps/plugin-fs',
       '@tauri-apps/plugin-http',
       '@tauri-apps/api/path',

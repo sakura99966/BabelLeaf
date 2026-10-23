@@ -244,6 +244,13 @@ October 23 follow-up (not a final qualification):
   5,077 tests passed / 1 inherited skip. The prior full Chromium run passed
   325 tests / 1 inherited skip; exact frozen native/browser/package qualification
   remains in progress. No gate or timeout budget was reduced to obtain PASS.
+- The evening scan newly identifies six Next.js/DOMPurify advisory records;
+  published fixes 16.4.1 / 3.4.17 replace the earlier package versions. The
+  failed hosted security gate remains recorded rather than waived. The separate
+  Chromium installation failure explicitly says Ubuntu 26.04 is unsupported;
+  all Linux PR verification jobs now pin the already qualified Ubuntu 24.04
+  LTS instead of the moving ubuntu-latest alias. A failing-before workflow
+  regression guards that choice; browser/native tests are not removed/retried.
 
 1. Reconcile the latest full local checks and PR #10 checks, including the
    protocol-dispatch fix and real packaged-runtime CI step. Preserve current

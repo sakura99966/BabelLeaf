@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   rust_lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       pull-requests: read
@@ -90,7 +90,7 @@ jobs:
         run: cargo test -p Readest --lib
 
   check_app:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -132,7 +132,7 @@ jobs:
         run: pnpm check:all
 
   test_app:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -190,7 +190,7 @@ jobs:
         run: pnpm test:browser
 
   coverage_gate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -301,7 +301,7 @@ jobs:
           '
 
   security_audit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -586,7 +586,7 @@ jobs:
     name: required-checks
     if: ${{ always() }}
     needs: [rust_lint, check_app, test_app, coverage_gate, build_tauri_app, security_audit, windows_installer_smoke, windows_browser_tests, web_e2e, windows_native_e2e]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: verify required job results
         env:

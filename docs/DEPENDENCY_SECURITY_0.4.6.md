@@ -139,3 +139,16 @@ Primary references:
 - https://github.com/advisories/GHSA-xp26-3454-mjgp
 - https://github.com/rustls/webpki/pull/546
 - https://github.com/rustls/webpki-roots/pull/133
+
+The evening October 23 scan newly reports Next.js GHSA-2464-fhr4-w9xw,
+GHSA-p3m5-59mp-jv5r and GHSA-673q-mjm6-r5xr, plus DOMPurify
+GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr and GHSA-c6gr-qvv4-5v3f.
+Upgrade to actually published Next.js 16.4.1 and DOMPurify 3.4.17, retaining
+the strict gate. Server-side Next vectors do not by themselves establish
+exploitability of the static-export Tauri executable. Dictionary sanitization
+uses inert template input and DOM-fragment output, but not IN_PLACE,
+SAFE_FOR_TEMPLATES or the XHTML parser configuration in these advisories;
+do not claim an exploit was reproduced here. Re-run the real dictionary,
+static-build and native regression after the library updates.
+
+The exact GHSA URLs are https://github.com/advisories/<ID> for each ID above.
