@@ -4,3 +4,4 @@ apps/readest-app/src/__tests__/fixtures/data/sample-alice.txt text eol=lf
 apps/readest-app/src/__tests__/fixtures/data/sample-fixture.md text eol=lf
 patches/*.patch text eol=lf
 licenses/runtime/*.txt text eol=lf
+apps/readest-app/public/fonts/OFL.txt text eol=lf

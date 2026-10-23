@@ -112,3 +112,33 @@ it('does not require Get-FileHash from a legacy child PowerShell module path', (
   expect(installer).toContain('$binaryIdentity.installedSha256');
   expect(installer).toContain('$binaryIdentity.markerReplacements -ne 1');
 });
+
+it('prepares the complete locked target graph before a cold-cache release build', () => {
+  const workflow = read('.github/workflows/pull-request.yml');
+  const prepare = workflow.indexOf('- name: prepare locked Windows SBOM dependencies');
+  const build = workflow.indexOf('- name: build unsigned Windows x64 NSIS installer');
+  expect(prepare).toBeGreaterThan(0);
+  expect(prepare).toBeLessThan(build);
+  const step = workflow.slice(prepare, build);
+  expect(step).toContain('cargo fetch --locked --target x86_64-pc-windows-msvc');
+  expect(step).toContain('cargo metadata --format-version 1 --locked --offline');
+  expect(step).toContain('--filter-platform x86_64-pc-windows-msvc');
+  expect(step).toContain('if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }');
+});
+
+it('preserves a rejected strict SBOM as failure evidence without promoting the candidate', () => {
+  const workflow = read('.github/workflows/pull-request.yml');
+  const failure = workflow.indexOf('- name: upload installer smoke failure logs');
+  const step = workflow.slice(failure, workflow.indexOf('  windows_browser_tests:', failure));
+  const runnerTemporary = '$' + '{{ runner.temp }}';
+  expect(step).toContain('if: failure()');
+  expect(step).toContain(`${runnerTemporary}/babelleaf-verified-candidate/sbom.json`);
+  expect(step).toContain(`${runnerTemporary}/babelleaf-windows-metadata.json`);
+});
+
+it('pins the copied font notice to the same LF bytes as its licensed source', () => {
+  expect(read('.gitattributes')).toContain('apps/readest-app/public/fonts/OFL.txt text eol=lf');
+  expect(read('apps/readest-app/public/fonts/OFL.txt')).toBe(
+    read('licenses/runtime/Inter-4.001-OFL.txt'),
+  );
+});

@@ -345,3 +345,29 @@ streaming .NET SHA-256. The local installer probe deliberately disables that
 cmdlet; no checksum assertion is omitted. Archives use runner.temp rather than
 Cargo target, avoiding the pinned rust-cache action's recursive cleanup/cache
 state. The next exact-head CI, not the failed older run, controls merge.
+
+### October 24: cold-cache canonical-main SBOM follow-up
+
+PR #10 merged normally into main `91783552a`. Main run 39998088523 passed
+the actual installer lifecycle, packaged UI/hash probe and all application
+lanes, but its strict SBOM rejected an incomplete Cargo graph: 239 components
+and one gap rather than 801 components. No candidate was promoted. The old
+failure upload did not include the generated SBOM; preserve the raw job log
+and record this missing diagnostic rather than inventing a missing-crate name.
+
+The scoped release-tooling follow-up adds locked Windows dependency fetch and
+offline metadata preflight before compilation, keeps the generator strictly
+offline, prints escaped gap diagnostics, and retains failed SBOM/metadata JSON.
+Real isolated-cache controls are `cold-cargo-only-rejected.json/log` (239
+components, exactly one Cargo gap, nonzero exit) and
+`cold-cargo-sbom-qualified.json/log` after locked fetch (801 components,
+including all 562 Cargo components, zero gaps). The metadata JSON and fetch
+log remain beside them. Restricted-sandbox pnpm-child failures and an early
+test-harness import failure remain separate failed diagnostic attempts, not
+product or qualified-cache results.
+
+Twenty focused regressions pass, including six added diagnostic/workflow/font
+byte controls. The copied OFL notice has explicit LF checkout attributes to
+match its licensed source after Windows checkout. Final normal hooks/CI,
+protected follow-up merge, actual new-main candidate and generated release
+receipt still control final closure; no old main/PR asset is relabelled.

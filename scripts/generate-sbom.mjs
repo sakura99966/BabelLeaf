@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readBabelLeafVersion } from './sbom-metadata.mjs';
+import { reportSbomGaps } from './sbom-diagnostics.mjs';
 import { verifyRuntimeVendorEvidence } from './runtime-vendors.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -334,4 +335,5 @@ writeFileSync(outputPath, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
 console.log(
   `[BabelLeaf] SBOM written: ${relative(repoRoot, outputPath)}; components=${document.components.length}; gaps=${gaps.length}`,
 );
-if (strict && gaps.length > 0) process.exitCode = 2;
+const diagnosticExitCode = reportSbomGaps(gaps, strict);
+if (diagnosticExitCode !== 0) process.exitCode = diagnosticExitCode;
