@@ -1,6 +1,9 @@
-# BabelLeaf 0.4.6 remediation candidate
+# BabelLeaf 0.4.6 internal PC remediation
 
-Status: IN PROGRESS; not yet internally release-qualified.
+Status: INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED.
+Final source/artifact closure is controlled by protected checks and the generated
+canonical-main RELEASE_EVIDENCE receipt; this document alone does not assert
+that a merge, tag or public release has occurred.
 
 This candidate retains the approved 0.4 PC scope. It addresses the October 18
 independent audit: dictionary HTML/CSS isolation, explicit session translation
@@ -19,9 +22,20 @@ regression/hash checks are enforced by `pnpm security:dependencies`. This is
 not a claim that the version-based scanner is clean. Windows Rust scanning is
 separate from non-Windows warnings and future platform qualification.
 
-Fresh applicable tests, code review, native and installer qualification,
-resource evidence, remote CI and protected main merge remain required; follow
-`PC_0.4.6_REMEDIATION_STATUS.md`. Old tags and release assets are immutable.
+Full unit/coverage, Chromium, production Web UI, Windows/Linux native,
+interruption/recovery, installer lifecycle, actual packaged-asset hashes and
+reference-host latency/workload checks are recorded in
+`PC_0.4.6_INTERNAL_ACCEPTANCE.md`. Standard idle working set peaks at 101.20 MiB
+over 300 seconds after a separate 60-second warmup; actual library interaction
+is measured separately at 767.1 ms. These are reference-host measurements, not
+minimum-spec or universal guarantees.
+
+PDF.js 6 disposal uses the loading-task owner; background thumbnail rasterization
+does not depend on a visible-window animation frame. Closed document resources
+are released only after the last reader and speech owner, including asynchronous
+speech shutdown, finishes. No new network capability or model weight is added.
+Old tags and release assets remain immutable. See the remediation ledger for
+failing-before evidence and the final package receipt for exact source/hashes.
 
 Paid-provider calls, representative legal-corpus quality, independent minimum
 hardware, human audio review, signing and responsible-owner legal review remain

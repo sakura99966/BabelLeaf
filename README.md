@@ -133,11 +133,15 @@ Version 0.4.3 adds the recoverable comic pipeline:
 - AI settings controls for explicit checksum-verified local OCR model-pack
   import, listing, and removal.
 
-Version 0.4.6 is an in-progress independent-audit remediation candidate within
-the same PC feature scope: local dictionary isolation, fresh translation
-consent, recoverable annotation writes, dependency security and traceable runtime
-copies. It is not yet release-qualified.
-See [0.4.6 remediation status](docs/PC_0.4.6_REMEDIATION_STATUS.md).
+Version 0.4.6 closes the internal independent-audit remediation within the same
+PC feature scope: dictionary HTML/CSS isolation, session translation consent,
+recoverable annotation writes, dependency/runtime provenance, PDF worker
+disposal and bounded document ownership. Full native/browser/security,
+installer and reference-host performance evidence is recorded in
+[0.4.6 internal qualification](docs/PC_0.4.6_INTERNAL_ACCEPTANCE.md).
+Protected main checks and exact canonical-main package receipts control final
+source/artifact closure; unsigned internal qualification is not external or
+signed-production acceptance.
 
 The owner has deferred paid-provider tests, representative lawful-corpus and
 human OCR/inpainting quality review, independent minimum-spec Windows tests,

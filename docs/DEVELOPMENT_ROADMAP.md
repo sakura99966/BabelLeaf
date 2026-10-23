@@ -4,11 +4,11 @@
 
 - Status: authoritative project roadmap
 - Current implementation baseline: `0.4.6` PC audit remediation, within the unchanged 0.4 feature boundary. No platform-port feature or model weight is added.
-- Acceptance status: **REOPEN_INTERNAL_GATES / EXTERNAL_VALIDATION_DEFERRED** after the October 18 independent audit. The earlier 0.4.5 report remains historical evidence, not qualification of the current source or new advisories. Track remediation and fresh-source verification in `docs/PC_0.4.6_REMEDIATION_STATUS.md`. Do not reuse historical package hashes or change old tags/assets. External provider, corpus-quality, independent minimum-host, voice, signing and legal gates remain **DEFERRED**, not PASS, by owner instruction. No 0.5 implementation is authorized by this deferral.
-- Roadmap revision: 16
+- Acceptance status: **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED** for the October 18 audit remediation. Current-source test, code-review, native, installer and reference-host performance evidence is in `docs/PC_0.4.6_INTERNAL_ACCEPTANCE.md`; final protected merge, main checks and exact rebuilt main package are independently bound by the generated RELEASE_EVIDENCE receipt. Earlier reports remain historical evidence, not qualification of changed source or new advisories. Do not reuse historical package hashes or change old tags/assets. External provider, corpus-quality, independent minimum-host, voice, signing and legal gates remain **DEFERRED**, not PASS, by owner instruction. No 0.5 implementation is authorized by this deferral.
+- Roadmap revision: 17
 - Approved scope date: 2026-08-23
-- Last closure update: 2026-08-23
-- Last remediation update: 2026-10-18
+- Last internal qualification update: 2026-10-23
+- Last remediation update: 2026-10-23
 - Target stable release: `1.0.0`
 
 This document is the source of truth for BabelLeaf version planning, implementation sequencing, code review, and release acceptance. Release notes record what a version actually delivered; this roadmap records what must be delivered before work advances to the next version.
@@ -447,7 +447,9 @@ post-commit provenance record. No 0.5 implementation has started.
   including verified static output and artifact-bound SBOM evidence.
 - Requalify all applicable regression, native interruption, installer lifecycle,
   resource budgets and protected remote merge gates before internal closure.
-- Current status: **IN PROGRESS**. See `PC_0.4.6_REMEDIATION_STATUS.md`.
+- Current status: **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED**.
+  See `PC_0.4.6_INTERNAL_ACCEPTANCE.md` and final canonical-main release receipts;
+  preserve `PC_0.4.6_REMEDIATION_STATUS.md` as the execution/failing-before ledger.
   Owner-deferred external gates remain deferred; no 0.5 development is authorized.
 
 ## 0.5.0 - macOS and portable-core qualification

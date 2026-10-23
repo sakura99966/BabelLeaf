@@ -7,13 +7,13 @@ Branch: codex/0.4.6-audit-remediation. Product scope remains 0.4 PC.
 
 | ID | Scope | Status |
 | --- | --- | --- |
-| AUD18-01 | Inert, sanitized local dictionary HTML/CSS/resources | IMPLEMENTED; final package gate pending |
-| AUD18-02 | Session-scoped explicit translation consent | IMPLEMENTED; final regression pending |
-| AUD18-03 | Atomic, validated, recoverable book configuration | IMPLEMENTED; final regression/native crash gate pending |
-| AUD18-04 | Current Rust dependency audit and native validation | IMPLEMENTED; Windows audit/Rust tests/Clippy pass; updated package qualification pending |
-| AUD18-05 | Copied runtime vendor provenance/SBOM/security closure | IMPLEMENTED; source evidence passes; final static output/artifact gate pending |
-| Follow-up | Full npm graph, static candidates, performance and review | OPEN |
-| Closure | Full applicable regression, package qualification, remote backup and bounded cleanup | OPEN |
+| AUD18-01 | Inert, sanitized local dictionary HTML/CSS/resources | PASS; real Chromium/native dictionary and standard packaged-runtime gates |
+| AUD18-02 | Session-scoped explicit translation consent | PASS; full consent/persistence/network regression |
+| AUD18-03 | Atomic, validated, recoverable book configuration | PASS; full regression and eleven native interruption/recovery phases |
+| AUD18-04 | Current Rust dependency audit and native validation | PASS WITH TRACKED WARNINGS; Windows zero vulnerabilities / 18 reviewed warnings; Rust/native/package rebuilt |
+| AUD18-05 | Copied runtime vendor provenance/SBOM/security closure | PASS; 226 actual embedded asset hashes, 801-component artifact-bound SBOM / zero gaps |
+| Follow-up | Full npm graph, static candidates, performance and review | PASS; three explicit development backport records retained; frozen reference-host scenario matrix |
+| Closure | Protected remote merge, canonical-main artifacts and bounded cleanup | Independently controlled by final main checks and generated RELEASE_EVIDENCE / cleanup receipts; old candidate hashes are not main qualification |
 
 External paid-provider/corpus/minimum-host/human-voice/signing/legal gates remain
 DEFERRED by owner instruction. Do not move existing release tags or replace their
@@ -206,7 +206,7 @@ assets. A green old CI run does not qualify changed source or new advisories.
   reports production unresolved=0, full unresolved=0, with the same three
   explicitly reviewed development backports. New-source CI is still required.
 
-## Remaining internal closure work (no 0.5)
+## Internal closure worklist (historical; current resolution below, no 0.5)
 
 October 23 follow-up (not a final qualification):
 
@@ -299,3 +299,26 @@ October 23 follow-up (not a final qualification):
    packaged-runtime gate), final documentation, normal protected merge, exact
    canonical-main package/provenance binding and safe cleanup. Do not move old
    tags or label a previous candidate as a new main build.
+
+## Current qualification resolution
+
+The detailed current-source record is `PC_0.4.6_INTERNAL_ACCEPTANCE.md`:
+**INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED**. The local
+worklist above is qualified by 5,079 unit passes / 1 inherited skip, 326 Chromium
+passes / 1 inherited skip, 126 native integration passes / 1 inherited skip,
+production Web UI, Rust, full dependency and copied-runtime checks, native
+kill/recovery and actual standard/smoke package execution. Failure receipts
+remain historical evidence, not unexplained waived gates.
+
+Frozen native reading and queue/workspace scenarios pass every applicable
+budget, with source hashes unchanged, bounded worker/memory/disk evidence and
+no real provider calls. The exact standard candidate completes 60-second warmup
+and 300-second idle at 101.20 MiB peak working set; warmup peak 380.30 MiB is
+separate. Import-menu interaction is 767.1 ms, not the 169.2 ms responding-window
+observation. Neither is a minimum-host or arbitrary-corpus guarantee.
+
+Final protected-head/main CI, normal merge/tag/remote identities, fresh
+canonical-main build/validation and bounded cleanup remain independently
+verifiable release operations in the generated final RELEASE_EVIDENCE receipt.
+This ledger never relabels a candidate or claims those operations from old logs.
+No 0.5 work and no change to owner-deferred external conditions is authorized.
