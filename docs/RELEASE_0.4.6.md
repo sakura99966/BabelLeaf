@@ -41,3 +41,10 @@ Paid-provider calls, representative legal-corpus quality, independent minimum
 hardware, human audio review, signing and responsible-owner legal review remain
 DEFERRED by the owner. No keys, books or model weights are uploaded or bundled,
 and no 0.5 platform development is included.
+
+The October 24 canonical-main cold-cache SBOM follow-up adds explicit locked
+Windows dependency prefetch/offline metadata preflight and retained strict-gap
+diagnostics. A real empty-cache control rejects 239 incomplete components;
+after locked fetch the complete 801-component graph has zero gaps. Final
+delivery requires the subsequent protected merge and actual new-main candidate
+receipt, not the failed initial main archive or a renamed PR package.

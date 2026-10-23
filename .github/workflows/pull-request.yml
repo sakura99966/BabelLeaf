@@ -396,6 +396,17 @@ jobs:
           cache-all-crates: 'true'
           cache-workspace-crates: 'true'
 
+      - name: prepare locked Windows SBOM dependencies
+        shell: pwsh
+        run: |
+          # A release build need not download development/optional crates that
+          # the complete metadata graph includes. Do not rely on a warm cache.
+          cargo fetch --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $metadataPath = Join-Path $env:RUNNER_TEMP 'babelleaf-windows-metadata.json'
+          cargo metadata --format-version 1 --locked --offline --filter-platform x86_64-pc-windows-msvc > $metadataPath
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: remove stale NSIS installers
         shell: pwsh
         run: |
@@ -493,6 +504,8 @@ jobs:
           path: |
             apps/readest-app/artifacts/windows-installer-smoke/
             target/windows-packaged-runtime/
+            ${{ runner.temp }}/babelleaf-verified-candidate/sbom.json
+            ${{ runner.temp }}/babelleaf-windows-metadata.json
           if-no-files-found: ignore
           retention-days: 7
 

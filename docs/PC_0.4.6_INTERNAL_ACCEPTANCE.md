@@ -207,6 +207,30 @@ these controls; the failed b4b14b85a job is not a waived gate.
 
 ## Closure and cleanup controls
 
+October 24 canonical-main follow-up: PR #10 merged normally as `91783552a`.
+Its main run 39998088523 passed application checks, actual standard NSIS
+installation/lifecycle, packaged UI and embedded hashes, but strict SBOM
+generation rejected a cold/incomplete Cargo graph (239 components, one gap).
+It did not upload or qualify that candidate. The earlier PR cache was not
+proof that a fresh main cache contained the entire metadata graph.
+
+The release workflow now explicitly fetches the locked Windows target graph
+and requires offline metadata before the long release build. SBOM generation
+itself remains offline and strict; gaps are escaped into one diagnostic log
+line, and failed SBOM/metadata files are retained as failure evidence. A real
+isolated empty-cache negative control reproduced the Cargo-only 239-component
+rejection; locked fetch followed by offline metadata and strict generation
+produced all 801 components, including 562 Cargo components, with zero gaps.
+Six focused diagnostic/workflow/font-byte regressions were added. Final normal
+hooks and CI receipts, not historical 5,087-test counts, determine the updated
+closure-head totals. The copied font notice also has explicit LF checkout
+attributes; its logical source bytes and runtime manifest are unchanged.
+
+This follow-up does not change production application/Rust/lock inputs or
+authorize 0.5. Do not tag until its protected PR and actual final-main archive
+also pass. The final generated release receipt must identify both PR #10 and
+the subsequent release-tooling PR; retain the failed main receipt unchanged.
+
 After the local matrix and final required PR checks pass, merge normally,
 fetch/fast-forward actual main, let main CI rebuild/install/qualify/archive its
 exact artifact and strict SBOM, download/hash-check that immutable archive and
