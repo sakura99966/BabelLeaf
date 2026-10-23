@@ -68,5 +68,8 @@ overrides:
   ws: '>=8.21.0'
   '@emnapi/core': 1.8.1
   '@emnapi/runtime': 1.8.1
+  # The security-fixed mocker is a compatible upstream patch. The WebDriver
+  # adapter has no 4.1.12 release and still pins the coordinated 4.1.11 runner.
+  '@vitest/mocker@4.1.11': 4.1.12
 
 verifyDepsBeforeRun: false

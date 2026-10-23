@@ -116,3 +116,26 @@ Primary references:
 - https://github.com/advisories/GHSA-r825-w8mm-5pxw
 - https://github.com/advisories/GHSA-587h-7wmj-h5pm
 - https://github.com/vitejs/vite/releases/tag/v7.3.7
+
+The October 23 fresh scan then identified GHSA-qxg6-89mg-rqv8 and
+GHSA-xp26-3454-mjgp in @vitest/mocker 4.1.11. npm actually publishes the
+official fixed mocker 4.1.12, but not @vitest/browser-webdriverio 4.1.12;
+that adapter still requires vitest exactly 4.1.11. Keep the coordinated
+runner/browser/coverage family at 4.1.11 and override only the affected
+internal mocker to the real upstream 4.1.12 patch. Full unit/browser/native
+regression is required; no fictitious adapter or relaxed peer constraint.
+The fresh JavaScript gate passes with zero new unresolved records.
+
+The same date's RustSec DB 640bf5a9f06e66d8721e8772766531fe77c8630d
+identified RUSTSEC-2026-0381/0382/0383 in the Windows TLS graph. Lockfile-only
+compatible updates are rustls-webpki 0.103.16 and webpki-roots/
+webpki-root-certs 1.0.10. The updated Windows scan has zero vulnerabilities
+and the same 18 separately reviewed warnings. Rebuild and native regression
+remain required; an old executable cannot qualify these TLS changes.
+
+Primary references:
+
+- https://github.com/advisories/GHSA-qxg6-89mg-rqv8
+- https://github.com/advisories/GHSA-xp26-3454-mjgp
+- https://github.com/rustls/webpki/pull/546
+- https://github.com/rustls/webpki-roots/pull/133
