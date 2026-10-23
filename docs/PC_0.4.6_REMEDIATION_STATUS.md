@@ -257,6 +257,14 @@ October 23 follow-up (not a final qualification):
   worker disposal, pass. Removed an ineffective app-root preoptimization entry
   for Foliate's nested CSS polyfill after observing the diagnostic; its real
   import remains owned/resolved by Foliate, without adding a hoisted dependency.
+- Linux's new PDF lifecycle test timed out in a hidden WebKitGTK window.
+  A separate real Chromium failing-before regression proves that the cover
+  raster path waits indefinitely when window requestAnimationFrame is paused.
+  The reproducible reader preparer now uses PDF.js noninteractive print intent
+  for thumbnail rasterization only; ordinary visible-page rendering is unchanged.
+  Both real PDF disposal/background tests pass locally. Added phase diagnostics
+  keep the hosted root cause/outcome explicit; fresh Linux CI must confirm it,
+  without increasing timeouts or skipping a platform assertion.
 
 1. Reconcile the latest full local checks and PR #10 checks, including the
    protocol-dispatch fix and real packaged-runtime CI step. Preserve current

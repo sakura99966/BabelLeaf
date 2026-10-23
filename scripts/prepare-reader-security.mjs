@@ -36,4 +36,11 @@ const disposalTarget = /(?:return pdf\.loadingTask\.destroy\(\)|pdf\.destroy\(\)
 if ([...hardenedPdf.matchAll(disposalTarget)].length !== 1)
   throw new Error('Unexpected PDF document disposal target');
 hardenedPdf = hardenedPdf.replace(disposalTarget, 'return pdf.loadingTask.destroy()');
+// A thumbnail is a background raster task. PDF.js display intent waits for
+// window rAF, which may never run in hidden/minimized native WebViews.
+const coverTarget = /await page\.render\(\{ canvasContext, viewport(?:, intent: 'print')? \}\)\.promise/g;
+if ([...hardenedPdf.matchAll(coverTarget)].length !== 1)
+  throw new Error('Unexpected PDF cover rasterization target');
+hardenedPdf = hardenedPdf.replace(coverTarget,
+  "await page.render({ canvasContext, viewport, intent: 'print' }).promise");
 if (hardenedPdf !== pdfSource) writeFileSync(pdfPath, hardenedPdf);
