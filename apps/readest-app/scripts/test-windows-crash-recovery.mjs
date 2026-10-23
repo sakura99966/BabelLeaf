@@ -114,7 +114,7 @@ try {
       '@pdfjs': path.join(appRoot, 'public/vendor/pdfjs'),
       '@simplecc': path.join(repoRoot, 'packages/simplecc-wasm/dist/web'),
     } },
-    optimizeDeps: { include: ['react', 'react-dom/client', 'react-dom', 'zustand', 'construct-style-sheets-polyfill', '@tauri-apps/api/window', '@tauri-apps/api/webviewWindow', '@tauri-apps/api/event', '@tauri-apps/plugin-process', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-http', '@tauri-apps/api/path', '@tauri-apps/api/core', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-os', '@choochmeque/tauri-plugin-sharekit-api', '@zip.js/zip.js', 'franc-min', 'iso-639-2', 'iso-639-3', 'js-md5'], exclude: ['@pdfjs/pdf.min.mjs'] },
+    optimizeDeps: { include: ['react', 'react-dom/client', 'react-dom', 'zustand', '@tauri-apps/api/window', '@tauri-apps/api/webviewWindow', '@tauri-apps/api/event', '@tauri-apps/plugin-process', '@tauri-apps/plugin-fs', '@tauri-apps/plugin-http', '@tauri-apps/api/path', '@tauri-apps/api/core', '@tauri-apps/plugin-dialog', '@tauri-apps/plugin-os', '@choochmeque/tauri-plugin-sharekit-api', '@zip.js/zip.js', 'franc-min', 'iso-639-2', 'iso-639-3', 'js-md5'], exclude: ['@pdfjs/pdf.min.mjs'] },
     // A native probe must not reload/re-execute an in-flight fixture when Vite
     // discovers another dependency. HMR is not part of the tested application.
     server: { port: 3000, strictPort: true, host: '127.0.0.1', hmr: false },

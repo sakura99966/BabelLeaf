@@ -21,7 +21,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: [
-      'construct-style-sheets-polyfill',
       '@tauri-apps/plugin-fs',
       '@tauri-apps/plugin-http',
       '@tauri-apps/api/path',

@@ -251,6 +251,12 @@ October 23 follow-up (not a final qualification):
   all Linux PR verification jobs now pin the already qualified Ubuntu 24.04
   LTS instead of the moving ubuntu-latest alias. A failing-before workflow
   regression guards that choice; browser/native tests are not removed/retried.
+- Frozen application source ab80316a4: 417 unit files / 5,078 passes and one
+  inherited skip; Windows Rust 52 tests, format and strict Clippy pass. Native
+  WebView2 7 files / 125 passes and one inherited skip, including real PDF
+  worker disposal, pass. Removed an ineffective app-root preoptimization entry
+  for Foliate's nested CSS polyfill after observing the diagnostic; its real
+  import remains owned/resolved by Foliate, without adding a hoisted dependency.
 
 1. Reconcile the latest full local checks and PR #10 checks, including the
    protocol-dispatch fix and real packaged-runtime CI step. Preserve current
