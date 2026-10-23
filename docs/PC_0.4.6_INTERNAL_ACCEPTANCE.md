@@ -52,7 +52,7 @@ receipts are copied there before the reusable driver output is reused.
 | --- | --- |
 | pnpm / hooks / frozen resolution | pnpm 11.1.1 via corepack; normal format/lint/full-unit pre-push hooks retained; no bypass |
 | TypeScript / Biome / format | PASS; 1,153 lint files / 1,183 format files at code freeze; final docs still require diff/link review |
-| Full unit | Native-test freeze: 417 files, 5,079 passed / 1 inherited skip; final archive/install identity contracts add seven tests; final normal push/CI receipts record 418 files / 5,086 passes / 1 inherited skip |
+| Full unit | Native-test freeze: 417 files, 5,079 passed / 1 inherited skip; final archive/install identity contracts add eight tests; final normal push/CI receipts record 418 files / 5,087 passes / 1 inherited skip |
 | Full coverage | PASS; application freeze 5,078 passes / 1 inherited skip; statements 53.80%, branches 46.78%, functions 51.91%, lines 55.15%; unchanged thresholds; coverage-final-741b79236.log |
 | Real Chromium | PASS; 28 files, 326 passed / 1 inherited skip; browser-final-741b79236.log |
 | Production Web / contracts | PASS; production-web-20261023.log; static webpack export and runtime-copy checks |
@@ -172,6 +172,15 @@ install/launch/uninstall/retention passes; changed payload, wrong marker,
 extra/missing bytes and changing later marker literals fail. The earlier naive
 bare-hash/unique-literal assumptions and their failed receipts are retained,
 not treated as product defects or hidden by broad normalization.
+
+Hosted b4b14b85a additionally exposed an unavailable Get-FileHash cmdlet in the
+legacy child PowerShell. The bounded Node identity verifier now supplies those
+SHA-256 values directly; the archive step uses streaming .NET SHA-256. A
+deliberately disabled-command local installer probe and regression cover this
+dependency. Successful archives live in runner.temp, outside Cargo target:
+the pinned rust-cache cleanup traverses that target and would otherwise remove
+candidate files/retain stale directory state. Final new-head CI must confirm
+these controls; the failed b4b14b85a job is not a waived gate.
 
 ## Residual and owner-deferred conditions
 

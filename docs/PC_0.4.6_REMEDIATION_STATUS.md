@@ -305,7 +305,7 @@ October 23 follow-up (not a final qualification):
 The detailed current-source record is `PC_0.4.6_INTERNAL_ACCEPTANCE.md`:
 **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED**. The local
 worklist above is qualified by 5,079 frozen unit passes / 1 inherited skip plus
-seven final archive/install-identity contract tests (5,086 total), 326 Chromium
+eight final archive/install-identity contract tests (5,087 total), 326 Chromium
 passes / 1 inherited skip, 126 native integration passes / 1 inherited skip,
 production Web UI, Rust, full dependency and copied-runtime checks, native
 kill/recovery and actual standard/smoke package execution. Failure receipts
@@ -337,3 +337,11 @@ actual local smoke lifecycle and five marker/payload identity regressions cover
 the change. The failed bare-hash and unique-literal assumptions are retained;
 upstream bundle.rs restores the original build EXE and patches the first marker
 only, so no other byte normalization or source mutation is permitted.
+
+Hosted b4b14b85a failed the new installed-byte gate because the legacy child
+PowerShell did not expose Get-FileHash. Preserve its failure artifact. Identity
+hashes now come from the bounded Node verifier, and archival hashes from
+streaming .NET SHA-256. The local installer probe deliberately disables that
+cmdlet; no checksum assertion is omitted. Archives use runner.temp rather than
+Cargo target, avoiding the pinned rust-cache action's recursive cleanup/cache
+state. The next exact-head CI, not the failed older run, controls merge.

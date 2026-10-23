@@ -90,7 +90,8 @@ it('archives only successfully installed and hash-verified Windows candidates wi
   expect(step).toContain('success.txt');
   expect(step).toContain('generate-sbom.mjs --strict --artifact');
   expect(step).toContain('candidate-inventory.json');
-  expect(step).toContain('Get-FileHash');
+  expect(step).toContain('Get-CandidateSha256');
+  expect(step).toContain('$env:RUNNER_TEMP');
   expect(
     workflow.slice(upload, workflow.indexOf('- name: upload installer smoke failure logs')),
   ).toContain('if-no-files-found: error');
@@ -101,6 +102,13 @@ it('requires the installed executable to match the exact build before accepting 
   const check = installer.indexOf('Installed executable hash differs from the built candidate');
   expect(check).toBeGreaterThan(0);
   expect(check).toBeLessThan(installer.indexOf('$applicationProcess = Start-Process'));
-  expect(installer).toContain('Get-FileHash -LiteralPath $applicationPath');
+  expect(installer).toContain('--built $builtExecutable --installed $applicationPath');
   expect(installer).toContain('Installed executable SHA256: $installedExecutableHash');
+});
+
+it('does not require Get-FileHash from a legacy child PowerShell module path', () => {
+  const installer = read('apps/readest-app/scripts/test-windows-installer.ps1');
+  expect(installer).not.toContain('Get-FileHash');
+  expect(installer).toContain('$binaryIdentity.installedSha256');
+  expect(installer).toContain('$binaryIdentity.markerReplacements -ne 1');
 });

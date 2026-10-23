@@ -426,17 +426,25 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          function Get-CandidateSha256([string]$FilePath) {
+            $algorithm = [Security.Cryptography.SHA256]::Create()
+            try {
+              $stream = [IO.File]::OpenRead([IO.Path]::GetFullPath($FilePath))
+              try { return ([BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant() }
+              finally { $stream.Dispose() }
+            } finally { $algorithm.Dispose() }
+          }
           $version = (Get-Content apps/readest-app/package.json -Raw | ConvertFrom-Json).version
           $commit = (git rev-parse HEAD).Trim()
           $tree = (git rev-parse 'HEAD^{tree}').Trim()
           $binary = 'apps/readest-app/artifacts/windows-installer-smoke/verified-app/babelleaf.exe'
           $installer = "target/x86_64-pc-windows-msvc/release/bundle/nsis/BabelLeaf_${version}_x64-setup.exe"
           $probe = Get-Content target/windows-packaged-runtime/result.json -Raw | ConvertFrom-Json
-          $binaryHash = (Get-FileHash -LiteralPath $binary -Algorithm SHA256).Hash.ToLowerInvariant()
+          $binaryHash = Get-CandidateSha256 $binary
           $successPath = 'apps/readest-app/artifacts/windows-installer-smoke/success.txt'
           $success = Get-Content -LiteralPath $successPath -Raw
           $identity = Get-Content 'apps/readest-app/artifacts/windows-installer-smoke/binary-identity.json' -Raw | ConvertFrom-Json
-          $builtHash = (Get-FileHash -LiteralPath 'target/x86_64-pc-windows-msvc/release/babelleaf.exe' -Algorithm SHA256).Hash.ToLowerInvariant()
+          $builtHash = Get-CandidateSha256 'target/x86_64-pc-windows-msvc/release/babelleaf.exe'
           if (-not $probe.passed -or -not $probe.libraryHydrated -or
               -not $probe.profileCleanupPass -or -not $probe.policyCleanupPass -or
               $probe.productName -ne 'BabelLeaf' -or $probe.productVersion -ne $version -or
@@ -447,7 +455,7 @@ jobs:
               $success -notmatch [regex]::Escape("Installed executable SHA256: $binaryHash")) {
             throw 'Candidate installation, runtime hashes, cleanup or source receipt mismatch'
           }
-          $candidate = Join-Path $env:GITHUB_WORKSPACE 'target/windows-qualified-candidate'
+          $candidate = Join-Path $env:RUNNER_TEMP 'babelleaf-verified-candidate'
           if (Test-Path -LiteralPath $candidate) { throw 'Refusing to overwrite a candidate archive' }
           New-Item -ItemType Directory -Path $candidate | Out-Null
           Copy-Item -LiteralPath $binary -Destination (Join-Path $candidate 'babelleaf.exe')
@@ -459,7 +467,7 @@ jobs:
           node scripts/generate-sbom.mjs --strict --artifact "$candidate/BabelLeaf_${version}_x64-setup.exe" --output "$candidate/sbom.json"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $files = @(Get-ChildItem -LiteralPath $candidate -File | Sort-Object Name | ForEach-Object {
-            [pscustomobject]@{ file=$_.Name; bytes=$_.Length; sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
+            [pscustomobject]@{ file=$_.Name; bytes=$_.Length; sha256=(Get-CandidateSha256 $_.FullName) }
           })
           [pscustomobject]@{
             schemaVersion=1; sourceCommit=$commit; sourceTree=$tree
@@ -472,7 +480,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-qualified-candidate-${{ github.sha }}
-          path: target/windows-qualified-candidate/
+          path: ${{ runner.temp }}/babelleaf-verified-candidate/
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
