@@ -195,3 +195,24 @@ Primary references:
 - https://github.com/yahoo/serialize-javascript/security/advisories/GHSA-m5mm-p8h7-m29v
 - https://github.com/fastify/fast-uri/releases/tag/v3.1.9
 - https://github.com/fastify/fast-uri/commit/39e6493c1356f30a0084171627eb266786e1620e
+
+The first #14 head's hosted Rust audit passed with 20 warnings rather than the
+historical 18. The additional records were Tokio 1.52.3 /
+RUSTSEC-2026-0386 and yanked clipboard-win 5.4.1. Tokio's affected constructors
+are Unix-only AsyncFd APIs; no first-party AsyncFd use was found. Nevertheless,
+use the compatible published 1.53.3 fix (MSRV 1.71, below this workspace's 1.90
+floor) and non-yanked clipboard-win 5.4.3. The registry supplied no yank reason,
+so this does not establish a clipboard exploit. Preserve other dependency edges
+and use full hosted Rust/native/installer validation, not the earlier head's CI.
+
+Two lock-baseline regressions fail on the old versions; `cargo fetch --locked`
+accepts the minimal new graph. The current local cargo-audit fails on an advisory
+database gettext crate-alias parsing mismatch. That invocation is not a passing
+audit and no advisory is removed to bypass it. Fresh hosted audit is the required
+security evidence for the updated lockfile, alongside strict Clippy, Rust unit
+tests and native packaging checks. No local large Rust compilation cache is
+needed for this verification path.
+
+Sources: https://rustsec.org/advisories/RUSTSEC-2026-0386.html and the dated
+crates.io version metadata for tokio 1.53.3 / clipboard-win 5.4.3, retained in the
+PR-closure receipts.

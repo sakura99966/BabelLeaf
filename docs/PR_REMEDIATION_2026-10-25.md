@@ -62,6 +62,17 @@ threshold is introduced. Keep the old failed main run as historical evidence;
 only a fresh final-main application/security run can close the new findings.
 See the dated follow-up in `DEPENDENCY_SECURITY_0.4.6.md` for primary sources.
 
+The first PR #14 head's fresh Rust gate also reported Tokio
+RUSTSEC-2026-0386 and a newly yanked clipboard-win 5.4.1. Update only Tokio to
+the published 1.53.3 fix and clipboard-win to the non-yanked 5.4.3 release;
+preserve unrelated Windows support-crate dependency choices. Tokio's affected
+APIs are under `tokio::io::unix`, not a demonstrated Windows call path, and the
+registry provides no clipboard yank reason; do not invent one. Two lock-baseline
+regressions fail before these updates. `cargo fetch --locked` accepts the minimal
+updated graph. The local audit tool cannot parse the current advisory database's
+gettext crate alias; retain that failure, do not exclude advisories, and require
+a fresh hosted Rust security/Clippy/unit/native/package run for the final head.
+
 ## Non-blocking provenance observations
 
 PR #12 deliberately pins the verified official Rust-cache commit
