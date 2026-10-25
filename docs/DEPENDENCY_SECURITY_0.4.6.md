@@ -152,3 +152,67 @@ do not claim an exploit was reproduced here. Re-run the real dictionary,
 static-build and native regression after the library updates.
 
 The exact GHSA URLs are https://github.com/advisories/<ID> for each ID above.
+
+## 2026-10-25 PR-closure security follow-up
+
+After PR #12's CI-only merge, main run 40110777047 failed production audit on
+Zod 4.4.3. Pin Zod 4.6.6, the published fix for constrained-collection resource
+exhaustion (GHSA-mrhx-c7xc-m3w5). Regressions use only 16 elements: oversized
+arrays, sets and maps must fail at the size bound before element transforms or
+per-element issue accumulation. Normal collections and an explicitly ordered
+normalization remain valid. This reproduces the installed library behavior,
+not a demonstrated exploit of a specific reader input route.
+
+The fresh full graph also reported serialize-javascript GHSA-m5mm-p8h7-m29v
+and four fast-uri records: GHSA-w74x-v6f9-j3xg, GHSA-xhq7-xmqj-769h,
+GHSA-wjr9-j795-jxcr and GHSA-333x-w4r6-6crp. Update the existing overrides to
+published serialize-javascript 7.1.3 and fast-uri >=3.1.9 <4. Keep the same
+major versions and all existing hash-bound backports. These are build/test
+dependency paths, not newly proven packaged-reader execution paths.
+
+New tests load the actual installed transitive packages and verify escaped
+function-source script terminators, encoded-scheme rejection, stable relative
+resolution, rejected malformed hosts and safe suffix serialization. No injected
+function or HTML is executed. The suffix test follows the official upstream
+`reference: 'suffix', scheme: 'x'` case; malformed `resolve` inputs must throw.
+
+The fresh local security gate reports production unresolved=0 and full
+unresolved=0. It still explicitly recognizes two extract-zip advisory records
+through reviewed backports; raw advisory counts are dated observations, not an
+invariant of the scanner. The braces patch and its regressions remain enforced
+even though the current raw scan no longer returns that earlier advisory.
+No ignore or relaxed gate is added. Final PR/main CI remains mandatory.
+
+These source changes do not repair or replace the immutable v0.4.6 binaries.
+A later distributed package must use a new source-bound release identity and
+complete packaging acceptance. Existing release evidence and external deferrals
+are preserved.
+
+Primary references:
+
+- https://github.com/advisories/GHSA-mrhx-c7xc-m3w5
+- https://github.com/colinhacks/zod/commit/a0ebf970f2d752e5f58527cd2942ff48be4f46bd
+- https://github.com/yahoo/serialize-javascript/security/advisories/GHSA-m5mm-p8h7-m29v
+- https://github.com/fastify/fast-uri/releases/tag/v3.1.9
+- https://github.com/fastify/fast-uri/commit/39e6493c1356f30a0084171627eb266786e1620e
+
+The first #14 head's hosted Rust audit passed with 20 warnings rather than the
+historical 18. The additional records were Tokio 1.52.3 /
+RUSTSEC-2026-0386 and yanked clipboard-win 5.4.1. Tokio's affected constructors
+are Unix-only AsyncFd APIs; no first-party AsyncFd use was found. Nevertheless,
+use the compatible published 1.53.3 fix (MSRV 1.71, below this workspace's 1.90
+floor) and non-yanked clipboard-win 5.4.3. The registry supplied no yank reason,
+so this does not establish a clipboard exploit. Preserve other dependency edges
+and use full hosted Rust/native/installer validation, not the earlier head's CI.
+
+Two lock-baseline regressions fail on the old versions; `cargo fetch --locked`
+accepts the minimal new graph. The current local cargo-audit fails on an advisory
+database gettext crate-alias parsing mismatch. That invocation is not a passing
+audit and no advisory is removed to bypass it. Fresh hosted audit is the required
+security evidence for the updated lockfile, alongside strict Clippy, Rust unit
+tests and native packaging checks. No local large Rust compilation cache is
+needed for this verification path.
+
+Sources: https://rustsec.org/advisories/RUSTSEC-2026-0386.html and the dated
+crates.io version metadata for tokio 1.53.3 / clipboard-win 5.4.3, retained in the
+PR-closure receipts.

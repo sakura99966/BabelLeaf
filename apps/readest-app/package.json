@@ -132,7 +132,7 @@
     "tailwind-merge": "^3.4.0",
     "tauri-plugin-device-info-api": "^1.0.1",
     "tesseract-wasm": "0.11.0",
-    "zod": "^4.0.8",
+    "zod": "4.6.6",
     "zustand": "5.0.10"
   },
   "devDependencies": {

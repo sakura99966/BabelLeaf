@@ -25,9 +25,9 @@ overrides:
   picomatch: '>=4.0.4'
   path-to-regexp: '>=8.4.0'
   protobufjs: '>=7.6.5 <8'
-  serialize-javascript: 7.0.5
+  serialize-javascript: 7.1.3
   fast-xml-parser: '>=5.7.0'
-  fast-uri: '>=3.1.8 <4'
+  fast-uri: '>=3.1.9 <4'
   lodash: '>=4.18.0'
   lodash-es: '>=4.18.0'
   postcss: '>=8.5.23 <9'
@@ -83,7 +83,7 @@ importers:
     dependencies:
       '@ai-sdk/openai-compatible':
         specifier: ^2.0.48
-        version: 2.0.48(zod@4.4.3)
+        version: 2.0.48(zod@4.6.6)
       '@choochmeque/tauri-plugin-sharekit-api':
         specifier: ^0.3.0
         version: 0.3.1
@@ -179,10 +179,10 @@ importers:
         version: 2.8.26
       ai:
         specifier: ^6.0.47
-        version: 6.0.177(zod@4.4.3)
+        version: 6.0.177(zod@4.6.6)
       ai-sdk-ollama:
         specifier: ^3.2.0
-        version: 3.8.4(ai@6.0.177(zod@4.4.3))(zod@4.4.3)
+        version: 3.8.4(ai@6.0.177(zod@4.6.6))(zod@4.6.6)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -298,8 +298,8 @@ importers:
         specifier: 0.11.0
         version: 0.11.0
       zod:
-        specifier: ^4.0.8
-        version: 4.4.3
+        specifier: 4.6.6
+        version: 4.6.6
       zustand:
         specifier: 5.0.10
         version: 5.0.10(@types/react@19.2.14)(react@19.2.8)
@@ -3516,8 +3516,8 @@ packages:
   fast-json-stable-stringify@2.1.0:
     resolution: {integrity: sha512-lhd/wF+Lk98HZoTCtlVraHtfh5XYijIjalXck7saUtuanSDyLMxnHhSXEDJqHxD7msR8D0uCmqlkwjCV8xvwHw==}
 
-  fast-uri@3.1.8:
-    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
+  fast-uri@3.1.9:
+    resolution: {integrity: sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==}
 
   fast-xml-builder@1.2.0:
     resolution: {integrity: sha512-00aAWieqff+ZJhsXA4g1g7M8k+7AYoMUUHF+/zFb5U6Uv/P0Vl4QZo84/IcufzYalLuEj9928bXN9PbbFzMF0Q==}
@@ -4824,8 +4824,8 @@ packages:
     resolution: {integrity: sha512-ZYkZLAvKTKQXWuh5XpBw7CdbSzagarX39WyZ2H07CDLC5/KfsRGlIXV8d4+tfqX1M7916mRqR1QfNHSij+c9Pw==}
     engines: {node: '>=18'}
 
-  serialize-javascript@7.0.5:
-    resolution: {integrity: sha512-F4LcB0UqUl1zErq+1nYEEzSHJnIwb3AF2XWB94b+afhrekOUijwooAYqFyRbjYkm2PAKBabx6oYv/xDxNi8IBw==}
+  serialize-javascript@7.1.3:
+    resolution: {integrity: sha512-kYEnegpAxWFjUw3dSYdSM9zVlTrsxDbsSkq/qd3B7VanqyJ+JdDy6qVyuqVGBhSfuD/rLZQEKuXsO5KZFCrVYQ==}
     engines: {node: '>=20.0.0'}
 
   setimmediate@1.0.5:
@@ -5562,8 +5562,8 @@ packages:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
 
-  zod@4.4.3:
-    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+  zod@4.6.6:
+    resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
 
   zustand@5.0.10:
     resolution: {integrity: sha512-U1AiltS1O9hSy3rul+Ub82ut2fqIAefiSuwECWt6jlMVUGejvf+5omLcRBSzqbRagSM3hQZbtzdeRc6QVScXTg==}
@@ -5587,25 +5587,25 @@ snapshots:
 
   '@acemir/cssom@0.9.31': {}
 
-  '@ai-sdk/gateway@3.0.112(zod@4.4.3)':
+  '@ai-sdk/gateway@3.0.112(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.4.3)
+      '@ai-sdk/provider-utils': 4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.6.6)
       '@vercel/oidc': 3.2.0
-      zod: 4.4.3
+      zod: 4.6.6
 
-  '@ai-sdk/openai-compatible@2.0.48(zod@4.4.3)':
+  '@ai-sdk/openai-compatible@2.0.48(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.6.6)
+      zod: 4.6.6
 
-  '@ai-sdk/provider-utils@4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.4.3)':
+  '@ai-sdk/provider-utils@4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 3.0.12
       '@standard-schema/spec': 1.1.0
       eventsource-parser: 3.0.8
-      zod: 4.4.3
+      zod: 4.6.6
 
   '@ai-sdk/provider@3.0.10':
     dependencies:
@@ -6882,7 +6882,7 @@ snapshots:
 
   '@rollup/plugin-terser@0.4.4(rollup@4.60.3)':
     dependencies:
-      serialize-javascript: 7.0.5
+      serialize-javascript: 7.1.3
       smob: 1.6.1
       terser: 5.47.1
     optionalDependencies:
@@ -7725,23 +7725,23 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  ai-sdk-ollama@3.8.4(ai@6.0.177(zod@4.4.3))(zod@4.4.3):
+  ai-sdk-ollama@3.8.4(ai@6.0.177(zod@4.6.6))(zod@4.6.6):
     dependencies:
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.4.3)
-      ai: 6.0.177(zod@4.4.3)
+      '@ai-sdk/provider-utils': 4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.6.6)
+      ai: 6.0.177(zod@4.6.6)
       jsonrepair: 3.14.0
       ollama: 0.6.3
     transitivePeerDependencies:
       - zod
 
-  ai@6.0.177(zod@4.4.3):
+  ai@6.0.177(zod@4.6.6):
     dependencies:
-      '@ai-sdk/gateway': 3.0.112(zod@4.4.3)
+      '@ai-sdk/gateway': 3.0.112(zod@4.6.6)
       '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.4.3)
+      '@ai-sdk/provider-utils': 4.0.33(patch_hash=4887eeb5507999eb4c21aea1061f0dda93c06a9ff176c0f49ca67daecdacd9c9)(zod@4.6.6)
       '@opentelemetry/api': 1.9.0
-      zod: 4.4.3
+      zod: 4.6.6
 
   ajv-formats@2.1.1(ajv@8.20.0):
     optionalDependencies:
@@ -7766,7 +7766,7 @@ snapshots:
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.8
+      fast-uri: 3.1.9
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -8511,7 +8511,7 @@ snapshots:
 
   fast-json-stable-stringify@2.1.0: {}
 
-  fast-uri@3.1.8: {}
+  fast-uri@3.1.9: {}
 
   fast-xml-builder@1.2.0:
     dependencies:
@@ -9199,7 +9199,7 @@ snapshots:
       log-symbols: 4.1.0
       minimatch: 5.1.9
       ms: 2.1.3
-      serialize-javascript: 7.0.5
+      serialize-javascript: 7.1.3
       strip-json-comments: 3.1.1
       supports-color: 8.1.1
       workerpool: 6.5.1
@@ -9828,7 +9828,7 @@ snapshots:
     dependencies:
       type-fest: 4.41.0
 
-  serialize-javascript@7.0.5: {}
+  serialize-javascript@7.1.3: {}
 
   setimmediate@1.0.5: {}
 
@@ -10643,7 +10643,7 @@ snapshots:
       compress-commons: 6.0.2
       readable-stream: 4.7.0
 
-  zod@4.4.3: {}
+  zod@4.6.6: {}
 
   zustand@5.0.10(@types/react@19.2.14)(react@19.2.8):
     optionalDependencies:
