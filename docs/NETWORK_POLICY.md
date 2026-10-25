@@ -4,9 +4,12 @@
 
 This policy defines the current product boundary and the conditions required
 before a BabelLeaf build can be described as local-first. The application is
-still pre-release; source-level containment has been implemented, while clean
-runtime traffic capture and several credential/transport hardening checks
-remain release gates.
+still pre-release. Source containment, transport regressions, and the recorded
+current-host native traffic checks are part of the internal qualification;
+their source/date boundaries and external deferrals are indexed in
+[PROJECT_STATUS.md](PROJECT_STATUS.md). The release gates below still apply to
+each new candidate. They are not a claim that real paid-provider behavior or
+every future native platform has been validated.
 
 ## Policy
 

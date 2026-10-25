@@ -119,14 +119,29 @@ selected reading unit, uses bounded concurrency, supports cancellation, and
 stores reusable output locally without storing the API key in the translation
 cache.
 
-Chapter and book translation uses versioned artifact data and portable sidecars
-instead of overwriting source documents. The 0.2 workbench extracts bounded
-text segments, runs an explicitly started pauseable/cancellable job, persists
-checkpoints locally, and renders aligned source/translation pairs. Comic OCR,
-image cleanup, and translated typesetting remain future work. Version 0.3 adds
-persistent retryable jobs, glossary enforcement, bounded translation memory,
-reviewed segments, and format diagnostics. The authoritative remaining sequence
-is defined in [`docs/DEVELOPMENT_ROADMAP.md`](../../../docs/DEVELOPMENT_ROADMAP.md).
+Chapter and book translation uses versioned artifacts and portable sidecars
+instead of overwriting source documents. The workbench extracts bounded text
+segments, runs explicitly started pauseable/cancellable jobs, persists restart
+checkpoints, and renders aligned source/translation pairs. Persistent retryable
+jobs, glossary enforcement, bounded translation memory, reviewed segments,
+interchange, and format diagnostics are part of the current PC implementation.
+
+## Comic and scanned-page editing
+
+The fixed-layout reader exposes a local comic workspace. It imports local
+images/archive pages or sequentially rasterized local PDF pages, and retains
+page identity and edits in sidecars rather than changing source bytes.
+
+OCR, region editing, explicit translation, erasing/inpainting, typesetting, and
+export form a bounded, recoverable pipeline behind replaceable worker/service
+contracts. Tesseract WASM OCR and optional LaMa/ONNX cleanup initialize lazily;
+model weights require explicit checksum-verified local import and are not
+bundled or downloaded. Manual revisions are distinct from machine output.
+Separate image/archive/image-only PDF exports reject source overwrite.
+
+These are implemented PC paths, not proof of representative-corpus quality or
+native mobile acceptance. See [current status](../../../docs/PROJECT_STATUS.md)
+and the [authoritative roadmap](../../../docs/DEVELOPMENT_ROADMAP.md) for remaining gates.
 
 ## Dictionaries and speech
 

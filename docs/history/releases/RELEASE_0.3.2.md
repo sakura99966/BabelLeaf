@@ -41,7 +41,7 @@ their complete applications are not embedded. Comic Translate, BallonsTranslator
 manga-ocr, PaddleOCR, ONNX Runtime, OpenCV, LaMa, and rustybuzz remain
 benchmark or protocol candidates for 0.4. Every future code revision, model,
 weight, font, and data asset requires an independent license and checksum
-record. See [`UPSTREAM_INVENTORY.md`](UPSTREAM_INVENTORY.md).
+record. See [`UPSTREAM_INVENTORY.md`](../../UPSTREAM_INVENTORY.md).
 
 ## Data, privacy, and resource boundaries
 

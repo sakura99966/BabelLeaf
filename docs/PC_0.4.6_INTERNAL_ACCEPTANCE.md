@@ -1,5 +1,11 @@
 # BabelLeaf 0.4.6 internal PC qualification
 
+This record retains the source-bound October 23 qualification matrix. Later
+maintenance and canonical-main receipts are indexed in
+[PROJECT_STATUS.md](PROJECT_STATUS.md); do not interpret the dated counts or
+candidate hashes below as qualification of every later commit. Old release
+tags, packages, raw receipts, and the recorded measurement dates remain unchanged.
+
 ## Verdict boundary
 
 Verdict: **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED**.

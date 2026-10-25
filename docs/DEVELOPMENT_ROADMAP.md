@@ -5,10 +5,10 @@
 - Status: authoritative project roadmap
 - Current implementation baseline: `0.4.6` PC audit remediation, within the unchanged 0.4 feature boundary. No platform-port feature or model weight is added.
 - Acceptance status: **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED** for the October 18 audit remediation. Current-source test, code-review, native, installer and reference-host performance evidence is in `docs/PC_0.4.6_INTERNAL_ACCEPTANCE.md`; final protected merge, main checks and exact rebuilt main package are independently bound by the generated RELEASE_EVIDENCE receipt. Earlier reports remain historical evidence, not qualification of changed source or new advisories. Do not reuse historical package hashes or change old tags/assets. External provider, corpus-quality, independent minimum-host, voice, signing and legal gates remain **DEFERRED**, not PASS, by owner instruction. No 0.5 implementation is authorized by this deferral.
-- Roadmap revision: 17
+- Roadmap revision: 18 (repository/documentation organization only; no scope change)
 - Approved scope date: 2026-08-23
 - Last internal qualification update: 2026-10-23
-- Last remediation update: 2026-10-23
+- Last remediation update: 2026-10-25 (maintenance PR closure; dated evidence in [PROJECT_STATUS.md](PROJECT_STATUS.md))
 - Target stable release: `1.0.0`
 
 This document is the source of truth for BabelLeaf version planning, implementation sequencing, code review, and release acceptance. Release notes record what a version actually delivered; this roadmap records what must be delivered before work advances to the next version.
@@ -355,7 +355,7 @@ repository does not bundle or download model weights. The historical public
 `v0.4.3` tag predates later acceptance, native persistence, speech, installer,
 and CI corrections. That tag remains immutable; release provenance is closed
 under 0.4.4 instead of rewriting history. The 0.4.3 split verdict remains in
-`PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md`.
+[the August automated acceptance record](history/audits/PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md).
 
 ## 0.4.4 - Traceable PC release closure
 
@@ -400,7 +400,8 @@ reopened internal gates; this historical statement is not the current verdict.
 
 The subsequent independent audit reopens the affected local 0.4.4 gates; the
 historical published release evidence must not be reused as proof for changed
-code. Follow `AUDIT_REMEDIATION_0.4.4_2026-09-19.md` for current evidence.
+code. The historical [September ledger](history/audits/AUDIT_REMEDIATION_0.4.4_2026-09-19.md)
+records that remediation; current evidence is indexed in [PROJECT_STATUS.md](PROJECT_STATUS.md).
 The owner explicitly deferred external verification for this remediation run:
 credentialed paid calls, representative-corpus human quality review, independent
 minimum-spec host, human voice review, signing and owner/legal review remain
@@ -429,8 +430,9 @@ or claiming complete externally verified acceptance.
   number, successful build or local automated verdict cannot close those gates.
 
 Current status: **INTERNAL IMPLEMENTATION PASS / EXTERNAL VALIDATION DEFERRED**.
-See `PC_0.4.5_INTERNAL_ACCEPTANCE_2026-10-11.md`, `RELEASE_0.4.5.md` and the
-post-commit provenance record. No 0.5 implementation has started.
+See the historical [0.4.5 qualification](history/audits/PC_0.4.5_INTERNAL_ACCEPTANCE_2026-10-11.md),
+[0.4.5 notes](history/releases/RELEASE_0.4.5.md), and post-commit provenance record.
+These do not qualify subsequent 0.4.6 source. No 0.5 implementation has started.
 
 ## 0.4.6 - Independent-audit security and persistence closure
 
@@ -619,7 +621,7 @@ No work may be declared complete because a build command alone succeeded. Packag
 
 ## Roadmap governance
 
-- The next implementation target after the 0.4.4 closure is 0.5.0 macOS and
+- The next platform milestone after the 0.4.6 internal PC maintenance scope is 0.5.0 macOS and
   portable-core qualification. Representative and exact-package OCR evidence,
   along with the other recorded PC acceptance blockers, remains required before
   that transition; unverified runtimes or weights cannot bypass the gate.

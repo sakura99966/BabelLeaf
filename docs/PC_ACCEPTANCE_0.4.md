@@ -2,14 +2,15 @@
 
 This document defines the Windows desktop baseline that must be satisfied
 before 0.4 can be accepted. It is not, by itself, a statement that the current
-candidate has passed. The authoritative current verdict is recorded in
-`DEVELOPMENT_ROADMAP.md` and the active
-`PC_0.4.6_INTERNAL_ACCEPTANCE.md` qualification record. The
-`AUDIT_REMEDIATION_0.4.4_2026-09-19.md` ledger preserves failing-before evidence.
-`PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md` and
-`PC_0.4.4_RELEASE_ACCEPTANCE_2026-08-23.md` are historical evidence, not proof
-for subsequently changed code. The older
-`PC_0.4_REMEDIATION_STATUS_2026-08-09.md` is a historical corrective ledger.
+candidate has passed. The authoritative current verdict is recorded in the
+[roadmap](DEVELOPMENT_ROADMAP.md), [status snapshot](PROJECT_STATUS.md), and
+[0.4.6 qualification record](PC_0.4.6_INTERNAL_ACCEPTANCE.md). The
+[September ledger](history/audits/AUDIT_REMEDIATION_0.4.4_2026-09-19.md)
+preserves failing-before evidence. The
+[August automated acceptance](history/audits/PC_0.4_FINAL_AUTOMATED_ACCEPTANCE_2026-08-13.md),
+[0.4.4 release acceptance](history/audits/PC_0.4.4_RELEASE_ACCEPTANCE_2026-08-23.md),
+and [older corrective ledger](history/audits/PC_0.4_REMEDIATION_STATUS_2026-08-09.md)
+are historical evidence, not proof for subsequently changed code.
 Later milestones are platform ports and native parity work; they must not
 remove or weaken this desktop baseline.
 
