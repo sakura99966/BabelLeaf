@@ -60,4 +60,17 @@ describe('GitHub Actions Rust warning policy', () => {
     expect(native).not.toContain('WEBKIT_FORCE_SANDBOX');
     expect(native).toContain('pnpm test:tauri');
   });
+
+  it.each([
+    'rust_lint',
+    'build_tauri_app',
+  ])('%s installs system packages without archiving root-owned APT state', (name) => {
+    const job = jobBlock(name);
+    expect(job).not.toContain('/var/cache/apt/archives');
+    expect(job).not.toContain('name: cache apt packages');
+    expect(job).toContain('name: install system dependencies');
+    expect(job).toContain('sudo apt-get update');
+    expect(job).toContain('sudo apt-get install -y');
+    expect(job).not.toMatch(/if:.*cache.*(?:hit|miss)/i);
+  });
 });
