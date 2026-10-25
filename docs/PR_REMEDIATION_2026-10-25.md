@@ -103,3 +103,18 @@ governed by `DEPENDENCY_SECURITY_0.4.6.md` and the PC acceptance documents.
 Execution receipts and exact CI run identities are retained under
 `target/pr-close-20261025/`; a green pre-merge check is not a substitute for the
 final-main runs.
+
+## CI-APT-01: final-main cache-save follow-up
+
+PR #14 passed all 16 final check records and merged as
+`75eec817e176e6664b8f5fd3593ddd8df4bd4a33`. Its main Rust lint and Tauri
+integration jobs passed, but their optional APT cache saves failed: tar could
+not open root-owned `/var/cache/apt/archives/lock` and `partial`. This is a
+post-test cache failure, not a Rust test failure or a damaged installer.
+
+Remove both unusable APT directory-cache steps. Keep the normal apt-get update
+and system-package installation on every applicable job; do not chmod system
+locks, cache privileged state elsewhere, skip package installation on cache hits,
+or alter any required check. Rust, pnpm and browser caches remain unchanged.
+Two workflow-policy regressions fail before removal and pass afterward. The
+follow-up still uses the protected PR path and fresh final-main validation.

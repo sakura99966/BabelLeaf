@@ -61,13 +61,6 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - name: cache apt packages
-        if: steps.changes.outputs.tauri == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /var/cache/apt/archives
-          key: apt-rust-lint-${{ runner.os }}
-
       - name: install system dependencies
         if: steps.changes.outputs.tauri == 'true'
         run: |
@@ -280,12 +273,6 @@ jobs:
           key: tauri-cargo-ws
           cache-all-crates: 'true'
           cache-workspace-crates: 'true'
-
-      - name: cache apt packages
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: /var/cache/apt/archives
-          key: apt-tauri-ubuntu-24.04
 
       - name: install system dependencies
         run: |
