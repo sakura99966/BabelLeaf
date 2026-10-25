@@ -38,7 +38,7 @@ and Translate Toolkit's interchange-validation practices were used as behavior
 and fixture references; neither complete application was embedded. The
 candidate comic projects remain deferred to 0.4 and are not dependencies of
 this release. Provenance and license decisions are recorded in
-[`UPSTREAM_INVENTORY.md`](UPSTREAM_INVENTORY.md).
+[`UPSTREAM_INVENTORY.md`](../../UPSTREAM_INVENTORY.md).
 
 ## Data and network boundaries
 

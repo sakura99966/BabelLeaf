@@ -5,6 +5,12 @@ Final source/artifact closure is controlled by protected checks and the generate
 canonical-main RELEASE_EVIDENCE receipt; this document alone does not assert
 that a merge, tag or public release has occurred.
 
+The dated [project status](PROJECT_STATUS.md) distinguishes the frozen historical
+v0.4.6 tag from subsequent maintenance source and CI candidates. As of
+2026-10-25 no v0.4.6 GitHub Release has been published. The measurements and
+initial audit counts below belong to their recorded source freezes, not every
+later commit with the same application version.
+
 This candidate retains the approved 0.4 PC scope. It addresses the October 18
 independent audit: dictionary HTML/CSS isolation, explicit session translation
 consent, ordinary annotation/configuration durability and visible recovery,
@@ -16,8 +22,10 @@ verification rejects missing, modified, stale or unmapped copies. Strict SBOM
 generation includes these components and requires static-output reconciliation
 when bound to an installer.
 
-Raw complete npm scanning still reports three development-only advisory records
-for two packages without published fixes. Exact-version source backports and
+At the initial qualification freeze, raw complete npm scanning reported three
+development-only advisory records for two packages without published fixes.
+Subsequent maintenance reduces the raw findings to two extract-zip records;
+see the current status and dependency-security ledger. Exact-version source backports and
 regression/hash checks are enforced by `pnpm security:dependencies`. This is
 not a claim that the version-based scanner is clean. Windows Rust scanning is
 separate from non-Windows warnings and future platform qualification.

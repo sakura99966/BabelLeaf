@@ -24,7 +24,6 @@ reproducible.
 | --- | --- | --- |
 | `packages/foliate-js` | `df623dbe6610fd98a7c2d5d7a5c23bfcfc7d19f3` | MIT |
 | `packages/tauri` | `6914700e04bfc391a2adfa9c3393a2afe376c154` | Apache-2.0 OR MIT |
-| `packages/tauri-plugins` | `4350ca652d33e3face88d7c97a78830553545550` | Apache-2.0 OR MIT |
 | `packages/simplecc-wasm` | `5e5b56f5b82394e7df07f9171ac70f4578b24a32` | MIT |
 | `packages/qcms` | `fc23a407f1ed9ccfea15875d27e0936dcc798a1f` | MIT |
 | `packages/js-mdict` | `d01bf62af872b1fbeacb2f18446460960e7400de` | AGPL-3.0 at this revision |
@@ -55,16 +54,18 @@ not expected to contain them and they may be deleted after evaluation.
 | [manga-ocr](https://github.com/kha-white/manga-ocr) | `c333b5d` | Apache-2.0 | Lightweight Japanese manga OCR | Candidate replaceable OCR adapter; not integrated |
 | [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR) | `2661c7c` | Apache-2.0 | Chinese/English/Japanese document and image OCR | Candidate replaceable OCR adapter; not integrated |
 
-BallonsTranslator and manga-image-translator overlap substantially. BabelLeaf
-will not combine both complete applications. If comic translation work starts,
-the candidates should be benchmarked against the same legally obtained sample
-set, then one primary worker selected behind a BabelLeaf-owned local protocol.
+BallonsTranslator and manga-image-translator overlap substantially. Neither
+complete application is integrated. The existing BabelLeaf comic pipeline uses
+its own protocol and editor; future engine substitutions require the same
+lawful-corpus, license, resource, and target-platform selection gates rather
+than combining entire applications.
 
-## Researched candidates not yet mirrored or integrated
+## Research snapshots and current integration
 
-These candidates were rechecked against their public upstream repositories on
-2026-08-04. They are roadmap inputs only. A concrete revision and all software,
-model, data, and asset licenses must be pinned and reviewed before use.
+The research snapshot below was checked on 2026-08-04; its license column is
+dated research, not a fresh upstream audit. The integration column is corrected
+to the current PC tree. Unintegrated candidates remain roadmap inputs only;
+concrete revisions and software/model/data licenses require review before use.
 
 | Repository | License shown by upstream at review time | Evaluation purpose | Integration state |
 | --- | --- | --- | --- |
@@ -72,9 +73,9 @@ model, data, and asset licenses must be pinned and reviewed before use.
 | [Translate Toolkit](https://github.com/translate/translate) | GPL-3.0 family; exact revision notices require recheck | TMX/TBX/XLIFF conversion and translation QA | External validation/reference only |
 | [Comic Translate](https://github.com/ogkalu2/comic-translate) | Apache-2.0 for repository code | End-to-end detection, OCR, inpainting, translation, rendering, and manual correction | Strong benchmark candidate; Python application not integrated |
 | [manga-ocr-rs](https://github.com/CodeMonkeyNinja/manga-ocr-rs) | MIT for repository code | Experimental pure-Rust Japanese OCR over ONNX Runtime | Benchmark only; immature project and separately downloaded model require review |
-| [ONNX Runtime](https://github.com/microsoft/onnxruntime) | MIT | Portable inference abstraction for desktop and mobile | Candidate runtime; not integrated |
+| [ONNX Runtime](https://github.com/microsoft/onnxruntime) | MIT | Portable inference abstraction for desktop and mobile | `onnxruntime-web` 1.27.0 integrated lazily for optional local LaMa cleanup; this does not approve an ONNX OCR model or native mobile runtime |
 | [OpenCV](https://github.com/opencv/opencv) | Apache-2.0 at current upstream | Image preprocessing, geometry, masks, and deterministic cleanup | Candidate native component; not integrated |
-| [LaMa](https://github.com/advimman/lama) | Apache-2.0 for repository code | Optional local image inpainting | Candidate algorithm; code and model weights must be reviewed separately |
+| [LaMa](https://github.com/advimman/lama) | Apache-2.0 for repository code | Optional local image inpainting | Local catalogued-model adapter implemented; weights are imported explicitly, not bundled; code and weights reviewed separately |
 | [rustybuzz](https://github.com/harfbuzz/rustybuzz) | MIT | Portable text shaping for deterministic exported overlays | Candidate export component; not integrated |
 
 The complete roadmap and the required selection gates are recorded in
@@ -100,10 +101,10 @@ forked or vendored solely to preserve it for possible future use.
    review; a repository's software license does not automatically cover them.
 7. No DRM-removal component or unlicensed content source is in scope.
 
-## 0.4.0-0.4.1 OCR worker, comic workspace, and gate hardening boundary
+## Current OCR worker and comic workspace boundary
 
-The future worker should return a BabelLeaf-owned, versioned sidecar rather
-than overwrite source pages. At minimum it will need:
+The implemented worker/editor contracts return BabelLeaf-owned versioned
+sidecars rather than overwrite source pages. Their data includes:
 
 - source page identity and dimensions;
 - detected text-region polygon and reading order;
@@ -125,10 +126,15 @@ can validate cancellation, progress, limits, model selection, worker
 replacement, manual revisions, stale translations, and recovery without
 adding a heavy runtime to startup. Model-pack storage, byte verification,
 runtime factory construction, and bounded benchmark evidence are now present,
-but no external OCR application or model weight is embedded. PaddleOCR,
-manga-ocr, manga-ocr-rs, and ONNX Runtime remain candidates for a separately
-reviewed production model-pack integration; the `ocrEngineGate.ts` evidence
-contract must pass before one becomes a product dependency.
+but no external OCR application or model weight is embedded. Tesseract WASM
+0.11.0 is the selected local PC OCR runtime. The optional LaMa adapter uses
+ONNX Runtime Web 1.27.0; it is not the model-agnostic ONNX OCR candidate.
+PaddleOCR, manga-ocr, and manga-ocr-rs remain unintegrated OCR candidates.
+The `ocrEngineGate.ts` evidence contract and separate model-license review
+apply before a replacement becomes a product dependency. Runtime asset copies
+and notices are bound by `scripts/runtime-vendor-policy.mjs` and
+`licenses/runtime/`; selected paths and deferred human-quality gates are
+documented in [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ## Attribution and release checks
 

@@ -1,15 +1,18 @@
 # Testing
 
-BabelLeaf uses three Vitest tiers plus platform end-to-end checks.
+BabelLeaf uses three Vitest tiers plus platform end-to-end checks. The canonical
+root-directory commands and verification scope are maintained in
+[the development guide](../../../docs/DEVELOPMENT.md). Commands below run from
+`apps/readest-app/`; use the exact pinned pnpm via Corepack.
 
 ## Unit Tests (`pnpm test`)
 
 Runs tests in a **jsdom** environment. No browser or Tauri runtime required.
 
 ```bash
-pnpm test                                       # Run all unit tests
-pnpm test -- src/__tests__/utils/misc.test.ts   # Run a single file
-pnpm test -- --watch                            # Watch mode
+corepack pnpm exec dotenv -e .env -e .env.test.local -- vitest run --maxWorkers=4
+corepack pnpm exec dotenv -e .env -e .env.test.local -- vitest run src/__tests__/utils/misc.test.ts --maxWorkers=4
+corepack pnpm exec dotenv -e .env -e .env.test.local -- vitest --watch
 ```
 
 - **Config:** `vitest.config.mts`
@@ -127,13 +130,12 @@ ANDROID_SERIAL=emulator-5554 pnpm test:android
 
 ### CI
 
-`.github/workflows/android-e2e.yml` runs the lane on an x86_64 emulator
-(Ubuntu runner with KVM): it builds a **debug** APK for `x86_64` (no signing
-secrets needed), boots a cached AVD via `reactivecircus/android-emulator-runner`,
-installs the APK, and runs `pnpm test:android`. It is intentionally not
-PR-blocking — it runs nightly, on `workflow_dispatch`, or when a PR gets the
-`e2e-android` label. If that workflow is not enabled in a fork, run this lane
-on a local emulator or a dedicated mobile CI runner.
+No Android E2E workflow is currently enabled in this repository. The retained
+device harness is future-platform infrastructure, not an active nightly lane
+or proof of Android product acceptance. It must be qualified on the target
+device/emulator during the Android milestone; a missing-device soft skip is
+not a pass. Current protected workflows are listed under
+[`.github/workflows/`](../../../.github/workflows/).
 
 ## E2E Tests (WDIO)
 

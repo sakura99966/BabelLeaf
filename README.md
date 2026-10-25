@@ -1,288 +1,77 @@
 # BabelLeaf
 
-**Read beyond language.**
+跨越语言，继续阅读。
 
-[简体中文](README_cn.md)
+[English](README_en.md) · [项目状态](docs/PROJECT_STATUS.md) · [文档导航](docs/README.md) · [开发路线图](docs/DEVELOPMENT_ROADMAP.md)
 
-BabelLeaf is an open-source, local-first reader for Simplified Chinese users
-who read books and comics in English, Japanese, and other languages. It is
-currently developed for Windows with a shared Tauri v2 codebase intended to
-remain portable to macOS, Android, and iOS.
+BabelLeaf 是面向简体中文用户的开源、本地优先阅读器，用于阅读中文、英文、日文等语言的书籍和漫画，并提供文本翻译与本地漫画编辑工作流。项目基于 Readest，采用 Tauri 2、React/Next.js、TypeScript 和 Rust。
 
-The active application baseline is derived from Readest. BabelLeaf keeps the
-local reading foundation while removing product services that do not belong in
-the project.
+当前以 **Windows x64 PC** 为交付和内部验收平台。macOS、Android、iOS/iPadOS 保留共享代码与平台适配结构，但尚未完成各自的原生产品验收。
 
-## Current product boundary
+## 当前版本与下载
 
-- Reading content enters through local file import.
-- Books, reading progress, annotations, dictionaries, settings, and
-  translation caches stay on the device.
-- Network access is limited to translation explicitly requested by the user
-  through named DeepSeek V4, OpenAI, or Anthropic Claude presets, or loopback
-  Ollama.
-- Accounts, cloud synchronization, OPDS/RSS catalogs, web clipping, resource
-  scraping, public sharing, billing, telemetry, online metadata, online
-  dictionaries, cloud TTS, and inherited update services are not part of the
-  current application.
-- BabelLeaf does not remove DRM or provide access to copyrighted material the
-  user is not authorized to use.
+截至 2026-10-25，主线应用版本为 **0.4.6**，状态为 `INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED`：当前 PC 范围的内部实现验收通过，外部验证仍暂缓；这不是稳定版或签名生产版的完整验收结论。
 
-The network boundary and its remaining release checks are documented in
-[Network Policy](docs/NETWORK_POLICY.md).
+- [GitHub Releases](https://github.com/sakura99966/BabelLeaf/releases) 当前公开的最新预发布为 **v0.4.5**，不包含之后的全部主线整改。
+- `v0.4.6` 是已冻结的历史源码标签，尚未发布对应的 GitHub Release。后续维护提交、CI 候选包与该标签不能混为同一份产物。
+- 安装包为未签名验证包。下载前核对对应发布记录、SHA-256 和已知限制；不要用历史安装包代替当前源码的测试证据。
 
-## Development status
+精确源码、CI、安装验证和发布边界见[项目状态](docs/PROJECT_STATUS.md)。
 
-BabelLeaf is pre-release software. The repository currently provides:
+## PC 端现有功能
 
-- a Tauri v2 desktop and mobile application structure;
-- local library import and reading foundations;
-- parser and rendering paths for EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT,
-  and Markdown content;
-- local highlights, notes, search, reading progress, and appearance settings;
-- imported local dictionaries and supported operating-system dictionary
-  integration;
-- native or browser speech engines without an online speech fallback;
-- selection and reading-unit translation through named DeepSeek V4, OpenAI,
-  Anthropic Claude, or local Ollama adapters.
+| 能力 | 当前范围 |
+| --- | --- |
+| 本地阅读 | EPUB、PDF、MOBI/AZW/AZW3、FB2/FBZ、CBZ/ZIP、TXT、Markdown；书库、搜索、目录、进度、高亮、笔记与阅读外观设置 |
+| 文本翻译 | 划词、阅读单元、章节、全书翻译；内置指令与命名供应商预设；取消、失败提示、暂停、恢复、重试及本地缓存 |
+| 双语与校订 | 原文、译文、上下及并排对照；稳定定位锚点；术语表、翻译记忆、人工校订及机器结果保留 |
+| 可迁移数据 | 不改写原书的本地 sidecar；翻译、术语与校审数据的 JSON/TSV、TBX/TMX/XLIFF 互操作，具体类型见需求文档 |
+| 词典与朗读 | 导入本地词典、支持平台的系统词典，以及本地/系统语音；无在线词典或云端语音回退 |
+| 漫画与扫描页 | PDF/CBZ/FBZ 阅读器内漫画工作区；本地图片或 PDF 页面导入；本地 OCR、可选文本层、区域修订、区域翻译、擦字与水平/RTL/竖排 CJK 嵌字 |
+| 漫画流程与导出 | 多阶段任务、检查点与重启恢复；可选本地 LaMa 修复；独立图片集、CBZ/ZIP 或纯图片 PDF 导出，禁止覆盖原文件 |
+| 资源与安全 | 按需加载解析器和本地推理运行时；有界队列、缓存与输入预算；不可信书籍/词典内容隔离及凭据保护 |
 
-Format recognition is not a compatibility guarantee for every file variant.
-Testing must use legally obtained, DRM-free documents.
+能够识别格式，不代表所有文件变体均已兼容。请使用合法取得的无 DRM 文件；损坏、加密、不支持或超限内容应得到明确提示，而不是绕过保护。
 
-Versions 0.2 through 0.3.2 now provide the following translation workflow in
-addition to selection and viewport translation:
+OCR 使用本地 Tesseract WASM 运行时；LaMa/ONNX 修复为可选功能。**模型权重不随安装包附带，也不会自动下载**，需用户显式导入符合校验、许可证和能力要求的本地模型包。具体接入见[OCR](docs/OCR_TESSERACT_RUNTIME.md)与[修复运行时](docs/INPAINT_LAMA_RUNTIME.md)文档。自动化测试不等于代表性漫画的人工质量验收。
 
-- a reader-side chapter/full-book workbench with bounded, pauseable,
-  cancellable translation jobs and local checkpoints;
-- aligned source/translation pairs and portable, credential-free JSON sidecar
-  import/export;
-- a persistent retryable batch queue, glossary enforcement, bounded translation
-  memory, format diagnostics, and reviewed segment state;
-- glossary and translation-memory management with validated local import/export,
-  conflict reporting, bounded history cleanup, and glossary-version visibility;
-- a review workspace with provider provenance, locators, status filters,
-  machine-result retention, approve/revert actions, keyboard paging, and
-  recoverable local drafts;
-- a persistent job dashboard that restores jobs after restart and distinguishes
-  recovered state, failures, retries, and terminal history.
-- versioned JSON/TSV glossary, translation-memory, and review interchange with
-  TBX, TMX, and XLIFF round trips;
-- layout-independent source anchors, explicit text-layer/mixed/image-only and
-  malformed/oversized diagnostics, a legal fixture matrix, and tracked
-  performance budgets;
-- a replaceable local comic-worker protocol with capability discovery,
-  bounded progress/cancellation/error contracts, and a mock OCR adapter.
+## 翻译与隐私
 
-Version 0.4.0 adds the local OCR foundation around that worker boundary:
+1. 书籍与漫画只从本地导入；书库、批注、sidecar、任务和缓存保存在设备上，原始内容不被译文覆盖。
+2. 云端预设为 DeepSeek V4、OpenAI 和 Anthropic Claude。选择供应商、填入自己的 API Key 后，由内置地址、模型及翻译指令处理请求；不开放任意服务器地址或任意模型配置。
+3. Ollama 仅允许本机回环地址。使用云端翻译时，用户明确选择的待翻译内容会发送给对应供应商，并可能产生费用；API Key 不写入导出的 sidecar。
+4. 导入、打开、普通阅读、查本地词典或本地朗读不会自动发起翻译；批量或连续翻译也须由用户明确启动，并受会话授权与任务控制约束。
+5. 不提供账号、云同步、资源搜索或抓取、OPDS/RSS、遥测、在线元数据、在线词典、云 TTS 或自动更新服务；不提供 DRM 破解。
 
-- versioned OCR sidecars preserving page identity, polygons, reading order,
-  language, confidence, ruby metadata, engine provenance, and failures;
-- bounded page OCR tasks with pause, resume, cancel, retry, checkpoint, and
-  restart recovery;
-- local-only OCR model manifests with checksum, license, language, runtime,
-  and CPU-fallback declarations; model packs are never downloaded automatically;
-- a selectable OCR text-layer component that overlays page content without
-  modifying the imported PDF, CBZ, FBZ, or image source;
-- explicit OCR diagnostics for text-layer, mixed, image-only, missing-model,
-  incompatible-device, malformed, and oversized inputs.
+真实付费供应商调用、合法代表性语料与 OCR/修复人工质量、独立最低配置 Windows、人工语音试听、签名及责任方许可审查仍由用户暂缓，**不能记为通过**。详见[联网策略](docs/NETWORK_POLICY.md)和[PC 验收基准](docs/PC_ACCEPTANCE_0.4.md)。
 
-Version 0.4.1 adds the editable comic workspace boundary:
+## 从源码运行
 
-- machine OCR and manual region revisions are stored separately, with polygon,
-  text, language, orientation, reading-order, split, merge, delete, restore,
-  approval, and rollback operations;
-- OCR reruns preserve manual edits and mark affected translations stale instead
-  of overwriting reviewed data;
-- explicit single-region translation reuses the named provider adapters and
-  records machine output, source revision, review state, and provenance in a
-  credential-free sidecar;
-- translated overlays and an accessible region-editor primitive render without
-  flattening or modifying the imported page.
-- local OCR model-pack installation, SHA-256 verification, lazy runtime
-  construction, and bounded benchmark evidence are available as a gate
-  hardening layer; no engine or model weights are bundled.
-- schema-version 2 local OCR packs can represent multiple verified artifacts
-  such as an encoder and vocabulary while preserving schema-version 1 packs;
-  installation remains explicit and offline.
-- a model-agnostic ONNX session adapter and candidate registry are available
-  for future local workers; the adapter is lazy, cancellation-aware, accepts
-  only verified local artifacts, and does not add a runtime or model weight to
-  the base installer.
-
-Version 0.4.2 adds the source-preserving image edit services:
-
-- bounded paint, erase, restore, expansion, feathering, and deterministic local
-  cleanup with an optional local inpainting worker boundary;
-- editable horizontal, RTL, and vertical CJK typesetting with fit, overflow,
-  spacing, outline, rotation, and style controls;
-- a credential-free edit sidecar and separate image-set, CBZ, and ZIP export
-  that rejects source overwrite.
-
-Version 0.4.3 adds the recoverable comic pipeline:
-
-- ordered OCR, translation, cleanup, typesetting, and export stages;
-- pause, resume, cancel, retry, restart recovery, revision history, selective
-  rerun, checkpoint persistence, redacted diagnostics, cache pruning, and
-  export validation;
-- an application-facing editing facade that keeps page bytes out of sidecars
-  and never downloads models automatically;
-- a desktop reader comic workspace reachable from PDF/CBZ/FBZ books, with
-  local image/CBZ/FBZ/PDF-page import, OCR-sidecar import, selectable OCR text, manual
-  region correction, explicit region translation, deterministic erasing,
-  typesetting, and separate CBZ or image-only PDF export;
-- AI settings controls for explicit checksum-verified local OCR model-pack
-  import, listing, and removal.
-
-Version 0.4.6 closes the internal independent-audit remediation within the same
-PC feature scope: dictionary HTML/CSS isolation, session translation consent,
-recoverable annotation writes, dependency/runtime provenance, PDF worker
-disposal and bounded document ownership. Full native/browser/security,
-installer and reference-host performance evidence is recorded in
-[0.4.6 internal qualification](docs/PC_0.4.6_INTERNAL_ACCEPTANCE.md).
-Protected main checks and exact canonical-main package receipts control final
-source/artifact closure; unsigned internal qualification is not external or
-signed-production acceptance.
-
-The owner has deferred paid-provider tests, representative lawful-corpus and
-human OCR/inpainting quality review, independent minimum-spec Windows tests,
-human voice review, signing and responsible-owner license review. Deferred is
-not PASS. No model weights are bundled or downloaded automatically.
-
-Later milestones cover signed production packages and target-platform release
-validation for macOS, Android, and iOS.
-
-The authoritative sequence from 0.4.0 through the stable 1.0.0 release is
-defined in the [development roadmap](docs/DEVELOPMENT_ROADMAP.md). Version
-planning, implementation, review, and release acceptance must use that document.
-The PC-specific acceptance baseline is recorded in
-[PC Acceptance 0.4](docs/PC_ACCEPTANCE_0.4.md).
-
-See [Architecture](apps/readest-app/docs/architecture.md) for runtime
-boundaries and [Upstream Inventory](docs/UPSTREAM_INVENTORY.md) for source and
-license provenance. The OCR boundary is documented in
-[OCR Foundation](docs/OCR_FOUNDATION.md); the current and future translation
-contract is documented in [Translation Requirements](docs/TRANSLATION_REQUIREMENTS.md).
-
-## Architecture
-
-```text
-Next.js / React interface
-        |
-        +-- foliate-js and PDF.js reading foundation
-        +-- local library, settings, annotations, and caches
-        +-- local dictionaries and native/system speech
-        +-- explicit translation adapters
-                |
-                +-- DeepSeek V4, OpenAI, Anthropic Claude (fixed official endpoints and models)
-                +-- Ollama
-        |
-        +-- Tauri v2 platform boundary
-                +-- Windows
-                +-- macOS
-                +-- Android
-                +-- iOS
-```
-
-Platform-neutral reading and translation behavior stays in TypeScript.
-Filesystem access, secure storage, native speech, and operating-system
-integration stay behind typed Tauri/application-service adapters.
-
-## Development
-
-### Requirements
-
-- Git with submodule support
-- Node.js 24
-- pnpm 11; the repository pins the exact package-manager version
-- Rust 1.90 or newer
-- the platform prerequisites required by Tauri v2
-- on Windows, WebView2 Runtime and Visual Studio Build Tools with the
-  **Desktop development with C++** workload
-
-### Set up
+需要 Git（含子模块）、Node.js 24、仓库锁定的 pnpm 11.1.1、Rust 1.90 或更新版本；Windows 还需 MSVC C++ 桌面开发工具链及 WebView2 Runtime。
 
 ```bash
 git clone --recurse-submodules https://github.com/sakura99966/BabelLeaf.git
 cd BabelLeaf
-git submodule update --init --recursive
-corepack enable
-pnpm install --frozen-lockfile
-pnpm --filter @readest/readest-app setup-vendors
+corepack pnpm install --frozen-lockfile
+corepack pnpm --filter @readest/readest-app setup-vendors
+corepack pnpm tauri dev
 ```
 
-### Local workspace cleanup
+命令假定已安装 Corepack；缺少时先配置该包管理器入口。不要以全局不同版本的 pnpm 改写锁文件。内部 `@readest/readest-app` 包名和部分 Rust 标识因兼容性保留，不代表用户可见产品仍是 Readest。
 
-Remove only individually verified reproducible caches such as `.next/`, `out/`
-and Rust compiler caches. Never remove `target/` wholesale: it also holds release
-packages, reports, raw logs, SBOMs, hashes and qualification records. Preserve
-user data, credentials, model packs and tracked mobile scaffolding under
-`src-tauri/gen/`. Dependencies and `public/vendor/` can be regenerated but are
-required for local development. The optional `.upstream/` directory is only a
-disposable local research mirror.
-After removing dependencies or vendor assets, restore them with:
+完整环境、测试、构建及安全清理说明见[开发指南](docs/DEVELOPMENT.md)；提交要求见[贡献指南](CONTRIBUTING.md)。
 
-```bash
-pnpm install --frozen-lockfile
-pnpm --filter @readest/readest-app setup-vendors
-```
+Windows NSIS 包嵌入网页资源及 WebView2 离线安装程序，安装目录只有主程序和卸载程序可以是正常布局。发布仍须以**同一个精确安装包**完成安装、响应式启动、卸载与用户数据保留验证，不能只看文件数量或构建成功。
 
-The internal workspace package and Rust library retain several upstream
-Readest identifiers for compatibility. User-visible product identity, bundle
-IDs, credential namespaces, and release configuration use BabelLeaf.
+## 仓库导航
 
-Run the desktop application:
+- [当前状态与证据入口](docs/PROJECT_STATUS.md)：哪些已实现、哪些仍未验证，以及源码与发布包的区别。
+- [权威路线图](docs/DEVELOPMENT_ROADMAP.md)：后续依次为 macOS、Android、iOS/iPadOS、平台对齐、RC 和 1.0；未验收的平台不因共享代码而自动获得支持声明。
+- [文档导航](docs/README.md)：架构、需求、OCR、性能、安全和验收资料。
+- [历史记录](docs/history/README.md)：旧版发行说明及被后续记录取代的审计，不作为当前通过证据。
 
-```bash
-pnpm tauri info
-pnpm tauri dev
-```
+## 开源与许可证
 
-Run the main verification gates:
+BabelLeaf 遵循 [AGPL-3.0-or-later](LICENSE)，保留 Readest 及各组件的署名与许可证义务。当前阅读基础还使用 foliate-js、PDF.js 等组件，来源和选型见[上游清单](docs/UPSTREAM_INVENTORY.md)及[基线决策](docs/ADR-001-READEST-BASELINE.md)。早期 Koodo 基线保留在 Git 历史中，不是另一个随软件运行的阅读器。
 
-```bash
-pnpm --filter @readest/readest-app test -- --run
-pnpm lint
-pnpm format:check
-pnpm --filter @readest/readest-app build
-pnpm fmt:check
-pnpm clippy:check
-pnpm --filter @readest/readest-app test:rust
-```
-
-Build the unsigned Windows x64 validation package:
-
-```bash
-pnpm --filter @readest/readest-app build-win-x64:unsigned
-pnpm --filter @readest/readest-app test:windows-installer -- -PreflightOnly
-```
-
-The NSIS package embeds the WebView2 offline installer. Tauri also embeds the
-web assets and required resources in the main executable, so an installed
-directory containing only `babelleaf.exe` and `uninstall.exe` is expected and
-is not evidence of missing files. Release validation must still install,
-launch, and uninstall the package in a clean Windows user or virtual machine.
-
-## Source history
-
-The active tree derives from
-[Readest](https://github.com/readest/readest) commit
-`8c212e5b8b019e40e162a7e20cb90f336a308f13`. Migration merge `2bc0b11d`
-preserves the earlier BabelLeaf/Koodo history. The pre-Readest BabelLeaf/Koodo
-baseline remains reachable in main history at
-`93bd8ebbc613906ca730717dfa3261e2ea93327d`.
-
-Koodo is a cross-platform Electron desktop reader; it was not rejected as
-Windows-only. Readest was selected because its Tauri v2 structure provides a
-more direct path to a shared desktop and mobile application.
-
-## License and attribution
-
-BabelLeaf is distributed under the
-[GNU Affero General Public License v3.0 or later](LICENSE), consistent with
-the active Readest baseline. Upstream copyright, license, modification, and
-source-distribution obligations must be retained.
-
-Fonts, dictionaries, OCR models, model weights, voices, test documents, and
-other bundled data require separate license and redistribution review. Listing
-an upstream project as a candidate does not mean its code or assets have been
-integrated.
+字体、词典、模型、语音及测试资料须单独核对再分发条件。候选项目清单不代表已经集成。安全问题请按[安全策略](SECURITY.md)报告，不要公开凭据或私人书籍。

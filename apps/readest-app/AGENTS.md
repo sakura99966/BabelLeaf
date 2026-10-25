@@ -85,8 +85,8 @@ pnpm --filter @readest/readest-app dev-web
 pnpm tauri dev
 
 # Targeted and full frontend verification
-pnpm --filter @readest/readest-app test -- --run path/to/test.ts
-pnpm --filter @readest/readest-app test -- --run
+corepack pnpm --filter @readest/readest-app exec dotenv -e .env -e .env.test.local -- vitest run path/to/test.ts --maxWorkers=4
+corepack pnpm --filter @readest/readest-app exec dotenv -e .env -e .env.test.local -- vitest run --maxWorkers=4
 pnpm lint
 pnpm format:check
 pnpm --filter @readest/readest-app build

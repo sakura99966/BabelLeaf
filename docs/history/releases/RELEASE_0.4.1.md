@@ -45,6 +45,6 @@ tools remain 0.4.3/platform work.
   in workspace data.
 - Imported files remain byte-for-byte unchanged.
 
-See [COMIC_WORKSPACE.md](COMIC_WORKSPACE.md),
-[OCR_FOUNDATION.md](OCR_FOUNDATION.md), and
-[DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
+See [COMIC_WORKSPACE.md](../../COMIC_WORKSPACE.md),
+[OCR_FOUNDATION.md](../../OCR_FOUNDATION.md), and
+[DEVELOPMENT_ROADMAP.md](../../DEVELOPMENT_ROADMAP.md).

@@ -48,6 +48,6 @@ integration. 0.4.2 adds cleanup, inpainting, typesetting, and separate
 translated export. macOS, Android, and iOS qualification remains later in the
 roadmap.
 
-See [OCR_FOUNDATION.md](OCR_FOUNDATION.md),
-[COMIC_WORKER_PROTOCOL.md](COMIC_WORKER_PROTOCOL.md), and
-[DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
+See [OCR_FOUNDATION.md](../../OCR_FOUNDATION.md),
+[COMIC_WORKER_PROTOCOL.md](../../COMIC_WORKER_PROTOCOL.md), and
+[DEVELOPMENT_ROADMAP.md](../../DEVELOPMENT_ROADMAP.md).
