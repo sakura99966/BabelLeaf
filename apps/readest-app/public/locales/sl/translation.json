@@ -2011,5 +2011,6 @@
   "Translation not saved. Keep this book open and retry saving.": "Prevod ni shranjen. Pustite knjigo odprto in poskusite znova shraniti.",
   "Book changes not saved. Keep this book open and retry saving.": "Spremembe knjige niso shranjene. Knjigo pustite odprto in znova poskusite shraniti.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "Nastavitve knjige so bile obnovljene iz lokalne varnostne kopije. Pred nadaljevanjem preverite opombe.",
-  "Dismiss": "Zapri"
+  "Dismiss": "Zapri",
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Ključ API ni potreben. Besedilo za prevod se pošlje v Bilibili. Pri preizkusu povezave se pošlje samo vgrajeni vzorec."
 }

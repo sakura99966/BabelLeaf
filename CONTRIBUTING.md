@@ -13,7 +13,7 @@ For changes under `apps/readest-app`, read its [AGENTS.md](apps/readest-app/AGEN
 ## Product and privacy guardrails
 
 - Content is imported locally. Library state, annotations, sidecars, and caches stay on the device; original books/pages are never overwritten by translation or OCR output.
-- External requests are explicit translation through named DeepSeek V4, OpenAI, or Anthropic Claude adapters. Endpoints, models, and prompts are application-controlled. Ollama is loopback-only; arbitrary OpenAI-compatible URLs are not supported.
+- External requests are explicit translation through named DeepSeek V4, OpenAI, Anthropic Claude, or Bilibili Index-Translate adapters. Endpoints, models, and prompts are application-controlled. The public Index-Translate preset is keyless and text-only. Ollama is loopback-only; arbitrary OpenAI-compatible URLs are not supported.
 - Accounts, synchronization, catalogs, scraping/download services, online metadata/dictionaries/TTS, telemetry, inherited update services, and DRM circumvention are out of scope.
 - No implicit translation, model download, credential use, paid call, or document upload is authorized by a test or maintenance request.
 - Deferred provider, corpus, device, human-quality, signing, and legal checks must remain visibly deferred, not reported as passed.

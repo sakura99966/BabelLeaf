@@ -1,14 +1,19 @@
 import { generateText } from 'ai';
 
-import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
+import {
+  DEFAULT_AI_SETTINGS,
+  INDEX_TRANSLATE_LABEL,
+  INDEX_TRANSLATE_MODEL,
+} from '@/services/ai/constants';
 import { getAIProvider } from '@/services/ai/providers';
 import { isLoopbackOllamaUrl } from '@/services/ai/providers/OllamaProvider';
 import { AI_TIMEOUTS } from '@/services/ai/utils/retry';
+import { getTranslationApiKey } from '@/services/ai/translationApiKey';
 import {
-  getTranslationApiKey,
-  type TranslationApiKeyProvider,
-} from '@/services/ai/translationApiKey';
-import type { ActiveAIProviderName, AISettings } from '@/services/ai/types';
+  requiresTranslationApiKey,
+  type ActiveAIProviderName,
+  type AISettings,
+} from '@/services/ai/types';
 import { useSettingsStore } from '@/store/settingsStore';
 
 import { ErrorCodes, type TranslationProvider } from '../types';
@@ -26,8 +31,8 @@ const getSettings = (provider: LLMTranslatorName): AISettings => {
     provider,
   };
 
-  if (provider === 'deepseek' || provider === 'openai' || provider === 'anthropic') {
-    const key = getTranslationApiKey(provider as TranslationApiKeyProvider);
+  if (requiresTranslationApiKey(provider)) {
+    const key = getTranslationApiKey(provider);
     if (provider === 'deepseek') settings.deepseekApiKey = key;
     if (provider === 'openai') settings.openaiApiKey = key;
     if (provider === 'anthropic') settings.anthropicApiKey = key;
@@ -37,6 +42,7 @@ const getSettings = (provider: LLMTranslatorName): AISettings => {
 };
 
 const isConfigured = (provider: LLMTranslatorName): boolean => {
+  if (provider === 'index-translate') return true;
   const settings = getSettings(provider);
   if (provider === 'ollama') {
     return Boolean(
@@ -84,7 +90,7 @@ const getSafeErrorMessage = (error: unknown): string => {
 /** Convert provider/transport failures into stable, non-sensitive UI errors. */
 export const normalizeTranslationProviderError = (
   error: unknown,
-  options: { timedOut?: boolean; cancelled?: boolean } = {},
+  options: { timedOut?: boolean; cancelled?: boolean; requiresAuth?: boolean } = {},
 ): Error => {
   const errorName =
     error && typeof error === 'object' && 'name' in error
@@ -108,7 +114,11 @@ export const normalizeTranslationProviderError = (
     status === 403 ||
     /unauthori[sz]ed|invalid api key|forbidden/i.test(message)
   ) {
-    return failure('Translation provider rejected the API key');
+    return failure(
+      options.requiresAuth === false
+        ? 'Translation provider denied access'
+        : 'Translation provider rejected the API key',
+    );
   }
   if (status === 429 || /rate.?limit|too many requests/i.test(message)) {
     return failure('Translation provider rate limit reached; retry later');
@@ -138,14 +148,7 @@ const createLLMTranslator = (
   isConfigured: () => isConfigured(name),
   cacheContext: () => {
     const settings = { ...DEFAULT_AI_SETTINGS, ...useSettingsStore.getState().settings.aiSettings };
-    const model =
-      name === 'deepseek'
-        ? DEEPSEEK_TRANSLATION_MODEL
-        : name === 'openai'
-          ? OPENAI_TRANSLATION_MODEL
-          : name === 'anthropic'
-            ? ANTHROPIC_TRANSLATION_MODEL
-            : settings.ollamaModel;
+    const model = name === 'ollama' ? settings.ollamaModel : CLOUD_TRANSLATION_MODELS[name];
     return JSON.stringify([
       name,
       model,
@@ -203,6 +206,7 @@ const createLLMTranslator = (
         throw normalizeTranslationProviderError(error, {
           timedOut,
           cancelled: signal?.aborted,
+          requiresAuth: provider.requiresAuth,
         });
       } finally {
         clearTimeout(timeoutId);
@@ -219,7 +223,18 @@ const createLLMTranslator = (
   },
 });
 
+const CLOUD_TRANSLATION_MODELS = {
+  deepseek: DEEPSEEK_TRANSLATION_MODEL,
+  openai: OPENAI_TRANSLATION_MODEL,
+  anthropic: ANTHROPIC_TRANSLATION_MODEL,
+  'index-translate': INDEX_TRANSLATE_MODEL,
+} as const satisfies Record<Exclude<LLMTranslatorName, 'ollama'>, string>;
+
 export const deepSeekTranslator = createLLMTranslator('deepseek', 'DeepSeek V4');
 export const ollamaTranslator = createLLMTranslator('ollama', 'Ollama (Local)');
 export const openAITranslator = createLLMTranslator('openai', 'OpenAI');
 export const anthropicTranslator = createLLMTranslator('anthropic', 'Anthropic Claude');
+export const indexTranslateTranslator = createLLMTranslator(
+  'index-translate',
+  INDEX_TRANSLATE_LABEL,
+);

@@ -1939,5 +1939,6 @@
   "Translation not saved. Keep this book open and retry saving.": "अनुवाद सहेजा नहीं गया। इस पुस्तक को खुला रखें और फिर से सहेजने का प्रयास करें।",
   "Book changes not saved. Keep this book open and retry saving.": "पुस्तक के बदलाव सहेजे नहीं गए हैं। इस पुस्तक को खुला रखें और फिर से सहेजने का प्रयास करें।",
   "Book settings recovered from a local backup. Check annotations before continuing.": "पुस्तक की सेटिंग स्थानीय बैकअप से बहाल की गई हैं। आगे बढ़ने से पहले टिप्पणियाँ जाँचें।",
-  "Dismiss": "बंद करें"
+  "Dismiss": "बंद करें",
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "API कुंजी की आवश्यकता नहीं है। अनुवाद के लिए चुना गया पाठ Bilibili को भेजा जाता है। कनेक्शन परीक्षण केवल अंतर्निहित नमूना भेजता है।"
 }

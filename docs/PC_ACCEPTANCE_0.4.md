@@ -19,7 +19,8 @@ remove or weaken this desktop baseline.
 - Import and read local EPUB, PDF, MOBI/AZW/AZW3, FB2/FBZ, CBZ/ZIP, TXT, and
   Markdown files without modifying the source bytes.
 - Translate selected text, reading units, chapters, and books through the
-  named DeepSeek V4, OpenAI, Anthropic Claude, or loopback Ollama adapters.
+  named DeepSeek V4, OpenAI, Anthropic Claude, Bilibili Index-Translate, or
+  loopback Ollama adapters. The Bilibili preset is text-only and keyless.
   The application owns the prompt and endpoint; a request starts only after an
   explicit user action.
 - Restore translation jobs, sidecars, glossary, translation memory, review

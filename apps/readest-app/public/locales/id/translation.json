@@ -1903,5 +1903,6 @@
   "Translation not saved. Keep this book open and retry saving.": "Terjemahan belum disimpan. Biarkan buku ini terbuka dan coba simpan lagi.",
   "Book changes not saved. Keep this book open and retry saving.": "Perubahan buku belum disimpan. Biarkan buku ini terbuka dan coba simpan lagi.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "Pengaturan buku dipulihkan dari cadangan lokal. Periksa anotasi sebelum melanjutkan.",
-  "Dismiss": "Tutup"
+  "Dismiss": "Tutup",
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Kunci API tidak diperlukan. Teks yang diminta untuk diterjemahkan dikirim ke Bilibili. Uji koneksi hanya mengirim contoh bawaan."
 }

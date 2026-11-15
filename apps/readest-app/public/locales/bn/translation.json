@@ -1939,5 +1939,6 @@
   "Translation not saved. Keep this book open and retry saving.": "অনুবাদ সংরক্ষিত হয়নি। এই বইটি খোলা রাখুন এবং আবার সংরক্ষণের চেষ্টা করুন।",
   "Book changes not saved. Keep this book open and retry saving.": "বইয়ের পরিবর্তনগুলি সংরক্ষিত হয়নি। এই বইটি খোলা রাখুন এবং আবার সংরক্ষণের চেষ্টা করুন।",
   "Book settings recovered from a local backup. Check annotations before continuing.": "স্থানীয় ব্যাকআপ থেকে বইয়ের সেটিংস পুনরুদ্ধার করা হয়েছে। চালিয়ে যাওয়ার আগে টীকাগুলি পরীক্ষা করুন।",
-  "Dismiss": "বন্ধ করুন"
+  "Dismiss": "বন্ধ করুন",
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "API কী দরকার নেই। অনুবাদের জন্য নির্বাচিত পাঠ্য Bilibili-তে পাঠানো হয়। সংযোগ পরীক্ষায় শুধু একটি অন্তর্নির্মিত নমুনা পাঠানো হয়।"
 }

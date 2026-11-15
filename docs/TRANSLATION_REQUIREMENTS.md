@@ -9,11 +9,15 @@ gateway.
 
 ### Named provider setup and execution
 
-1. The user selects a named provider in the AI Translation settings panel:
-   **DeepSeek V4**, **OpenAI**, **Anthropic Claude**, or local **Ollama**.
-2. Cloud providers require only their API key. BabelLeaf stores each key in a
-   provider-specific platform secure-store namespace and does not write keys to
-   ordinary settings files, backups, logs, or translation caches.
+1. Configure providers in AI Translation settings and choose one explicitly in
+   Language → Translation Service or in the selection popup: **DeepSeek V4**,
+   **OpenAI**, **Anthropic Claude**, **Bilibili Index-Translate**, or local
+   **Ollama**. The default is unchanged; a failed or unconfigured provider is
+   never substituted with a different one.
+2. Authenticated presets require only their own API key. BabelLeaf stores each
+   key in a provider-specific platform secure-store namespace and does not
+   write keys to ordinary settings files, backups, logs, or translation caches.
+   The public Index-Translate preset needs no key.
 3. Cloud provider endpoints and default translation models are application
    controlled. The user cannot enter an arbitrary URL or model. Ollama remains
    the only user-configured endpoint and is restricted to HTTP loopback.
@@ -30,6 +34,24 @@ headers. A legacy custom OpenAI-compatible API key is never migrated to any
 named provider, because doing so could send a credential intended for another
 service to the wrong endpoint.
 
+### Bilibili Index-Translate
+
+The [official quick start](https://github.com/bilibili/Index-Translate#option-1-free-online-api-zero-gpu-setup)
+and [public API client](https://github.com/bilibili/Index-Translate/blob/main/inference/llm/call_api.py)
+document keyless `POST https://index-translate.bilibili.com/v1/chat/completions`
+with `Index-Translate-35B-A3B`. BabelLeaf uses one text message with the built-in
+translation instruction and requested text, with thinking disabled. It accepts
+only a complete, nonempty translation, bounds request/response size and time,
+preserves rate-limit metadata, and does not follow redirects or forward cookies
+or other providers' credentials.
+
+It shares the selection, reading-unit, chapter/book queue, cache, and comic
+region text paths. It never uploads page images, audio, local files, or models.
+The connection test sends only a fixed sample on click. The native Tauri
+transport does not require the upstream browser-extension proxy; web-only
+development remains subject to the provider's CORS policy. Live availability
+and quotas are controlled by Bilibili, not BabelLeaf.
+
 ### Local alternative
 
 Ollama remains an optional local provider. Its URL is constrained to loopback
@@ -43,8 +65,8 @@ adapter must define all of the following in the application:
 
 - the official API base address and protocol adapter;
 - a vetted default translation model and the fixed system instruction;
-- an API-key-only user interface, with no manually entered endpoint URL;
-- a provider-specific secure-storage identifier;
+- a provider-specific secure-storage identifier if authentication is required;
+- no manually entered endpoint URL or model for an official cloud adapter;
 - request, cancellation, error, and health-check behavior;
 - exact CSP and Tauri HTTP permission entries; and
 - unit, integration, and release-network verification.

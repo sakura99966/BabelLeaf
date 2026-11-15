@@ -12,8 +12,10 @@ The first-release boundary is strict:
 - Reading state, annotations, caches, settings, and translation results remain
   local.
 - Network access is limited to translation requests explicitly initiated by
-  the user through the built-in DeepSeek V4, OpenAI, or Anthropic preset,
-  or a loopback Ollama endpoint, as approved in the development roadmap.
+  the user through the built-in DeepSeek V4, OpenAI, Anthropic, or Bilibili
+  Index-Translate preset, or a loopback Ollama endpoint, as approved in the
+  development roadmap. The Index-Translate connection test sends only a
+  built-in sample on explicit request, never reading content.
 - Accounts, cloud sync, OPDS/RSS, resource scraping, public sharing, billing,
   telemetry, online dictionaries, online TTS, and inherited update services
   are outside the product boundary.
@@ -28,10 +30,10 @@ The first-release boundary is strict:
 - `packages/foliate-js/` and the vendored PDF.js assets provide the reading
   foundation.
 - Zustand stores persist local application state through the platform service.
-- Translation providers are limited to the built-in DeepSeek V4, OpenAI,
-  Anthropic presets and loopback Ollama. A future provider must use a named adapter, an in-app
-  official endpoint preset, provider-specific secure credential storage, and
-  explicit network capability review; do not reintroduce arbitrary endpoints.
+- Translation providers use named adapters, in-app official endpoints, and
+  explicit network capability review. Store required credentials per provider
+  in secure storage; the public Index-Translate preset does not read, store,
+  or send keys. Do not reintroduce arbitrary endpoints.
 - Dictionaries are local StarDict, MDict, DICT, or SLOB bundles, plus an
   operating-system dictionary where the platform supports it.
 - Speech uses local or operating-system engines. No online fallback is allowed.

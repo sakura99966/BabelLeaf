@@ -20,12 +20,14 @@ request that the user explicitly starts.
 A translation request may use only:
 
 - a loopback service such as Ollama; or
-- a named cloud preset at one of the following fixed official endpoints:
-  `https://api.deepseek.com`, `https://api.openai.com`, or
-  `https://api.anthropic.com`.
+- a named cloud preset at one of the fixed official DeepSeek, OpenAI, or
+  Anthropic endpoints (`https://api.deepseek.com`, `https://api.openai.com`,
+  `https://api.anthropic.com`), or Bilibili Index-Translate at exactly
+  `POST https://index-translate.bilibili.com/v1/chat/completions`.
 
 Cloud endpoints and translation models are application-controlled. The user
-supplies only the provider API key. When a cloud provider is selected, the text
+supplies only the provider API key when required. Index-Translate is keyless.
+When a cloud provider is selected, the text
 included in the request leaves the device and is governed by that provider's
 terms and privacy policy. BabelLeaf does not initiate such traffic during
 startup, import, or ordinary reading.
@@ -36,7 +38,7 @@ startup, import, or ordinary reading.
 | --- | --- |
 | Local document import and rendering | Allowed |
 | Local application assets and Tauri IPC | Allowed |
-| DeepSeek V4, OpenAI, Anthropic Claude, or loopback Ollama translation | Allowed after explicit setup and user action |
+| DeepSeek V4, OpenAI, Anthropic Claude, Index-Translate, or loopback Ollama translation | Allowed after explicit provider selection and user action |
 | Accounts and authentication | Denied |
 | Cloud file, progress, annotation, or settings synchronization | Denied |
 | OPDS/RSS catalogs, scraping, web clipping, and resource download | Denied |
@@ -56,13 +58,17 @@ paths.
 
 ## Translation transport requirements
 
-1. Each cloud preset is disabled until the user supplies its provider API key.
-   Its official endpoint and default translation model are fixed in the
-   application; no URL or model entry is exposed.
+1. Authenticated cloud presets are disabled until the user supplies their own
+   provider API key. Index-Translate's public preset requires no key and does
+   not read or send another provider's key. Its explicitly clicked connection
+   test uses only a fixed sample sentence, not book content. Official cloud
+   endpoints and models are fixed; no URL or model entry is exposed.
 2. Ollama is available only through an explicitly configured loopback URL and
    local model.
 3. Opening or importing a book must not send its content anywhere.
-4. Redirects must not silently forward credentials or text to another origin.
+4. Translation transports omit cookies and reject redirects, including on
+   native Tauri HTTP. Index-Translate is scoped to its one text completion
+   route instead of the Bilibili host generally; no image or audio is sent.
 5. Input and output sizes, timeouts, concurrency, retries, and cancellation
    must be bounded.
 6. The interface must identify the reading unit being sent and whether the

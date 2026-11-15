@@ -93,6 +93,9 @@
           "url": "https://api.anthropic.com/*"
         },
         {
+          "url": "https://index-translate.bilibili.com/v1/chat/completions"
+        },
+        {
           "url": "http://127.0.0.1:*/*"
         },
         {

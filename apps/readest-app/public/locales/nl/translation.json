@@ -1939,5 +1939,6 @@
   "Translation not saved. Keep this book open and retry saving.": "De vertaling is niet opgeslagen. Houd dit boek open en probeer opnieuw op te slaan.",
   "Book changes not saved. Keep this book open and retry saving.": "De wijzigingen in het boek zijn niet opgeslagen. Houd dit boek open en probeer opnieuw op te slaan.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "Boekinstellingen zijn hersteld vanuit een lokale back-up. Controleer de aantekeningen voordat je verdergaat.",
-  "Dismiss": "Sluiten"
+  "Dismiss": "Sluiten",
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Geen API-sleutel nodig. De te vertalen tekst wordt naar Bilibili verzonden. De verbindingstest verstuurt alleen een ingebouwd voorbeeld."
 }

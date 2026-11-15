@@ -5,13 +5,20 @@
 - Status: authoritative project roadmap
 - Current implementation baseline: `0.4.6` PC audit remediation, within the unchanged 0.4 feature boundary. No platform-port feature or model weight is added.
 - Acceptance status: **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED** for the October 18 audit remediation. Current-source test, code-review, native, installer and reference-host performance evidence is in `docs/PC_0.4.6_INTERNAL_ACCEPTANCE.md`; final protected merge, main checks and exact rebuilt main package are independently bound by the generated RELEASE_EVIDENCE receipt. Earlier reports remain historical evidence, not qualification of changed source or new advisories. Do not reuse historical package hashes or change old tags/assets. External provider, corpus-quality, independent minimum-host, voice, signing and legal gates remain **DEFERRED**, not PASS, by owner instruction. No 0.5 implementation is authorized by this deferral.
-- Roadmap revision: 18 (repository/documentation organization only; no scope change)
+- Roadmap revision: 19 (owner-approved Index-Translate text preset within 0.4 PC maintenance)
 - Approved scope date: 2026-08-23
 - Last internal qualification update: 2026-10-23
 - Last remediation update: 2026-10-25 (maintenance PR closure; dated evidence in [PROJECT_STATUS.md](PROJECT_STATUS.md))
 - Target stable release: `1.0.0`
 
 This document is the source of truth for BabelLeaf version planning, implementation sequencing, code review, and release acceptance. Release notes record what a version actually delivered; this roadmap records what must be delivered before work advances to the next version.
+
+The 2026-11-15 Index-Translate maintenance adds the official keyless Bilibili
+text endpoint to the existing named-provider workflow. This change does not
+authorize remote image/audio upload, scraping, background translation, or 0.5
+platform work. Earlier source-bound PC receipts do not qualify it; the new
+provider must pass the applicable tests and each release candidate's network
+and package gates. See [translation requirements](TRANSLATION_REQUIREMENTS.md#bilibili-index-translate).
 
 Any approved scope change must update this document, the affected requirements or architecture document, and the future-version table in the same change. A version number alone is not evidence of completion. Completion requires every mandatory acceptance item for that version.
 
@@ -22,7 +29,7 @@ BabelLeaf 1.0 is an open-source, local-first, cross-platform reader for Simplifi
 - local import and reading of novels, books, PDFs, text documents, and comics;
 - reliable EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, and Markdown handling, with explicit diagnostics for unsupported, encrypted, DRM-protected, empty, or image-only content;
 - selection, sentence, paragraph, chapter, and full-book translation initiated by the user;
-- named DeepSeek V4, OpenAI, Anthropic Claude, and local Ollama adapters, with application-owned prompts and official endpoints so cloud users enter only an API key;
+- named DeepSeek V4, OpenAI, Anthropic Claude, Bilibili Index-Translate, and local Ollama adapters with application-owned prompts and official cloud endpoints; a provider-specific API key is supplied only where required;
 - original, translated, stacked bilingual, and side-by-side bilingual reading modes;
 - durable local sidecars, terminology, translation memory, retryable jobs, and human review without rewriting the source book;
 - imported local dictionaries, word lookup, and platform-native or local text-to-speech;
@@ -80,7 +87,7 @@ EPUB HTML, CSS, SVG, archives, PDFs, images, fonts, dictionaries, and imported s
 | EPUB, PDF, MOBI/AZW/AZW3, FB2, CBZ/ZIP, TXT, Markdown | Parsing/rendering paths, resource limits, PDF diagnostics, OCR/workspace routing, and 48-entry local fixture matrix pass; exact final-package clean-host routing remains external evidence | Cross-platform proof in 0.8 |
 | Selection and viewport translation | Implemented | Provider UX hardening and platform validation through 0.8 |
 | Chapter and full-book translation | Persistent bounded queue, recovery dashboard, retry, review, stable anchors, and interchange delivered | Stress and platform portability through 0.8 |
-| DeepSeek V4, OpenAI, Claude, Ollama | Named adapter framework delivered | Release-time endpoint/model verification and platform validation through 0.8 |
+| DeepSeek V4, OpenAI, Claude, Index-Translate, Ollama | Named adapter framework, including the public keyless Bilibili text preset | Release-time endpoint/model verification and platform validation through 0.8 |
 | Bilingual reading and sidecar | Aligned layouts, layout-independent anchors, portable sidecar, machine-result retention, and review recovery delivered | Migration and cross-platform portability through 0.8 |
 | Glossary and translation memory | Runtime enforcement plus validated management, limits, invalidation visibility, and JSON/TSV/TBX/TMX interchange delivered | Cross-platform migration and validation through 0.8 |
 | Human review | Full review workspace with edit, approve, revert, status filters, provenance, keyboard paging, autosaved drafts, recovery, and JSON/TSV/XLIFF interchange delivered | Cross-format alignment and platform validation through 0.8 |
@@ -558,7 +565,7 @@ BabelLeaf 1.0 is complete only when all of the following are true:
 - all product-destination capabilities in this document are implemented or are listed as an explicitly approved platform exception;
 - all supported local formats pass the legal fixture matrix and unsupported/DRM cases fail explicitly;
 - text and comic translation preserve the source, store durable local data, and make external requests only after explicit user action;
-- DeepSeek V4, OpenAI, Claude, and Ollama adapters pass current endpoint, credential, cancellation, error, and privacy tests;
+- DeepSeek V4, OpenAI, Claude, Index-Translate, and Ollama adapters pass current endpoint, credential where applicable, cancellation, error, and privacy tests;
 - bilingual layouts, terminology, translation memory, review, dictionaries, and speech pass the cross-platform matrix;
 - OCR, region editing, image cleanup, typesetting, and translated export pass quality, recovery, and resource gates;
 - Windows, macOS, Android, and iOS/iPadOS packages are built and exercised natively on the supported target matrix;

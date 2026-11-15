@@ -2,6 +2,7 @@ import type { TranslationProvider } from '../types';
 import {
   anthropicTranslator,
   deepSeekTranslator,
+  indexTranslateTranslator,
   ollamaTranslator,
   openAITranslator,
   type LLMTranslatorName,
@@ -14,6 +15,7 @@ const availableTranslators = [
   openAITranslator,
   anthropicTranslator,
   ollamaTranslator,
+  indexTranslateTranslator,
 ] as const;
 
 export type TranslatorName = LLMTranslatorName;

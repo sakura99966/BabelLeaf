@@ -1,5 +1,10 @@
 import { describe, expect, test, vi } from 'vitest';
-import { sanitizeSettingsForPersistence, saveSettings } from '@/services/settingsService';
+import {
+  loadSettings,
+  sanitizeSettingsForPersistence,
+  saveSettings,
+} from '@/services/settingsService';
+import { DEFAULT_SYSTEM_SETTINGS } from '@/services/constants';
 import type { SystemSettings } from '@/types/settings';
 import type { FileSystem } from '@/types/system';
 
@@ -19,6 +24,34 @@ const makeSettings = (): SystemSettings =>
   }) as SystemSettings;
 
 describe('settings persistence', () => {
+  test('retains the explicitly selected Index-Translate preset when reloading settings', async () => {
+    const snapshot = {
+      ...DEFAULT_SYSTEM_SETTINGS,
+      aiSettings: { ...DEFAULT_SYSTEM_SETTINGS.aiSettings, provider: 'index-translate' },
+      globalReadSettings: {
+        ...DEFAULT_SYSTEM_SETTINGS.globalReadSettings,
+        translationProvider: 'index-translate',
+      },
+      globalViewSettings: {
+        ...DEFAULT_SYSTEM_SETTINGS.globalViewSettings,
+        translationProvider: 'index-translate',
+      },
+    };
+    const fs = {
+      readFile: vi.fn(async () => JSON.stringify(snapshot)),
+      writeFile: vi.fn(async () => undefined),
+      getPrefix: vi.fn(async () => ''),
+    } as unknown as FileSystem;
+    const settings = await loadSettings({
+      fs,
+      isMobile: false,
+      isEink: false,
+      isAppDataSandbox: false,
+    });
+    expect(settings.aiSettings.provider).toBe('index-translate');
+    expect(settings.globalReadSettings.translationProvider).toBe('index-translate');
+    expect(settings.globalViewSettings.translationProvider).toBe('index-translate');
+  });
   test('removes the runtime-only API key without mutating in-memory settings', () => {
     const settings = makeSettings();
 

@@ -2,14 +2,23 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { PiCheckCircle, PiSpinner, PiWarningCircle } from 'react-icons/pi';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
-import { DEFAULT_AI_SETTINGS } from '@/services/ai/constants';
+import {
+  DEFAULT_AI_SETTINGS,
+  INDEX_TRANSLATE_LABEL,
+  INDEX_TRANSLATE_MODEL,
+} from '@/services/ai/constants';
 import { getAIProvider } from '@/services/ai/providers';
 import {
   getTranslationApiKey,
   saveTranslationApiKey,
   setTranslationApiKeyForSession,
 } from '@/services/ai/translationApiKey';
-import type { ActiveAIProviderName, AISettings } from '@/services/ai/types';
+import {
+  isActiveAIProviderName,
+  requiresTranslationApiKey,
+  type ActiveAIProviderName,
+  type AISettings,
+} from '@/services/ai/types';
 import { useSettingsStore } from '@/store/settingsStore';
 import { BoxedList, SettingLabel, SettingsRow } from './primitives';
 import OcrModelPackPanel from './OcrModelPackPanel';
@@ -22,34 +31,21 @@ const AIPanel: React.FC = () => {
   const { envConfig } = useEnv();
   const { settings, setSettings, saveSettings } = useSettingsStore();
   const configured = { ...DEFAULT_AI_SETTINGS, ...settings.aiSettings };
-  const configuredProvider: ActiveAIProviderName = [
-    'deepseek',
-    'ollama',
-    'openai',
-    'anthropic',
-  ].includes(configured.provider as ActiveAIProviderName)
-    ? (configured.provider as ActiveAIProviderName)
+  const configuredProvider = isActiveAIProviderName(configured.provider)
+    ? configured.provider
     : 'deepseek';
 
   const [provider, setProvider] = useState<ActiveAIProviderName>(configuredProvider);
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState(configured.ollamaBaseUrl);
   const [ollamaModel, setOllamaModel] = useState(configured.ollamaModel);
   const [apiKey, setApiKey] = useState(() =>
-    configuredProvider === 'deepseek' ||
-    configuredProvider === 'openai' ||
-    configuredProvider === 'anthropic'
-      ? getTranslationApiKey(configuredProvider)
-      : '',
+    requiresTranslationApiKey(configuredProvider) ? getTranslationApiKey(configuredProvider) : '',
   );
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    setApiKey(
-      provider === 'deepseek' || provider === 'openai' || provider === 'anthropic'
-        ? getTranslationApiKey(provider)
-        : '',
-    );
+    setApiKey(requiresTranslationApiKey(provider) ? getTranslationApiKey(provider) : '');
     setConnectionStatus('idle');
     setErrorMessage('');
   }, [provider]);
@@ -87,7 +83,7 @@ const AIPanel: React.FC = () => {
   };
 
   const persistApiKey = async () => {
-    if (provider === 'ollama') return;
+    if (!requiresTranslationApiKey(provider)) return;
     try {
       await saveTranslationApiKey(apiKey, provider);
       setConnectionStatus('idle');
@@ -164,6 +160,15 @@ const AIPanel: React.FC = () => {
             onChange={() => selectProvider('anthropic')}
           />
         </SettingsRow>
+        <SettingsRow label={INDEX_TRANSLATE_LABEL} asLabel>
+          <input
+            type='radio'
+            name='translation-ai-provider'
+            className='radio'
+            checked={provider === 'index-translate'}
+            onChange={() => selectProvider('index-translate')}
+          />
+        </SettingsRow>
       </BoxedList>
 
       {provider === 'ollama' ? (
@@ -192,6 +197,17 @@ const AIPanel: React.FC = () => {
               data-setting-id='settings.ai.ollamaModel'
             />
           </div>
+        </BoxedList>
+      ) : provider === 'index-translate' ? (
+        <BoxedList
+          title={INDEX_TRANSLATE_LABEL}
+          description={_(
+            'No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.',
+          )}
+        >
+          <SettingsRow label={_('Model')}>
+            <span className='text-sm'>{INDEX_TRANSLATE_MODEL}</span>
+          </SettingsRow>
         </BoxedList>
       ) : (
         <BoxedList

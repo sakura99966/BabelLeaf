@@ -1,10 +1,12 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { isTauriAppPlatform } from '@/services/environment';
+import { INDEX_TRANSLATE_ENDPOINT, INDEX_TRANSLATE_ORIGIN } from '../constants';
 
 export const AI_CLOUD_ORIGINS = Object.freeze([
   'https://api.deepseek.com',
   'https://api.openai.com',
   'https://api.anthropic.com',
+  INDEX_TRANSLATE_ORIGIN,
 ]);
 
 const isLoopbackOllamaOrigin = (url: URL): boolean =>
@@ -22,13 +24,15 @@ const toRequestUrl = (input: RequestInfo | URL): URL | null => {
   }
 };
 
-/** Return true only for the fixed cloud providers or loopback Ollama. */
-export const isAllowedAIEndpoint = (input: RequestInfo | URL): boolean => {
-  const url = toRequestUrl(input);
+const isAllowedUrl = (url: URL | null): url is URL => {
   if (!url || url.username || url.password) return false;
-  const origin = url.origin.replace(/\/$/, '');
-  return AI_CLOUD_ORIGINS.includes(origin) || isLoopbackOllamaOrigin(url);
+  if (url.origin === INDEX_TRANSLATE_ORIGIN) return url.href === INDEX_TRANSLATE_ENDPOINT;
+  return AI_CLOUD_ORIGINS.includes(url.origin) || isLoopbackOllamaOrigin(url);
 };
+
+/** Return true only for the fixed cloud providers or loopback Ollama. */
+export const isAllowedAIEndpoint = (input: RequestInfo | URL): boolean =>
+  isAllowedUrl(toRequestUrl(input));
 
 /**
  * AI requests must not follow redirects. A redirect could otherwise send an
@@ -38,7 +42,12 @@ export const isAllowedAIEndpoint = (input: RequestInfo | URL): boolean => {
  */
 export const createSafeAIFetch = (baseFetch: typeof fetch): typeof fetch => {
   return (input, init) => {
-    if (!isAllowedAIEndpoint(input)) {
+    const url = toRequestUrl(input);
+    const method = init?.method ?? (input instanceof Request ? input.method : 'GET');
+    if (
+      !isAllowedUrl(url) ||
+      (url.origin === INDEX_TRANSLATE_ORIGIN && method.toUpperCase() !== 'POST')
+    ) {
       return Promise.reject(new Error('AI request target is outside the BabelLeaf allowlist'));
     }
     return baseFetch(input, {
@@ -60,8 +69,10 @@ export const createSafeAIFetch = (baseFetch: typeof fetch): typeof fetch => {
  * endpoint to provide the required CORS headers.
  */
 export const getAIFetch = (): typeof fetch => {
-  const baseFetch = isTauriAppPlatform()
-    ? (tauriFetch as unknown as typeof fetch)
+  const baseFetch: typeof fetch = isTauriAppPlatform()
+    ? // The Tauri plugin forwards its native redirect setting to Rust;
+      // the standard RequestInit.redirect field is not forwarded by the plugin.
+      (input, init) => tauriFetch(input, { ...init, maxRedirections: 0 })
     : window.fetch.bind(window);
   return createSafeAIFetch(baseFetch);
 };
