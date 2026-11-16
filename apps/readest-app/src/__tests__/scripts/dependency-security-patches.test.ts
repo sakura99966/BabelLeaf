@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { createRequire } from 'node:module';
-import { existsSync, promises as fs, realpathSync } from 'node:fs';
+import { existsSync, promises as fs, readFileSync, realpathSync } from 'node:fs';
 import { resolve, join, relative, isAbsolute } from 'node:path';
 import { zipSync } from 'fflate';
 
@@ -42,6 +42,30 @@ afterEach(async () => {
       throw new Error('Unexpected fixture reparse target');
     await fs.rm(path, { recursive: true, force: true });
   }
+});
+
+it('installs the reserved-key guard in every shipped deepmerge entry point', () => {
+  const scanner = createRequire(appRequire.resolve('i18next-scanner'));
+  const mergeRoot = resolve(scanner.resolve('deepmerge/package.json'), '..');
+  for (const file of ['index.js', 'dist/cjs.js', 'dist/umd.js']) {
+    const source = readFileSync(resolve(mergeRoot, file), 'utf8');
+    expect(source).toContain("key !== '__proto__' && key !== 'constructor' && key !== 'prototype'");
+    expect(source).toMatch(/getKeys\(target\)\.forEach/);
+    expect(source).toMatch(/getKeys\(source\)\.forEach/);
+  }
+});
+
+it('keeps ordinary locale and resolver options merging with the deepmerge backport', () => {
+  const scanner = createRequire(appRequire.resolve('i18next-scanner'));
+  const deepmerge = scanner('deepmerge') as (left: unknown, right: unknown) => unknown;
+  const marker = Symbol('normal option');
+  const left = { locale: { fallback: ['en'], settings: { one: 1 } }, [marker]: 'value' };
+  const right = { locale: { fallback: ['zh-CN'], settings: { two: 2 } } };
+  expect(deepmerge(left, right)).toEqual({
+    locale: { fallback: ['en', 'zh-CN'], settings: { one: 1, two: 2 } },
+    [marker]: 'value',
+  });
+  expect(left.locale.fallback).toEqual(['en']);
 });
 
 it.each(['{', '('])('rejects excessive parsed nesting before recursive walkers (%s)', (open) => {
