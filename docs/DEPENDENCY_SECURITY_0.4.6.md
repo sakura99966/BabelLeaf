@@ -250,3 +250,25 @@ locked build, exact install/launch/cleanup lifecycle, packaged UI/resources,
 SBOM and provenance gates, and required status. Other jobs are unchanged.
 Require a fresh installer result for the new head; this workflow change does
 not itself establish package acceptance or replace any published installer.
+
+The repaired JavaScript job reached the hosted Windows-scope Rust audit on
+`0110cc144`. That scan was able to read its database and reported seven
+vulnerabilities, distinct from the local gettext tooling error. Lock only the
+verified non-yanked fixes from crates.io:
+
+- `quinn-proto 0.11.19` and `quinn-udp 0.5.16` for
+  [RUSTSEC-2026-0524](https://rustsec.org/advisories/RUSTSEC-2026-0524.html),
+  [0523](https://rustsec.org/advisories/RUSTSEC-2026-0523.html), and
+  [0538](https://rustsec.org/advisories/RUSTSEC-2026-0538.html).
+- `zstd 0.13.4`, `zstd-safe 7.4.0`, and `zstd-sys 2.1.2+zstd.1.5.7` for
+  [RUSTSEC-2026-0391](https://rustsec.org/advisories/RUSTSEC-2026-0391.html),
+  [0403](https://rustsec.org/advisories/RUSTSEC-2026-0403.html),
+  [0398](https://rustsec.org/advisories/RUSTSEC-2026-0398.html), and
+  [0410](https://rustsec.org/advisories/RUSTSEC-2026-0410.html).
+
+The update changes only those five version/checksum pairs. Existing compatible
+Windows dependency edges are retained. Five lock regressions fail on the old
+graph and pass after updating it; `cargo fetch --locked --target
+x86_64-pc-windows-msvc` accepts the exact graph. Require a fresh hosted audit
+and complete native/package result on the final head. Do not ignore the notices
+or claim that unmaintained warnings were resolved by those upgrades.
