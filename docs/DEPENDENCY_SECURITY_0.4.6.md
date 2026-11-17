@@ -272,3 +272,17 @@ graph and pass after updating it; `cargo fetch --locked --target
 x86_64-pc-windows-msvc` accepts the exact graph. Require a fresh hosted audit
 and complete native/package result on the final head. Do not ignore the notices
 or claim that unmaintained warnings were resolved by those upgrades.
+
+## 2026-11-17 post-merge Next.js audit
+
+All sixteen exact-head checks passed on PR #19, including the standard NSIS
+installer lifecycle. The first merged-main run `44022327978` then failed its
+production npm audit: [GHSA-mfr8-8qww-v76h](https://github.com/advisories/GHSA-mfr8-8qww-v76h)
+was published after the PR check, and applies to Next.js 16.4.1 in the locked
+graph. A dependency advisory is not evidence of an incident or of an affected
+route in the static export. Still update to the published 16.4.5 fix, with
+matching Next.js build dependencies and the existing translated-reader feature
+unchanged. An installed-version regression distinguishes old from fixed
+resolution without reproducing the vulnerability. Require a fresh production
+and full audit, native tests, and standard package lifecycle. Do not waive the
+finding based on static deployment or replace earlier release assets.
