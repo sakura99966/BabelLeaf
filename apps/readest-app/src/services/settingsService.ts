@@ -23,6 +23,7 @@ import {
   DEFAULT_VIEW_SETTINGS_CONFIG,
 } from './constants';
 import { DEFAULT_AI_SETTINGS } from './ai/constants';
+import { isActiveAIProviderName } from './ai/types';
 import { loadTranslationApiKeys } from './ai/translationApiKey';
 import { getTargetLang, isCJKEnv } from '@/utils/misc';
 import { safeLoadJSON, safeSaveJSON } from './persistence';
@@ -153,9 +154,7 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
         settings.aiSettings.openrouterBaseUrl ||
         settings.aiSettings.openrouterModel,
     );
-  const hasUnsupportedAIProvider = !new Set(['deepseek', 'ollama', 'openai', 'anthropic']).has(
-    settings.aiSettings.provider,
-  );
+  const hasUnsupportedAIProvider = !isActiveAIProviderName(settings.aiSettings.provider);
   if (hasUnsupportedAIProvider) {
     // A key configured for an arbitrary endpoint must not be reused against
     // DeepSeek. The user explicitly enters a DeepSeek key after the upgrade.
@@ -167,11 +166,10 @@ export async function loadSettings(ctx: Context): Promise<SystemSettings> {
     await safeSaveJSON(ctx.fs, SETTINGS_FILENAME, 'Settings', settings);
   }
 
-  const supportedTranslationProviders = new Set(['deepseek', 'ollama', 'openai', 'anthropic']);
-  if (!supportedTranslationProviders.has(settings.globalReadSettings.translationProvider)) {
+  if (!isActiveAIProviderName(settings.globalReadSettings.translationProvider)) {
     settings.globalReadSettings.translationProvider = 'deepseek';
   }
-  if (!supportedTranslationProviders.has(settings.globalViewSettings.translationProvider)) {
+  if (!isActiveAIProviderName(settings.globalViewSettings.translationProvider)) {
     settings.globalViewSettings.translationProvider = 'deepseek';
   }
 

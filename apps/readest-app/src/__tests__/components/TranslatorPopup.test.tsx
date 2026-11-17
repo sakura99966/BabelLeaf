@@ -154,6 +154,14 @@ describe('TranslatorPopup', () => {
     expect(mocks.saveSettings).toHaveBeenLastCalledWith(mocks.envConfig, providerSettings);
   });
 
+  test('does not substitute another provider for an unavailable provider choice', async () => {
+    render(<TranslatorPopup {...defaultProps} />);
+    await waitFor(() => expect(screen.getByText('你好，世界')).toBeTruthy());
+    fireEvent.change(screen.getAllByRole('combobox')[2]!, { target: { value: 'disabled' } });
+    expect(mocks.saveSettings).not.toHaveBeenCalled();
+    expect(mocks.translate).toHaveBeenCalledOnce();
+  });
+
   test('aborts superseded work and never lets a stale response replace the current translation', async () => {
     const requests: Array<{
       signal: AbortSignal;

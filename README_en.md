@@ -31,7 +31,9 @@ Format recognition is not a guarantee for every variant. Use legally obtained, D
 
 Reading content enters only through local import. Library data, notes, sidecars, jobs, and caches remain on the device; source documents are not rewritten.
 
-Cloud translation uses named **DeepSeek V4, OpenAI, and Anthropic Claude** presets with application-owned official endpoints, models, and prompts. Users supply an API key, not an arbitrary URL/model. **Ollama is loopback-only.** Explicit cloud translation sends the selected content to the provider and may incur charges. Opening a book does not initiate translation; continuous and batch jobs require explicit initiation and session authorization.
+Cloud translation uses named **DeepSeek V4, OpenAI, Anthropic Claude, and Bilibili Index-Translate** presets with application-owned official endpoints, models, and prompts. The first three use provider-specific API keys. The [public Index-Translate API](https://github.com/bilibili/Index-Translate#option-1-free-online-api-zero-gpu-setup) needs no key or proxy. Choose **Bilibili Index-Translate** under Language → Translation Service or in the selection popup; the optional connection test sends only a built-in sample. It translates text, including local OCR regions, not comic images. Older published installers do not include it.
+
+**Ollama is loopback-only.** Explicit cloud translation sends the selected text to the provider; other providers may charge for requests. Opening a book does not initiate translation; continuous and batch jobs require explicit initiation and session authorization.
 
 There are no accounts, cloud sync, scraping/catalog services, telemetry, online metadata/dictionaries, cloud TTS, inherited updates, or DRM-removal features. See [network policy](docs/NETWORK_POLICY.md).
 

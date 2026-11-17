@@ -20,6 +20,9 @@ describe('translation network contract', () => {
     expect(connectSource).toContain('https://api.deepseek.com');
     expect(connectSource).toContain('https://api.openai.com');
     expect(connectSource).toContain('https://api.anthropic.com');
+    expect(connectSource?.split(/\s+/)).toContain(
+      'https://index-translate.bilibili.com/v1/chat/completions',
+    );
     expect(connectSource).toContain('http://127.0.0.1:*');
     expect(connectSource).toContain('http://localhost:*');
     expect(connectSource).not.toContain('https://*:*');
@@ -39,6 +42,7 @@ describe('translation network contract', () => {
       'https://api.deepseek.com/*',
       'https://api.openai.com/*',
       'https://api.anthropic.com/*',
+      'https://index-translate.bilibili.com/v1/chat/completions',
       'http://127.0.0.1:*/*',
       'http://localhost:*/*',
     ]);

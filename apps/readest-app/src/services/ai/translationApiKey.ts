@@ -1,7 +1,7 @@
 import { isTauriAppPlatform } from '@/services/environment';
 import { clearSecureItem, getSecureItem, setSecureItem } from '@/utils/bridge';
 
-export type TranslationApiKeyProvider = 'deepseek' | 'openai' | 'anthropic';
+import type { TranslationApiKeyProvider } from './types';
 
 const TRANSLATION_API_KEY_IDS: Record<TranslationApiKeyProvider, string> = {
   deepseek: 'babelleaf.translation.deepseek.api-key',

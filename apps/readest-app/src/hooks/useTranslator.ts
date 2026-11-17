@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { getTranslator, getTranslators, type TranslatorName } from '@/services/translators';
+import { getTranslator, getTranslators } from '@/services/translators';
 import { getFromCache, storeInCache, UseTranslatorOptions } from '@/services/translators';
 import { polish, preprocess } from '@/services/translators';
 import { getLocale } from '@/utils/misc';
@@ -12,27 +12,14 @@ export function useTranslator({
   enablePreprocessing = true,
 }: UseTranslatorOptions = {}) {
   const [loading, setLoading] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState(provider);
-  const [translator, setTransltor] = useState(() => getTranslator(provider));
+  // Resolve the current choice synchronously. A deferred update can dispatch
+  // the first request after a provider switch to the previous cloud provider.
+  const translator = getTranslator(provider);
   const [translators] = useState(() => getTranslators());
 
   useEffect(() => {
     setLoading(false);
   }, [provider, sourceLang, targetLang]);
-
-  useEffect(() => {
-    // Keep the user's explicit provider selection. Falling back to another
-    // configured provider could send book text to an unintended service.
-    const selectedTranslator = getTranslator(provider);
-    if (!selectedTranslator) {
-      setTransltor(undefined);
-      return;
-    }
-    const selectedProviderName = selectedTranslator.name as TranslatorName;
-    setTransltor(getTranslator(selectedProviderName));
-    setSelectedProvider(selectedProviderName);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider]);
 
   const translate = useCallback(
     async (
@@ -54,15 +41,14 @@ export function useTranslator({
 
       const textsNeedingTranslation: string[] = [];
       const indicesNeedingTranslation: number[] = [];
-      const selectedTranslator = translators.find((t) => t.name === selectedProvider);
-      const context = selectedTranslator?.cacheContext?.();
+      const context = translator?.cacheContext?.();
       const results = [...textsToTranslate];
 
       const cached = await Promise.all(
         textsToTranslate.map((text) =>
           options?.useCache === false || !text?.trim()
             ? Promise.resolve(null)
-            : getFromCache(text, sourceLanguage, targetLanguage, selectedProvider, context),
+            : getFromCache(text, sourceLanguage, targetLanguage, provider, context),
         ),
       );
       checkCancelled();
@@ -82,14 +68,14 @@ export function useTranslator({
       setLoading(true);
 
       try {
-        if (!selectedTranslator) {
-          throw new Error(`No translator found for provider: ${selectedProvider}`);
+        if (!translator) {
+          throw new Error(`No translator found for provider: ${provider}`);
         }
-        if (selectedTranslator.cacheContext?.() !== context)
+        if (translator.cacheContext?.() !== context)
           throw new Error(
             'Translation context changed before dispatch; retry with the current model',
           );
-        const translatedTexts = await selectedTranslator.translate(
+        const translatedTexts = await translator.translate(
           textsNeedingTranslation,
           sourceLanguage,
           targetLanguage,
@@ -109,7 +95,7 @@ export function useTranslator({
               translatedTexts[index] || '',
               sourceLanguage,
               targetLanguage,
-              selectedProvider,
+              provider,
               context,
             );
           }),
@@ -126,16 +112,7 @@ export function useTranslator({
         throw err instanceof Error ? err : new Error(String(err));
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      selectedProvider,
-      sourceLang,
-      targetLang,
-      translator,
-      translators,
-      enablePolishing,
-      enablePreprocessing,
-    ],
+    [provider, sourceLang, targetLang, translator, enablePolishing, enablePreprocessing],
   );
 
   return {

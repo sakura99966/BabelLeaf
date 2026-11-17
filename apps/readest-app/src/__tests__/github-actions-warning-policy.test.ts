@@ -48,6 +48,17 @@ describe('GitHub Actions Rust warning policy', () => {
     expect(required).toContain('build_tauri_app');
   });
 
+  it('lets Cargo drive release rustc directly and still validates the exact Windows installer', () => {
+    const installer = jobBlock('windows_installer_smoke');
+    expect(installer).not.toMatch(/sccache|RUSTC_WRAPPER/i);
+    expect(installer).toContain('uses: Swatinem/rust-cache@');
+    expect(installer).toContain('build-win-x64:unsigned');
+    expect(installer).toContain('run: pnpm test:windows-installer');
+    expect(installer).toContain('verify packaged UI hydration and embedded runtime hashes');
+    expect(installer).toContain('archive verified Windows candidate');
+    expect(jobBlock('ci_gate')).toContain('windows_installer_smoke');
+  });
+
   it('starts the Linux session bus inside a stable software-rendered Xvfb display', () => {
     const native = jobBlock('build_tauri_app');
     expect(native).toContain('runs-on: ubuntu-24.04');

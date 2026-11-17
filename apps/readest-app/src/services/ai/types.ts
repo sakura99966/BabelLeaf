@@ -1,7 +1,24 @@
 import type { LanguageModel } from 'ai';
 
 /** Providers that can be selected in the current product UI. */
-export type ActiveAIProviderName = 'deepseek' | 'ollama' | 'openai' | 'anthropic';
+const ACTIVE_AI_PROVIDER_NAMES = [
+  'deepseek',
+  'ollama',
+  'openai',
+  'anthropic',
+  'index-translate',
+] as const;
+export type ActiveAIProviderName = (typeof ACTIVE_AI_PROVIDER_NAMES)[number];
+
+export const isActiveAIProviderName = (name: string): name is ActiveAIProviderName =>
+  ACTIVE_AI_PROVIDER_NAMES.some((provider) => provider === name);
+
+export type TranslationApiKeyProvider = 'deepseek' | 'openai' | 'anthropic';
+
+export const requiresTranslationApiKey = (
+  provider: string,
+): provider is TranslationApiKeyProvider =>
+  provider === 'deepseek' || provider === 'openai' || provider === 'anthropic';
 
 /**
  * Includes the retired custom endpoint identifier so persisted settings from
@@ -15,8 +32,8 @@ export interface AIProvider {
   requiresAuth: boolean;
 
   /**
-   * OpenAI-compatible providers expose a model for the AI SDK. Providers
-   * with a different wire protocol may implement `generateText` instead.
+   * SDK-backed providers expose a model. Providers with different protocol
+   * or transport requirements can implement `generateText` directly.
    */
   getModel?: () => LanguageModel;
 

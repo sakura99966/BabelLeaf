@@ -331,12 +331,11 @@ jobs:
       - name: audit Windows Rust dependency graph
         run: cargo audit --target-os windows
 
+  # Cargo drives release rustc directly: the optional compiler cache wrapper
+  # failed to launch its dependency probe on Windows with OS error 206.
   windows_installer_smoke:
     runs-on: windows-latest
     timeout-minutes: 90
-    env:
-      SCCACHE_GHA_ENABLED: 'true'
-      RUSTC_WRAPPER: sccache
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -364,9 +363,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           pnpm setup-vendors
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: setup sccache
-        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
       - name: install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0

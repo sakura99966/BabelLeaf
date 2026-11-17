@@ -38,10 +38,12 @@ OCR 使用本地 Tesseract WASM 运行时；LaMa/ONNX 修复为可选功能。**
 ## 翻译与隐私
 
 1. 书籍与漫画只从本地导入；书库、批注、sidecar、任务和缓存保存在设备上，原始内容不被译文覆盖。
-2. 云端预设为 DeepSeek V4、OpenAI 和 Anthropic Claude。选择供应商、填入自己的 API Key 后，由内置地址、模型及翻译指令处理请求；不开放任意服务器地址或任意模型配置。
+2. DeepSeek V4、OpenAI 和 Anthropic Claude 预设只需填写各自的 API Key。源码还已接入[哔哩哔哩 Index-Translate 官方公共 API](https://github.com/bilibili/Index-Translate#option-1-free-online-api-zero-gpu-setup)，无需 API Key、代理或模型下载。所有预设均使用内置地址、模型和提示词，不开放任意服务器地址或模型配置。
 3. Ollama 仅允许本机回环地址。使用云端翻译时，用户明确选择的待翻译内容会发送给对应供应商，并可能产生费用；API Key 不写入导出的 sidecar。
 4. 导入、打开、普通阅读、查本地词典或本地朗读不会自动发起翻译；批量或连续翻译也须由用户明确启动，并受会话授权与任务控制约束。
 5. 不提供账号、云同步、资源搜索或抓取、OPDS/RSS、遥测、在线元数据、在线词典、云 TTS 或自动更新服务；不提供 DRM 破解。
+
+使用 Index-Translate：在阅读器「设置 → 语言 → 翻译服务」或划词翻译弹窗选择 **Bilibili Index-Translate**。在「AI 翻译」可手动测试连接，只发送应用内置示例。翻译支持划词、阅读单元、章节/全书任务及漫画区域文字；漫画 OCR、擦字和嵌字仍在本地，不上传图片。此前公开的安装包不包含该接入。
 
 真实付费供应商调用、合法代表性语料与 OCR/修复人工质量、独立最低配置 Windows、人工语音试听、签名及责任方许可审查仍由用户暂缓，**不能记为通过**。详见[联网策略](docs/NETWORK_POLICY.md)和[PC 验收基准](docs/PC_ACCEPTANCE_0.4.md)。
 

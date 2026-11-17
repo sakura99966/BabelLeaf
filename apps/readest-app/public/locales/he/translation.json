@@ -1975,5 +1975,6 @@
   "Translation not saved. Keep this book open and retry saving.": "התרגום לא נשמר. יש להשאיר את הספר פתוח ולנסות לשמור שוב.",
   "Book changes not saved. Keep this book open and retry saving.": "השינויים בספר לא נשמרו. השאירו את הספר פתוח ונסו לשמור שוב.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "הגדרות הספר שוחזרו מגיבוי מקומי. יש לבדוק את ההערות לפני ההמשך.",
-  "Dismiss": "סגירה"
+  "Dismiss": "סגירה",
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "אין צורך במפתח API. הטקסט המבוקש לתרגום נשלח אל Bilibili. בדיקת החיבור שולחת רק דוגמה מובנית."
 }

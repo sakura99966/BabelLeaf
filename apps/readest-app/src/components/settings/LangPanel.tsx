@@ -126,13 +126,8 @@ const LangPanel: React.FC<SettingsPanelPanelProp> = ({ bookKey, onRegisterReset 
   };
 
   const getCurrentTranslationProviderOption = () => {
-    const value = translationProvider;
     const allProviders = getTranslationProviderOptions();
-    const availableTranslators = getTranslators().filter(isTranslatorAvailable);
-    const currentProvider = availableTranslators.find((t) => t.name === value)
-      ? value
-      : availableTranslators[0]?.name;
-    return allProviders.find((p) => p.value === currentProvider) || allProviders[0]!;
+    return allProviders.find((p) => p.value === translationProvider) || allProviders[0]!;
   };
 
   const handleSelectTranslationProvider = (event: React.ChangeEvent<HTMLSelectElement>) => {

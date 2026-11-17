@@ -1,10 +1,12 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useTranslator } from '@/hooks/useTranslator';
 
 const mock = vi.hoisted(() => ({
   context: 'model-one:prompt-one',
   translate: vi.fn(async (texts: string[]) => texts.map((text) => `fresh:${text}`)),
+  indexTranslate: vi.fn(async (texts: string[]) => texts.map((text) => `index:${text}`)),
   read: vi.fn(
     async (
       _text: string,
@@ -22,14 +24,36 @@ vi.mock('@/services/translators', () => {
     cacheContext: () => mock.context,
     translate: mock.translate,
   };
+  const indexProvider = { name: 'index-translate', translate: mock.indexTranslate };
+  const providers = [provider, indexProvider];
   return {
-    getTranslator: () => provider,
-    getTranslators: () => [provider],
+    getTranslator: (name: string) => providers.find((provider) => provider.name === name),
+    getTranslators: () => providers,
     getFromCache: mock.read,
     storeInCache: mock.write,
     preprocess: (texts: string[]) => texts,
     polish: (texts: string[]) => texts,
   };
+});
+
+it('dispatches only to the newly selected provider on the first render after a switch', async () => {
+  const pending: Promise<string[]>[] = [];
+  const { rerender } = renderHook(
+    ({ provider }: { provider: 'deepseek' | 'index-translate' }) => {
+      const { translate } = useTranslator({ provider });
+      useLayoutEffect(() => {
+        if (provider === 'index-translate')
+          pending.push(translate(['source'], { useCache: false }));
+        // Capture the callback from the first commit after the explicit provider switch.
+      }, [provider]);
+    },
+    { initialProps: { provider: 'deepseek' } },
+  );
+  await act(async () => {
+    rerender({ provider: 'index-translate' });
+  });
+  expect(await Promise.all(pending)).toEqual([['index:source']]);
+  expect(mock.translate).not.toHaveBeenCalled();
 });
 beforeEach(() => {
   vi.clearAllMocks();

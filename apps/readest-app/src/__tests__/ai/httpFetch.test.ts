@@ -37,4 +37,19 @@ describe('AI fetch network boundary', () => {
     );
     expect(baseFetch).not.toHaveBeenCalled();
   });
+
+  test('permits only the Index-Translate completion route and POST method', async () => {
+    const endpoint = 'https://index-translate.bilibili.com/v1/chat/completions';
+    expect(isAllowedAIEndpoint(endpoint)).toBe(true);
+    expect(isAllowedAIEndpoint(`${endpoint}?extra=1`)).toBe(false);
+    expect(isAllowedAIEndpoint('https://index-translate.bilibili.com/v1/responses')).toBe(false);
+    expect(
+      isAllowedAIEndpoint('https://index-translate.bilibili.com.evil.test/v1/chat/completions'),
+    ).toBe(false);
+    const baseFetch = vi.fn<typeof fetch>().mockResolvedValue(Response.json({}));
+    const safeFetch = createSafeAIFetch(baseFetch);
+    await expect(safeFetch(endpoint)).rejects.toThrow('allowlist');
+    expect(baseFetch).not.toHaveBeenCalled();
+    await expect(safeFetch(endpoint, { method: 'POST' })).resolves.toBeInstanceOf(Response);
+  });
 });

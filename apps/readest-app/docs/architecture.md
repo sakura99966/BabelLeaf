@@ -9,9 +9,10 @@ remain usable by future macOS, Android, and iOS packages.
 The application has no hosted backend. Content is imported from local files
 and application state is stored locally. The only supported external request
 is a translation explicitly initiated by the user and sent to an application-
-controlled provider endpoint. Current cloud presets cover DeepSeek V4, OpenAI,
-and Anthropic Claude; users supply an API key but cannot enter an arbitrary URL
-or model. Ollama remains the loopback-only local provider.
+controlled provider endpoint, or an explicit connection test. Current cloud
+presets cover DeepSeek V4, OpenAI, Anthropic Claude, and Bilibili Index-Translate.
+The first three require a provider-specific API key; Index-Translate does not.
+No arbitrary cloud URL or model is accepted. Ollama remains loopback-only.
 
 ## Runtime structure
 
@@ -106,12 +107,14 @@ Translation is a reader feature, not a general chat assistant.
 Supported provider classes are:
 
 - Ollama on an explicitly configured loopback address; and
-- built-in DeepSeek V4, OpenAI, and Anthropic Claude adapters with application-
-  controlled official endpoints and default models. The user supplies only the
-  provider API key.
+- built-in DeepSeek V4, OpenAI, Anthropic Claude, and Bilibili Index-Translate
+  adapters with application-controlled official endpoints and default models.
+  Index-Translate uses the keyless official text completion route. Its connection
+  test is explicit and contains only a built-in sentence.
 
 Additional providers must be added as named adapters with fixed official
-endpoints, provider-specific secure storage, capability entries, and tests.
+endpoints, provider-specific secure storage where required, capability entries,
+and tests.
 
 Opening or importing a book does not initiate translation. A translation
 request starts only from an explicit reader action. The request contains the

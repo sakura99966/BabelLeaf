@@ -49,6 +49,7 @@ describe('LLM translation providers', () => {
       'openai',
       'anthropic',
       'ollama',
+      'index-translate',
     ]);
   });
 
@@ -112,6 +113,24 @@ describe('LLM translation providers', () => {
 
     getSettings.mockReturnValue({ aiSettings: { provider: 'anthropic' } });
     expect(isTranslatorAvailable(getTranslator('anthropic')!)).toBe(false);
+  });
+
+  it('offers Index-Translate without retrieving credentials or changing the default provider', async () => {
+    getTranslationApiKey.mockReturnValue('');
+    const translator = getTranslator('index-translate')!;
+    expect(isTranslatorAvailable(translator)).toBe(true);
+    expect(translator.cacheContext?.()).toContain('Index-Translate-35B-A3B');
+    expect(getAIProvider).not.toHaveBeenCalled();
+    const generate = vi.fn().mockResolvedValue('你好。');
+    getAIProvider.mockReturnValue({ generateText: generate, requiresAuth: false });
+    await expect(translator.translate(['Hello.'], 'EN', 'ZH-CN')).resolves.toEqual(['你好。']);
+    expect(getAIProvider).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: 'index-translate' }),
+    );
+    expect(generate).toHaveBeenCalledOnce();
+    expect(getTranslationApiKey).not.toHaveBeenCalled();
+    expect(generateText).not.toHaveBeenCalled();
+    expect(isTranslatorAvailable(getTranslator('deepseek')!)).toBe(false);
   });
 
   it('normalizes cancellation, timeout, redirect, rate-limit, and credential failures', () => {

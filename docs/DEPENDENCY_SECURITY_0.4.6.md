@@ -216,3 +216,59 @@ needed for this verification path.
 Sources: https://rustsec.org/advisories/RUSTSEC-2026-0386.html and the dated
 crates.io version metadata for tokio 1.53.3 / clipboard-win 5.4.3, retained in the
 PR-closure receipts.
+
+## 2026-11-16 Index-Translate merge-gate follow-up
+
+The first Index-Translate PR head (`3f1a7af7c`) did not change dependencies.
+Its fresh JavaScript audit nevertheless reported two unresolved production
+findings and seven unresolved findings on the complete graph. Do not reuse
+October audit receipts for this change.
+
+| Locked package | Resolution | November findings |
+| --- | --- | --- |
+| `i18next-http-backend` | `4.0.10` (published fixes start at `4.0.4` for both findings) | [GHSA-3cmx-xjww-583x](https://github.com/advisories/GHSA-3cmx-xjww-583x), [GHSA-9jhj-wvmw-cfx5](https://github.com/advisories/GHSA-9jhj-wvmw-cfx5) |
+| `glob` / `minimatch` | `14.0.6` / `11.0.8`; preserved unaffected older minimatch branches | [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4), [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) |
+| `fast-xml-parser` | `5.12.1` | [GHSA-474x-hrwr-fgx4](https://github.com/advisories/GHSA-474x-hrwr-fgx4) |
+| `basic-ftp` | `6.2.6` | [GHSA-5pm8-86m8-9m6r](https://github.com/advisories/GHSA-5pm8-86m8-9m6r) |
+| `deepmerge` | `4.3.1` pinned development-only source backport; no patched release was published | [GHSA-gcqx-w48m-w2h4](https://github.com/advisories/GHSA-gcqx-w48m-w2h4) |
+
+The `deepmerge` backport filters reserved keys in both merge operands in the
+source, CommonJS, and UMD copies. Installed-source checks and ordinary nested,
+array, and symbol option merge checks cover the patch. The existing policy
+binds the exact patch SHA-256, version, advisory, and development-only findings;
+it does not allow runtime, copied-runtime, other-version, or unrelated findings.
+Raw findings remain visible. Fresh local frozen installation and both npm
+scans now give production unresolved=0, full unresolved=0, and three reviewed
+development advisory records. The Windows Rust audit still requires successful
+hosted evidence; the local runner returned the existing gettext alias error.
+
+The first Windows package job also failed before bundling because the optional
+compiler cache wrapper's Rust dependency-probe command exceeded the Windows
+process argument limit (OS error 206 under Rust 1.100.0). The installer job now
+lets Cargo invoke rustc directly while keeping the Rust dependency cache, the
+locked build, exact install/launch/cleanup lifecycle, packaged UI/resources,
+SBOM and provenance gates, and required status. Other jobs are unchanged.
+Require a fresh installer result for the new head; this workflow change does
+not itself establish package acceptance or replace any published installer.
+
+The repaired JavaScript job reached the hosted Windows-scope Rust audit on
+`0110cc144`. That scan was able to read its database and reported seven
+vulnerabilities, distinct from the local gettext tooling error. Lock only the
+verified non-yanked fixes from crates.io:
+
+- `quinn-proto 0.11.19` and `quinn-udp 0.5.16` for
+  [RUSTSEC-2026-0524](https://rustsec.org/advisories/RUSTSEC-2026-0524.html),
+  [0523](https://rustsec.org/advisories/RUSTSEC-2026-0523.html), and
+  [0538](https://rustsec.org/advisories/RUSTSEC-2026-0538.html).
+- `zstd 0.13.4`, `zstd-safe 7.4.0`, and `zstd-sys 2.1.2+zstd.1.5.7` for
+  [RUSTSEC-2026-0391](https://rustsec.org/advisories/RUSTSEC-2026-0391.html),
+  [0403](https://rustsec.org/advisories/RUSTSEC-2026-0403.html),
+  [0398](https://rustsec.org/advisories/RUSTSEC-2026-0398.html), and
+  [0410](https://rustsec.org/advisories/RUSTSEC-2026-0410.html).
+
+The update changes only those five version/checksum pairs. Existing compatible
+Windows dependency edges are retained. Five lock regressions fail on the old
+graph and pass after updating it; `cargo fetch --locked --target
+x86_64-pc-windows-msvc` accepts the exact graph. Require a fresh hosted audit
+and complete native/package result on the final head. Do not ignore the notices
+or claim that unmaintained warnings were resolved by those upgrades.

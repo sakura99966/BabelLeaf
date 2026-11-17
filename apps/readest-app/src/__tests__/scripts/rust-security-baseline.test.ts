@@ -27,4 +27,14 @@ describe('reviewed Rust security baseline', () => {
   it('does not restore the withdrawn clipboard-win 5.4.1 release', () => {
     expect(lockedVersions('clipboard-win')).toEqual(['5.4.3']);
   });
+
+  it.each([
+    ['quinn-proto', '0.11.19'],
+    ['quinn-udp', '0.5.16'],
+    ['zstd', '0.13.4'],
+    ['zstd-safe', '7.4.0'],
+    ['zstd-sys', '2.1.2+zstd.1.5.7'],
+  ])('%s stays on the audited November dependency baseline', (name, version) => {
+    expect(lockedVersions(name)).toEqual([version]);
+  });
 });

@@ -2011,5 +2011,6 @@
   "Translation not saved. Keep this book open and retry saving.": "Переклад не збережено. Залиште цю книгу відкритою та повторіть збереження.",
   "Book changes not saved. Keep this book open and retry saving.": "Зміни в книзі не збережено. Залиште цю книгу відкритою та повторіть збереження.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "Налаштування книги відновлено з локальної резервної копії. Перевірте примітки, перш ніж продовжувати.",
-  "Dismiss": "Закрити"
+  "Dismiss": "Закрити",
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Ключ API не потрібен. Текст, вибраний для перекладу, надсилається до Bilibili. Перевірка з’єднання надсилає лише вбудований зразок."
 }
