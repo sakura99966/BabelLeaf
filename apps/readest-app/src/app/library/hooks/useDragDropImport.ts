@@ -14,7 +14,7 @@ const hasSupportedBookExt = (name: string) => {
   return ext ? SUPPORTED_BOOK_EXTS.includes(ext) : false;
 };
 
-export const useDragDropImport = () => {
+export const useDragDropImport = (ready = true) => {
   const _ = useTranslation();
   const searchParams = useSearchParams();
   const group = searchParams?.get('group') || '';
@@ -91,6 +91,7 @@ export const useDragDropImport = () => {
   };
 
   useEffect(() => {
+    if (!ready) return;
     const libraryPage = document.querySelector('.library-page');
     if (!appService?.isMobile) {
       libraryPage?.addEventListener('dragover', handleDragOver as unknown as EventListener);
@@ -98,23 +99,21 @@ export const useDragDropImport = () => {
       libraryPage?.addEventListener('drop', handleDrop as unknown as EventListener);
     }
 
-    if (isTauriAppPlatform()) {
-      const unlisten = getCurrentWebview().onDragDropEvent((event) => {
-        if (event.payload.type === 'over') {
-          setIsDragging(true);
-        } else if (event.payload.type === 'drop') {
-          setIsDragging(false);
-          handleDroppedFiles(event.payload.paths);
-        } else {
-          setIsDragging(false);
-        }
-      });
-      return () => {
-        unlisten.then((fn) => fn());
-      };
-    }
+    const unlisten = isTauriAppPlatform()
+      ? getCurrentWebview().onDragDropEvent((event) => {
+          if (event.payload.type === 'over') {
+            setIsDragging(true);
+          } else if (event.payload.type === 'drop') {
+            setIsDragging(false);
+            handleDroppedFiles(event.payload.paths);
+          } else {
+            setIsDragging(false);
+          }
+        })
+      : undefined;
 
     return () => {
+      void unlisten?.then((fn) => fn());
       if (!appService?.isMobile) {
         libraryPage?.removeEventListener('dragover', handleDragOver as unknown as EventListener);
         libraryPage?.removeEventListener('dragleave', handleDragLeave as unknown as EventListener);
@@ -122,7 +121,7 @@ export const useDragDropImport = () => {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [group]);
+  }, [group, appService, ready]);
 
   return { isDragging };
 };
