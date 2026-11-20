@@ -20,8 +20,44 @@ import {
   isTranslatorAvailable,
 } from '@/services/translators/providers';
 import { normalizeTranslationProviderError } from '@/services/translators/providers/llm';
+import { AI_TIMEOUTS } from '@/services/ai/utils/retry';
 
 describe('LLM translation providers', () => {
+  it('distinguishes its internal AbortError deadline from user cancellation', async () => {
+    vi.useFakeTimers();
+    try {
+      getAIProvider.mockReturnValue({
+        requiresAuth: false,
+        generateText: ({ signal }: { signal: AbortSignal }) =>
+          new Promise<string>((_resolve, reject) => {
+            signal.addEventListener(
+              'abort',
+              () => reject(new DOMException('Aborted', 'AbortError')),
+              { once: true },
+            );
+          }),
+      });
+      const result = getTranslator('index-translate')!
+        .translate(['Local sample'], 'EN', 'ZH')
+        .catch((error: unknown) => error);
+      await vi.advanceTimersByTimeAsync(AI_TIMEOUTS.CHAT_STREAM);
+      expect(await result).toEqual(new Error('Translation request timed out'));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps caller cancellation separate even when a deadline also expired', () => {
+    const error = new DOMException('Aborted', 'AbortError');
+    expect(normalizeTranslationProviderError(error, { timedOut: true }).message).toBe(
+      'Translation request timed out',
+    );
+    expect(
+      normalizeTranslationProviderError(error, { cancelled: true, timedOut: true }).message,
+    ).toBe('Translation request cancelled');
+    expect(normalizeTranslationProviderError(error).message).toBe('Translation request cancelled');
+  });
+
   it('preserves HTTP retry metadata through safe error normalization', () => {
     const error = normalizeTranslationProviderError({ status: 429, retryAfter: '30' });
     expect(error).toMatchObject({ status: 429, retryAfter: '30' });

@@ -110,6 +110,21 @@ const makeProps = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('TTSPlayerSheet', () => {
+  test('explains how to recover when no local voice is available', async () => {
+    render(
+      <TTSPlayerSheet
+        {...makeProps({ onGetVoices: vi.fn().mockResolvedValue([]), isPlaying: false })}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'No local voice is available. Install an offline voice in system settings.',
+        ),
+      ).toBeTruthy(),
+    );
+  });
+
   beforeEach(() => {
     viewSettings['ttsRate'] = 1.0;
     viewSettings['ttsParagraphGap'] = 0.7;

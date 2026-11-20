@@ -1976,5 +1976,6 @@
   "Book changes not saved. Keep this book open and retry saving.": "As alterações do livro não foram salvas. Mantenha este livro aberto e tente salvar novamente.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "As configurações do livro foram recuperadas de um backup local. Confira as anotações antes de continuar.",
   "Dismiss": "Fechar",
-  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Não é necessária uma chave de API. O texto a traduzir é enviado ao Bilibili. O teste de conexão envia somente um exemplo integrado."
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Não é necessária uma chave de API. O texto a traduzir é enviado ao Bilibili. O teste de conexão envia somente um exemplo integrado.",
+  "No local voice is available. Install an offline voice in system settings.": "Nenhuma voz local está disponível. Instale uma voz offline nas configurações do sistema."
 }

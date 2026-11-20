@@ -778,6 +778,17 @@ export const useTTSControl = ({
         );
         ttsControllerRef.current = ttsController;
         setTtsController(ttsController);
+        ttsController.addEventListener(
+          'tts-local-voice-unavailable',
+          () =>
+            eventDispatcher.dispatch('toast', {
+              message: _(
+                'No local voice is available. Install an offline voice in system settings.',
+              ),
+              type: 'error',
+            }),
+          { once: true },
+        );
         ttsSessionManager.claim(bookKey, ttsController, {
           bookKey,
           title: bookData.book.title,

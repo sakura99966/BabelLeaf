@@ -96,10 +96,11 @@ export const normalizeTranslationProviderError = (
     error && typeof error === 'object' && 'name' in error
       ? String((error as { name?: unknown }).name)
       : '';
-  if (options.cancelled || errorName === 'AbortError') {
+  if (options.cancelled) {
     return new Error('Translation request cancelled');
   }
   if (options.timedOut) return new Error('Translation request timed out');
+  if (errorName === 'AbortError') return new Error('Translation request cancelled');
   const status = getErrorStatus(error);
   const message = getSafeErrorMessage(error);
   const retryAfter =
