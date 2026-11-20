@@ -6,6 +6,31 @@ maintenance and canonical-main receipts are indexed in
 candidate hashes below as qualification of every later commit. Old release
 tags, packages, raw receipts, and the recorded measurement dates remain unchanged.
 
+## 2026-11-21 PC audit follow-up
+
+The November 17 independent audit reopened the Windows offline-speech gate
+and found stale translation connection results and misclassified deadlines.
+The follow-up now has failing-before regressions and fixes for those paths,
+plus a separately reproduced native-library drop-listener initialization and
+teardown defect. Offline voice availability has an actionable localized
+message; no cloud speech fallback is permitted.
+
+These changes require a newly qualified candidate. The Windows candidate job
+now exercises synthetic reading, loopback translation/reopen, manual comic
+editing/cleanup/typesetting/export, and a nonlocal-voice rejection trap on a
+byte-identical copy of the executable retained from its standard installation.
+Native picker answers and the local provider are controlled test fixtures;
+native file IO, packaged code and local runtime assets are not replaced.
+The exact EXE also receives the existing 60-second warmup and 300-second idle
+resource check. A candidate is retained only if workflows, resource budget,
+hash identity and owned-profile cleanup all pass. A passing old run is not
+evidence for this follow-up.
+
+Execution is pending until its new candidate receipts and protected-main CI
+are recorded. External provider, corpus-quality, minimum-host, human voice,
+signing and responsible-owner license gates remain deferred, not passed.
+No 0.5 work is authorized.
+
 ## Verdict boundary
 
 Verdict: **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED**.
