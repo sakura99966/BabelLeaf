@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { PiCheckCircle, PiSpinner, PiWarningCircle } from 'react-icons/pi';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -43,12 +43,25 @@ const AIPanel: React.FC = () => {
   );
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  const connectionRevision = useRef(0);
+
+  const resetConnection = useCallback(() => {
+    connectionRevision.current += 1;
+    setConnectionStatus('idle');
+    setErrorMessage('');
+  }, []);
 
   useEffect(() => {
     setApiKey(requiresTranslationApiKey(provider) ? getTranslationApiKey(provider) : '');
-    setConnectionStatus('idle');
-    setErrorMessage('');
-  }, [provider]);
+    resetConnection();
+  }, [provider, resetConnection]);
+
+  useEffect(
+    () => () => {
+      connectionRevision.current += 1;
+    },
+    [],
+  );
 
   const persist = useCallback(
     async (patch: Partial<AISettings>) => {
@@ -77,18 +90,21 @@ const AIPanel: React.FC = () => {
   );
 
   const selectProvider = (next: ActiveAIProviderName) => {
+    resetConnection();
     setProvider(next);
-    setConnectionStatus('idle');
     void persist({ provider: next });
   };
 
   const persistApiKey = async () => {
     if (!requiresTranslationApiKey(provider)) return;
+    const revision = connectionRevision.current;
     try {
       await saveTranslationApiKey(apiKey, provider);
+      if (revision !== connectionRevision.current) return;
       setConnectionStatus('idle');
       setErrorMessage('');
     } catch (error) {
+      if (revision !== connectionRevision.current) return;
       setConnectionStatus('error');
       setErrorMessage(
         error instanceof Error ? error.message : _('Secure credential storage is unavailable'),
@@ -97,6 +113,7 @@ const AIPanel: React.FC = () => {
   };
 
   const testConnection = async () => {
+    const revision = ++connectionRevision.current;
     setConnectionStatus('testing');
     setErrorMessage('');
     try {
@@ -109,9 +126,11 @@ const AIPanel: React.FC = () => {
         anthropicApiKey: provider === 'anthropic' ? apiKey.trim() : undefined,
       };
       const connected = await getAIProvider(testSettings).healthCheck();
+      if (revision !== connectionRevision.current) return;
       setConnectionStatus(connected ? 'success' : 'error');
       if (!connected) setErrorMessage(_('Connection failed'));
     } catch (error) {
+      if (revision !== connectionRevision.current) return;
       setConnectionStatus('error');
       setErrorMessage(error instanceof Error ? error.message : _('Connection failed'));
     }
@@ -179,7 +198,10 @@ const AIPanel: React.FC = () => {
               type='text'
               className='input input-bordered input-sm w-full'
               value={ollamaBaseUrl}
-              onChange={(event) => setOllamaBaseUrl(event.target.value)}
+              onChange={(event) => {
+                resetConnection();
+                setOllamaBaseUrl(event.target.value);
+              }}
               onBlur={() => void persist({ ollamaBaseUrl: ollamaBaseUrl.trim() })}
               placeholder='http://127.0.0.1:11434'
               data-setting-id='settings.ai.ollamaUrl'
@@ -191,7 +213,10 @@ const AIPanel: React.FC = () => {
               type='text'
               className='input input-bordered input-sm w-full'
               value={ollamaModel}
-              onChange={(event) => setOllamaModel(event.target.value)}
+              onChange={(event) => {
+                resetConnection();
+                setOllamaModel(event.target.value);
+              }}
               onBlur={() => void persist({ ollamaModel: ollamaModel.trim() })}
               placeholder='qwen2.5'
               data-setting-id='settings.ai.ollamaModel'
@@ -230,6 +255,7 @@ const AIPanel: React.FC = () => {
               value={apiKey}
               onChange={(event) => {
                 const value = event.target.value;
+                resetConnection();
                 setApiKey(value);
                 setTranslationApiKeyForSession(value, provider);
               }}

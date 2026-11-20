@@ -28,6 +28,7 @@ const productVersion = JSON.parse(await readFile(resolve(root, 'apps/readest-app
 const productName = JSON.parse(await readFile(resolve(root, 'apps/readest-app/src-tauri/tauri.conf.json'), 'utf8')).productName;
 const probeSourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim();
 const declaredBuildSource = option('--source-revision', probeSourceCommit);
+const exercisePc = process.argv.includes('--pc-workflows');
 if (!/^[0-9a-f]{40}$/i.test(declaredBuildSource)) throw new Error('Invalid build source revision');
 await mkdir(dirname(output), { recursive: true });
 const runtime = await mkdtemp(join(tmpdir(), 'babelleaf-packaged-probe-'));
@@ -54,6 +55,8 @@ let observedOrigins = [];
 let endpointError;
 let startupOutput = '';
 let launchedAt;
+let pcFixture;
+let pcWorkflows;
 const captureStartupOutput = (chunk) => {
   startupOutput = (startupOutput + chunk.toString()).slice(-8192);
 };
@@ -87,6 +90,11 @@ const collectOwnedProcessDiagnostics = () => {
 const messages = new Map();
 let sequence = 0;
 try {
+  if (exercisePc) {
+    const driver = await import('./packaged-pc-workflows.mjs');
+    pcFixture = await driver.startPackagedOllamaFixture();
+    await writeFile(join(runtime, 'settings.json'), JSON.stringify(driver.makePackagedPcSettings(pcFixture.baseUrl)));
+  }
   const policy = makePackagedProbePolicy(basename(binary), port);
   policyAttempted = true;
   const policyResult = JSON.parse(execFileSync('powershell.exe', [
@@ -217,22 +225,34 @@ try {
   const checked = await evaluate('(' + verifyAssets.toString() + ')()');
   if (JSON.stringify(checked.manifest) !== JSON.stringify(expected))
     throw new Error('Embedded manifest does not match the frozen build manifest');
+  if (exercisePc) {
+    const driver = await import('./packaged-pc-workflows.mjs');
+    pcWorkflows = await driver.runPackagedPcWorkflows({
+      port, runtime, appRoot: join(root, 'apps/readest-app'),
+      outputDirectory: join(dirname(output), 'pc-workflow-artifacts'), fixture: pcFixture,
+    });
+    if (!pcWorkflows.passed) throw new Error('Packaged PC workflow acceptance failed');
+  }
   result = { passed: true, executableSha256, declaredBuildSource, probeSourceCommit, productVersion, productName,
     components: expected.components.length, assets: expected.assets.length, verifiedBytes: checked.verifiedBytes,
     libraryHydrated: checked.ready, origin: checked.origin, profile: 'owned portable temporary copy',
     startup: { ...timing, budgetMs: startupBudgetMs, budgetEnforced: startupBudgetEnforced,
       budgetPassed: timing.launchToInteractiveMs <= startupBudgetMs, menuInteractive },
-    scope: 'standard release executable, not webdriver/dev-server build; read-only asset hash probe',
+    pcWorkflows,
+    scope: exercisePc ? 'standard installed EXE copy with PC workflow acceptance'
+      : 'standard release executable, not webdriver/dev-server build; read-only asset hash probe',
     timestamp: new Date().toISOString() };
   passed = true;
 } catch (error) {
   result = { passed: false, executableSha256, runtime, error: String(error),
+    pcWorkflows,
     processExitCode: child?.exitCode, processSignal: child?.signalCode,
     cdpReached, observedPageCount, observedOrigins, endpointError,
     ownedProcesses: collectOwnedProcessDiagnostics(), startupOutput,
     portableProfileCreated: await stat(join(runtime, 'EBWebView/Default/Preferences')).then((file) => file.isFile(), () => false),
     timestamp: new Date().toISOString() };
 } finally {
+  await pcFixture?.close();
   socket?.close();
   if (child && child.exitCode === null && child.signalCode === null) {
     try { execFileSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }); } catch {}

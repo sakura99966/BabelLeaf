@@ -314,7 +314,9 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   useOpenAnnotationLink();
   useOpenBookLink();
   useReadingWidget();
-  const { isDragging } = useDragDropImport();
+  const { isDragging } = useDragDropImport(
+    Boolean(appService && insets && !checkOpenWithBooks && !checkLastOpenBooks),
+  );
 
   const reloadLocalLibrary = useCallback(async () => {
     const service = appService ?? (await envConfig.getAppService());

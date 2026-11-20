@@ -1904,5 +1904,6 @@
   "Book changes not saved. Keep this book open and retry saving.": "དཔེ་ཆའི་འགྱུར་བ་ཉར་ཚགས་བྱས་མེད། དཔེ་ཆ་ཁ་ཕྱེ་ནས་ཡང་བསྐྱར་ཉར་ཚགས་བྱེད་རོགས།",
   "Book settings recovered from a local backup. Check annotations before continuing.": "དེབ་ཀྱི་སྒྲིག་འགོད་ས་གནས་ཀྱི་གྲབས་ཉར་ལས་སླར་གསོ་བྱས་ཟིན། མུ་མཐུད་མ་བྱེད་གོང་མཆན་འགྲེལ་ལ་ཞིབ་བཤེར་གནང་།",
   "Dismiss": "ཁ་རྒྱག",
-  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "API ལྡེ་མིག་མི་དགོས། སྒྱུར་བར་བདམས་པའི་ཡི་གེ་ Bilibili ལ་གཏོང་གི་ཡོད། མཐུད་འབྲེལ་ཚོད་ལྟས་ནང་སྒྲིག་དཔེ་མཚོན་ཁོ་ན་གཏོང་།"
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "API ལྡེ་མིག་མི་དགོས། སྒྱུར་བར་བདམས་པའི་ཡི་གེ་ Bilibili ལ་གཏོང་གི་ཡོད། མཐུད་འབྲེལ་ཚོད་ལྟས་ནང་སྒྲིག་དཔེ་མཚོན་ཁོ་ན་གཏོང་།",
+  "No local voice is available. Install an offline voice in system settings.": "ས་གནས་ཀྱི་སྐད་སྒྲ་སྤྱོད་མི་ཐུབ། མ་ལག་སྒྲིག་འགོད་ནང་དྲ་མེད་སྐད་སྒྲ་ཞིག་སྒྲིག་འཇུག་བྱེད་རོགས།"
 }
