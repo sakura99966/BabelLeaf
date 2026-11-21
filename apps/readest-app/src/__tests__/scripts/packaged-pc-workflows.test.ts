@@ -11,12 +11,17 @@ test('candidate publication requires the same installed binary to finish PC work
     resolve(process.cwd(), '../../.github/workflows/pull-request.yml'),
     'utf8',
   );
-  expect(workflow).toContain('verified-app/babelleaf.exe --pc-workflows');
+  expect(workflow).toContain('verified-app/babelleaf.exe --pc-core-workflows');
   expect(workflow).toContain('-not $probe.pcWorkflows.passed');
+  expect(workflow).toContain('-not $probe.pcResources.passed');
   expect(workflow).toContain(
     'measure-windows-performance.ps1 -ExecutablePath artifacts/windows-installer-smoke/verified-app/babelleaf.exe -IsolatedProfile -Enforce',
   );
   expect(workflow).toContain('$idle.executableSha256 -ne $binaryHash');
+  const driver = readFileSync(resolve(process.cwd(), 'scripts/packaged-pc-workflows.mjs'), 'utf8');
+  expect(driver).not.toContain('__TAURI_INTERNALS__.invoke =');
+  expect(driver).toContain('manualComicPending: !full');
+  expect(driver).toContain("'full-native-dialogs'");
 });
 
 test('uses only an owned loopback fixture without enabling automatic translation or new windows', () => {

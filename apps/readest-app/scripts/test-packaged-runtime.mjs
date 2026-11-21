@@ -28,7 +28,8 @@ const productVersion = JSON.parse(await readFile(resolve(root, 'apps/readest-app
 const productName = JSON.parse(await readFile(resolve(root, 'apps/readest-app/src-tauri/tauri.conf.json'), 'utf8')).productName;
 const probeSourceCommit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim();
 const declaredBuildSource = option('--source-revision', probeSourceCommit);
-const exercisePc = process.argv.includes('--pc-workflows');
+const fullPcWorkflows = process.argv.includes('--pc-workflows');
+const exercisePc = fullPcWorkflows || process.argv.includes('--pc-core-workflows');
 if (!/^[0-9a-f]{40}$/i.test(declaredBuildSource)) throw new Error('Invalid build source revision');
 await mkdir(dirname(output), { recursive: true });
 const runtime = await mkdtemp(join(tmpdir(), 'babelleaf-packaged-probe-'));
@@ -57,6 +58,8 @@ let startupOutput = '';
 let launchedAt;
 let pcFixture;
 let pcWorkflows;
+let resourceSampler;
+let pcResources;
 const captureStartupOutput = (chunk) => {
   startupOutput = (startupOutput + chunk.toString()).slice(-8192);
 };
@@ -105,7 +108,7 @@ try {
   policyApplied = policyResult.applied === true;
   launchedAt = Date.now();
   child = spawn(binary, [], {
-    cwd: runtime, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+    cwd: runtime, windowsHide: !fullPcWorkflows, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, APPDATA: join(runtime, 'Roaming'), LOCALAPPDATA: join(runtime, 'Local'),
       WEBVIEW2_USER_DATA_FOLDER: join(runtime, 'WebView2'),
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=' + port + ' --remote-debugging-address=127.0.0.1' },
@@ -227,10 +230,21 @@ try {
     throw new Error('Embedded manifest does not match the frozen build manifest');
   if (exercisePc) {
     const driver = await import('./packaged-pc-workflows.mjs');
+    if (fullPcWorkflows) {
+      // Full local acceptance needs the owned window on the interactive
+      // desktop for genuine OS file dialogs. Core CI remains headless.
+      await evaluate("window.__TAURI_INTERNALS__.invoke('plugin:window|show', { label: 'main' })");
+    }
+    const resources = await import('./packaged-native-resources.mjs');
+    resourceSampler = resources.startPackagedResourceSampler(child.pid);
     pcWorkflows = await driver.runPackagedPcWorkflows({
       port, runtime, appRoot: join(root, 'apps/readest-app'),
       outputDirectory: join(dirname(output), 'pc-workflow-artifacts'), fixture: pcFixture,
+      full: fullPcWorkflows,
     });
+    pcResources = await resourceSampler.stop();
+    resourceSampler = undefined;
+    if (!pcResources.passed) throw new Error('Packaged PC active-workload memory budget exceeded');
     if (!pcWorkflows.passed) throw new Error('Packaged PC workflow acceptance failed');
   }
   result = { passed: true, executableSha256, declaredBuildSource, probeSourceCommit, productVersion, productName,
@@ -238,20 +252,24 @@ try {
     libraryHydrated: checked.ready, origin: checked.origin, profile: 'owned portable temporary copy',
     startup: { ...timing, budgetMs: startupBudgetMs, budgetEnforced: startupBudgetEnforced,
       budgetPassed: timing.launchToInteractiveMs <= startupBudgetMs, menuInteractive },
-    pcWorkflows,
+    pcWorkflows, pcResources,
     scope: exercisePc ? 'standard installed EXE copy with PC workflow acceptance'
       : 'standard release executable, not webdriver/dev-server build; read-only asset hash probe',
     timestamp: new Date().toISOString() };
   passed = true;
 } catch (error) {
   result = { passed: false, executableSha256, runtime, error: String(error),
-    pcWorkflows,
+    pcWorkflows, pcResources,
     processExitCode: child?.exitCode, processSignal: child?.signalCode,
     cdpReached, observedPageCount, observedOrigins, endpointError,
     ownedProcesses: collectOwnedProcessDiagnostics(), startupOutput,
     portableProfileCreated: await stat(join(runtime, 'EBWebView/Default/Preferences')).then((file) => file.isFile(), () => false),
     timestamp: new Date().toISOString() };
 } finally {
+  if (resourceSampler) {
+    try { result.pcResources = await resourceSampler.stop(); }
+    catch (error) { result.resourceError = String(error); }
+  }
   await pcFixture?.close();
   socket?.close();
   if (child && child.exitCode === null && child.signalCode === null) {

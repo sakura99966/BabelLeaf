@@ -414,7 +414,7 @@ jobs:
       - name: verify packaged UI hydration and embedded runtime hashes
         working-directory: apps/readest-app
         shell: pwsh
-        run: pnpm test:windows-packaged-runtime --executable apps/readest-app/artifacts/windows-installer-smoke/verified-app/babelleaf.exe --pc-workflows
+        run: pnpm test:windows-packaged-runtime --executable apps/readest-app/artifacts/windows-installer-smoke/verified-app/babelleaf.exe --pc-core-workflows
 
       - name: verify exact installed executable idle resource budget
         working-directory: apps/readest-app
@@ -447,6 +447,7 @@ jobs:
           $builtHash = Get-CandidateSha256 'target/x86_64-pc-windows-msvc/release/babelleaf.exe'
           if (-not $probe.passed -or -not $probe.libraryHydrated -or
               -not $probe.pcWorkflows.passed -or
+              -not $probe.pcResources.passed -or
               $idle.status -ne 'pass' -or $idle.executableSha256 -ne $binaryHash -or
               -not $idle.profileCleanupPass -or -not $idle.portableStatePass -or
               -not $probe.profileCleanupPass -or -not $probe.policyCleanupPass -or
@@ -466,9 +467,6 @@ jobs:
           Copy-Item -LiteralPath 'apps/readest-app/out/vendor/runtime-manifest.json' -Destination (Join-Path $candidate 'runtime-manifest.json')
           Copy-Item -LiteralPath 'target/windows-packaged-runtime/result.json' -Destination (Join-Path $candidate 'packaged-runtime.json')
           Copy-Item -LiteralPath 'target/windows-packaged-runtime/idle.json' -Destination (Join-Path $candidate 'packaged-idle.json')
-          foreach ($format in @('cbz', 'pdf')) {
-            Copy-Item -LiteralPath "target/windows-packaged-runtime/pc-workflow-artifacts/translated.$format" -Destination (Join-Path $candidate "acceptance-translated.$format")
-          }
           Copy-Item -LiteralPath $successPath -Destination (Join-Path $candidate 'installer-success.txt')
           Copy-Item -LiteralPath 'apps/readest-app/artifacts/windows-installer-smoke/binary-identity.json' -Destination (Join-Path $candidate 'binary-identity.json')
           node scripts/generate-sbom.mjs --strict --artifact "$candidate/BabelLeaf_${version}_x64-setup.exe" --output "$candidate/sbom.json"
@@ -480,7 +478,7 @@ jobs:
             schemaVersion=1; sourceCommit=$commit; sourceTree=$tree
             workflowRun=$env:GITHUB_RUN_ID; workflowCommit=$env:GITHUB_SHA
             installedExecutableSha256=$binaryHash; files=$files
-            scope='Exact unsigned candidate installed, launched, uninstalled and runtime-hash checked; synthetic PC workflows run on its byte-identical installed EXE copy; external acceptance remains deferred'
+            scope='Exact unsigned candidate installed/launched/uninstalled and runtime-hash checked; automated core PC workflows/idle run on its byte-identical installed EXE copy; full native picker/export acceptance needs a same-hash local receipt; external acceptance remains deferred'
           } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $candidate 'candidate-inventory.json') -Encoding UTF8
 
       - name: upload verified Windows candidate
