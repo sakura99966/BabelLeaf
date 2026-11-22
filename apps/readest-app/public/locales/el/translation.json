@@ -1940,5 +1940,6 @@
   "Book changes not saved. Keep this book open and retry saving.": "Οι αλλαγές στο βιβλίο δεν αποθηκεύτηκαν. Κρατήστε το βιβλίο ανοιχτό και δοκιμάστε ξανά.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "Οι ρυθμίσεις του βιβλίου ανακτήθηκαν από τοπικό αντίγραφο ασφαλείας. Ελέγξτε τις σημειώσεις πριν συνεχίσετε.",
   "Dismiss": "Κλείσιμο",
-  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Δεν απαιτείται κλειδί API. Το κείμενο προς μετάφραση αποστέλλεται στο Bilibili. Η δοκιμή σύνδεσης στέλνει μόνο ένα ενσωματωμένο δείγμα."
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Δεν απαιτείται κλειδί API. Το κείμενο προς μετάφραση αποστέλλεται στο Bilibili. Η δοκιμή σύνδεσης στέλνει μόνο ένα ενσωματωμένο δείγμα.",
+  "No local voice is available. Install an offline voice in system settings.": "Δεν υπάρχει διαθέσιμη τοπική φωνή. Εγκαταστήστε μια φωνή εκτός σύνδεσης στις ρυθμίσεις συστήματος."
 }

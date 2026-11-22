@@ -2084,5 +2084,6 @@
   "Book changes not saved. Keep this book open and retry saving.": "لم تُحفظ تغييرات الكتاب. أبقِ هذا الكتاب مفتوحًا وحاول الحفظ مرة أخرى.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "تمت استعادة إعدادات الكتاب من نسخة احتياطية محلية. راجع التعليقات التوضيحية قبل المتابعة.",
   "Dismiss": "إغلاق",
-  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "لا يلزم مفتاح API. يُرسل النص المطلوب ترجمته إلى Bilibili. يرسل اختبار الاتصال نموذجًا مضمّنًا فقط."
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "لا يلزم مفتاح API. يُرسل النص المطلوب ترجمته إلى Bilibili. يرسل اختبار الاتصال نموذجًا مضمّنًا فقط.",
+  "No local voice is available. Install an offline voice in system settings.": "لا يتوفر صوت محلي. ثبّت صوتًا للعمل دون اتصال في إعدادات النظام."
 }

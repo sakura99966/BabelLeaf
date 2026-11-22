@@ -68,6 +68,7 @@ import {
   MAX_COMIC_WORKER_IMAGE_PIXELS,
 } from '@/services/translators';
 import { getTranslator } from '@/services/translators/providers';
+import { readComicImageBlob } from '@/services/translators/comicImageSource';
 import type { TranslatorName } from '@/services/translators';
 
 interface ComicAsset {
@@ -1621,12 +1622,17 @@ const ComicWorkspaceDialog: React.FC<ComicWorkspaceDialogProps> = ({
   ): Promise<ComicRenderedPage> => {
     if (!appService) throw new Error('Comic source storage is unavailable');
     const sourceFile = await appService.openFile(current.path, 'Temp');
+    const sourceBlob = await readComicImageBlob(
+      sourceFile,
+      current.byteLength,
+      `image/${current.format}`,
+    );
     const canvas = document.createElement('canvas');
     canvas.width = current.width;
     canvas.height = current.height;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Canvas 2D is unavailable');
-    await drawBlob(context, sourceFile, current.width, current.height);
+    await drawBlob(context, sourceBlob, current.width, current.height);
     const editPage = editSidecar?.pages.find(
       (candidate) => candidate.pageId === currentPage.pageId,
     );

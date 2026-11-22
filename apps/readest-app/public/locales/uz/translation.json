@@ -1940,5 +1940,6 @@
   "Book changes not saved. Keep this book open and retry saving.": "Kitobdagi o‘zgarishlar saqlanmadi. Kitobni ochiq qoldiring va qayta saqlashga urinib ko‘ring.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "Kitob sozlamalari mahalliy zaxiradan tiklandi. Davom etishdan oldin izohlarni tekshiring.",
   "Dismiss": "Yopish",
-  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "API kaliti talab qilinmaydi. Tarjima qilish uchun tanlangan matn Bilibili’ga yuboriladi. Ulanishni tekshirishda faqat ilovadagi namuna yuboriladi."
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "API kaliti talab qilinmaydi. Tarjima qilish uchun tanlangan matn Bilibili’ga yuboriladi. Ulanishni tekshirishda faqat ilovadagi namuna yuboriladi.",
+  "No local voice is available. Install an offline voice in system settings.": "Mahalliy ovoz mavjud emas. Tizim sozlamalarida oflayn ovozni oʻrnating."
 }

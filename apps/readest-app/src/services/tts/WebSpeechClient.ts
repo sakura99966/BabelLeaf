@@ -17,6 +17,8 @@ interface TTSBoundaryEvent {
   error?: string;
 }
 
+const LOCAL_VOICE_UNAVAILABLE = 'No local voice is available for this language';
+
 async function* speakWithMarks(
   ssml: string,
   primaryLang: string,
@@ -37,10 +39,16 @@ async function* speakWithMarks(
     utterance.rate = getRate();
     utterance.pitch = getPitch();
     const voice = await getVoice(voiceLang);
-    if (voice) {
-      utterance.voice = voice;
-      setCurrentVoice(voice.voiceURI);
+    if (voice?.localService !== true) {
+      yield {
+        type: 'error',
+        speaking: false,
+        error: LOCAL_VOICE_UNAVAILABLE,
+      } as TTSBoundaryEvent;
+      return;
     }
+    utterance.voice = voice;
+    setCurrentVoice(voice.voiceURI);
     if (voiceLang) {
       utterance.lang = voiceLang;
       setSpeakingLang(voiceLang);
@@ -62,7 +70,15 @@ async function* speakWithMarks(
           error: event.error,
         });
 
-      synth.speak(utterance);
+      // Recheck after yielding the boundary: never hand voice selection to
+      // the browser or an OS service that may synthesize remotely.
+      if (utterance.voice?.localService !== true) {
+        resolve({
+          type: 'error',
+          speaking: false,
+          error: LOCAL_VOICE_UNAVAILABLE,
+        });
+      } else synth.speak(utterance);
     });
 
     yield result;
@@ -100,20 +116,39 @@ export class WebSpeechClient implements TTSClient {
       return this.initialized;
     }
     await new Promise<void>((resolve) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let removeListener = () => {};
       const populateVoices = () => {
-        this.#voices = this.#synth.getVoices().map((voice) => {
-          const webSpeechVoice = voice as WebSpeechVoice;
-          webSpeechVoice.id = voice.voiceURI || voice.name;
-          return webSpeechVoice;
-        });
-        // console.log('Voices', this.#voices);
+        clearTimeout(timer);
+        removeListener();
+        this.#voices = this.#synth
+          .getVoices()
+          .filter((voice) => voice.localService === true)
+          .map((voice) => {
+            const webSpeechVoice = voice as WebSpeechVoice;
+            webSpeechVoice.id = voice.voiceURI || voice.name;
+            return webSpeechVoice;
+          });
         resolve();
       };
 
       if (this.#synth.getVoices().length > 0) {
         populateVoices();
+      } else if (typeof this.#synth.addEventListener === 'function') {
+        this.#synth.addEventListener('voiceschanged', populateVoices, { once: true });
+        removeListener = () => this.#synth.removeEventListener('voiceschanged', populateVoices);
+        // An available engine can have no installed voices and never emit a
+        // change event. Settle locally so the caller can show the offline
+        // voice diagnostic rather than leave playback starting forever.
+        timer = setTimeout(populateVoices, 2000);
       } else if (this.#synth.onvoiceschanged !== undefined) {
+        const previous = this.#synth.onvoiceschanged;
         this.#synth.onvoiceschanged = populateVoices;
+        removeListener = () => {
+          if (this.#synth.onvoiceschanged === populateVoices)
+            this.#synth.onvoiceschanged = previous;
+        };
+        timer = setTimeout(populateVoices, 2000);
       } else {
         console.warn('Voiceschanged event not supported.');
         resolve();
@@ -125,16 +160,21 @@ export class WebSpeechClient implements TTSClient {
 
   getVoiceIdFromLang = async (lang: string) => {
     const preferredVoiceId = TTSUtils.getPreferredVoice(this.name, lang);
-    const preferredVoice = this.#voices.find((v) => v.id === preferredVoiceId);
+    const preferredVoice = this.#voices.find(
+      (voice) =>
+        voice.localService === true &&
+        isSameLang(voice.lang, lang) &&
+        voice.id === preferredVoiceId,
+    );
     const defaultVoice = preferredVoice
       ? preferredVoice
       : (await this.getVoices(lang))[0]?.voices[0] || null;
-    return defaultVoice?.id || this.#currentVoiceId || '';
+    return defaultVoice?.id || '';
   };
 
   getWebSpeechVoiceFromLang = async (lang: string) => {
     const voiceId = await this.getVoiceIdFromLang(lang);
-    return this.#voices.find((v) => v.id === voiceId) || null;
+    return this.#voices.find((v) => v.id === voiceId && v.localService === true) || null;
   };
 
   async *speak(ssml: string, signal: AbortSignal): AsyncGenerator<TTSMessageEvent> {
@@ -160,6 +200,9 @@ export class WebSpeechClient implements TTSClient {
           message: `${ev.name ?? 'Unknown'} ${ev.charIndex ?? 0}/${ev.charLength ?? 0}`,
         } as TTSMessageEvent;
       } else if (ev.type === 'error') {
+        if (ev.error === LOCAL_VOICE_UNAVAILABLE) {
+          this.controller?.dispatchEvent(new CustomEvent('tts-local-voice-unavailable'));
+        }
         yield { code: 'error', message: ev.error ?? 'Unknown error' } as TTSMessageEvent;
       } else if (ev.type === 'end') {
         yield { code: 'end', message: 'Speech finished' } as TTSMessageEvent;
@@ -196,21 +239,23 @@ export class WebSpeechClient implements TTSClient {
   }
 
   async setVoice(voiceId: string) {
-    const selectedVoice = this.#voices.find((v) => v.id === voiceId);
+    const selectedVoice = this.#voices.find((v) => v.id === voiceId && v.localService === true);
     if (selectedVoice) {
       this.#currentVoiceId = selectedVoice.id;
     }
   }
 
   async getAllVoices(): Promise<TTSVoice[]> {
-    const voices = this.#voices.map((voice) => {
-      return {
-        id: voice.id,
-        name: voice.name,
-        lang: voice.lang,
-        disabled: !this.initialized,
-      } as TTSVoice;
-    });
+    const voices = this.#voices
+      .filter((voice) => voice.localService === true)
+      .map((voice) => {
+        return {
+          id: voice.id,
+          name: voice.name,
+          lang: voice.lang,
+          disabled: !this.initialized,
+        } as TTSVoice;
+      });
     return voices;
   }
 
@@ -226,6 +271,7 @@ export class WebSpeechClient implements TTSClient {
     // whose sections mix region variants (e.g. en-US front matter and en-GB
     // body text); the requested locale's voices sort first. See #4033.
     const filteredVoices = this.#voices
+      .filter((voice) => voice.localService === true)
       .filter((voice) => isSameLang(voice.lang, lang))
       .filter((voice) => isValidVoice(voice.voiceURI || ''))
       .filter(isNotBlacklisted);
@@ -234,7 +280,7 @@ export class WebSpeechClient implements TTSClient {
       .map(
         (voice) =>
           ({
-            id: voice.voiceURI,
+            id: voice.id,
             name: voice.name,
             lang: voice.lang,
           }) as TTSVoice,

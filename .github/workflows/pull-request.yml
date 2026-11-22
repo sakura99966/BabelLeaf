@@ -414,7 +414,12 @@ jobs:
       - name: verify packaged UI hydration and embedded runtime hashes
         working-directory: apps/readest-app
         shell: pwsh
-        run: pnpm test:windows-packaged-runtime --executable apps/readest-app/artifacts/windows-installer-smoke/verified-app/babelleaf.exe
+        run: pnpm test:windows-packaged-runtime --executable apps/readest-app/artifacts/windows-installer-smoke/verified-app/babelleaf.exe --pc-core-workflows
+
+      - name: verify exact installed executable idle resource budget
+        working-directory: apps/readest-app
+        shell: pwsh
+        run: ./scripts/measure-windows-performance.ps1 -ExecutablePath artifacts/windows-installer-smoke/verified-app/babelleaf.exe -IsolatedProfile -Enforce -OutputPath ../../target/windows-packaged-runtime/idle.json
 
       - name: archive verified Windows candidate
         shell: pwsh
@@ -434,12 +439,17 @@ jobs:
           $binary = 'apps/readest-app/artifacts/windows-installer-smoke/verified-app/babelleaf.exe'
           $installer = "target/x86_64-pc-windows-msvc/release/bundle/nsis/BabelLeaf_${version}_x64-setup.exe"
           $probe = Get-Content target/windows-packaged-runtime/result.json -Raw | ConvertFrom-Json
+          $idle = Get-Content target/windows-packaged-runtime/idle.json -Raw | ConvertFrom-Json
           $binaryHash = Get-CandidateSha256 $binary
           $successPath = 'apps/readest-app/artifacts/windows-installer-smoke/success.txt'
           $success = Get-Content -LiteralPath $successPath -Raw
           $identity = Get-Content 'apps/readest-app/artifacts/windows-installer-smoke/binary-identity.json' -Raw | ConvertFrom-Json
           $builtHash = Get-CandidateSha256 'target/x86_64-pc-windows-msvc/release/babelleaf.exe'
           if (-not $probe.passed -or -not $probe.libraryHydrated -or
+              -not $probe.pcWorkflows.passed -or
+              -not $probe.pcResources.passed -or
+              $idle.status -ne 'pass' -or $idle.executableSha256 -ne $binaryHash -or
+              -not $idle.profileCleanupPass -or -not $idle.portableStatePass -or
               -not $probe.profileCleanupPass -or -not $probe.policyCleanupPass -or
               $probe.productName -ne 'BabelLeaf' -or $probe.productVersion -ne $version -or
               $probe.executableSha256 -ne $binaryHash -or
@@ -456,6 +466,7 @@ jobs:
           Copy-Item -LiteralPath $installer -Destination (Join-Path $candidate "BabelLeaf_${version}_x64-setup.exe")
           Copy-Item -LiteralPath 'apps/readest-app/out/vendor/runtime-manifest.json' -Destination (Join-Path $candidate 'runtime-manifest.json')
           Copy-Item -LiteralPath 'target/windows-packaged-runtime/result.json' -Destination (Join-Path $candidate 'packaged-runtime.json')
+          Copy-Item -LiteralPath 'target/windows-packaged-runtime/idle.json' -Destination (Join-Path $candidate 'packaged-idle.json')
           Copy-Item -LiteralPath $successPath -Destination (Join-Path $candidate 'installer-success.txt')
           Copy-Item -LiteralPath 'apps/readest-app/artifacts/windows-installer-smoke/binary-identity.json' -Destination (Join-Path $candidate 'binary-identity.json')
           node scripts/generate-sbom.mjs --strict --artifact "$candidate/BabelLeaf_${version}_x64-setup.exe" --output "$candidate/sbom.json"
@@ -467,7 +478,7 @@ jobs:
             schemaVersion=1; sourceCommit=$commit; sourceTree=$tree
             workflowRun=$env:GITHUB_RUN_ID; workflowCommit=$env:GITHUB_SHA
             installedExecutableSha256=$binaryHash; files=$files
-            scope='Exact unsigned candidate installed, launched, uninstalled and runtime-hash checked by this job; external acceptance remains deferred'
+            scope='Exact unsigned candidate installed/launched/uninstalled and runtime-hash checked; automated core PC workflows/idle run on its byte-identical installed EXE copy; full native picker/export acceptance needs a same-hash local receipt; external acceptance remains deferred'
           } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $candidate 'candidate-inventory.json') -Encoding UTF8
 
       - name: upload verified Windows candidate

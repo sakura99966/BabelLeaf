@@ -111,6 +111,7 @@ const TTSPlayerSheet = ({
 
   const [view, setView] = useState<SheetView>('main');
   const [voiceGroups, setVoiceGroups] = useState<TTSVoicesGroup[]>([]);
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
   const [rate, setRate] = useState(viewSettings?.ttsRate ?? 1.0);
   const [selectedVoice, setSelectedVoice] = useState('');
   const timerLabel = useCountdownLabel(timeoutTimestamp);
@@ -134,8 +135,11 @@ const TTSPlayerSheet = ({
 
   useEffect(() => {
     if (!isOpen) return;
+    let active = true;
+    setVoicesLoaded(false);
     const fetchVoices = async () => {
       const groups = await onGetVoices(ttsLang);
+      if (!active) return;
       const voicesCount = groups.reduce((acc, group) => acc + group.voices.length, 0);
       if (!groups || voicesCount === 0) {
         setVoiceGroups([
@@ -148,8 +152,16 @@ const TTSPlayerSheet = ({
       } else {
         setVoiceGroups(groups);
       }
+      setVoicesLoaded(true);
     };
-    fetchVoices();
+    void fetchVoices().catch(() => {
+      if (!active) return;
+      setVoiceGroups([]);
+      setVoicesLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, ttsLang]);
 
@@ -253,6 +265,12 @@ const TTSPlayerSheet = ({
       contentClassName='!px-4 sm:!px-4 mt-[-4px]'
       onClose={onClose}
     >
+      {voicesLoaded &&
+        !voiceGroups.some((group) => group.voices.some((voice) => !voice.disabled)) && (
+          <p role='status' className='text-base-content/70 mb-3 text-sm'>
+            {_('No local voice is available. Install an offline voice in system settings.')}
+          </p>
+        )}
       {view === 'main' && (
         // sm:pt-4 keeps the cover clear of the box's rounded top edge on
         // desktop, where the mobile drag handle (and its clearance) is

@@ -6,6 +6,45 @@ maintenance and canonical-main receipts are indexed in
 candidate hashes below as qualification of every later commit. Old release
 tags, packages, raw receipts, and the recorded measurement dates remain unchanged.
 
+## 2026-11-21 PC audit follow-up
+
+The November 17 independent audit reopened the Windows offline-speech gate
+and found stale translation connection results and misclassified deadlines.
+The follow-up now has failing-before regressions and fixes for those paths,
+plus a separately reproduced native-library drop-listener initialization and
+teardown defect. Offline voice availability has an actionable localized
+message; no cloud speech fallback is permitted.
+An engine with an empty voice list is also bounded to a two-second local
+initialization wait if it never emits voiceschanged; its temporary listener
+and timer are removed on success or timeout.
+Real native-dialog testing additionally exposed an export defect: a streamed
+NativeFile has no browser-decodable internal Blob. Encoded page bytes are now
+materialized under the existing 64 MiB per-page bound, checked for source-size
+changes/truncation, and the native file handle is closed on every path. The
+new source requires a fresh same-package export result, not the failing older
+candidate's receipt.
+
+These changes require a newly qualified candidate. The Windows candidate job
+now exercises synthetic reading, loopback translation/reopen, comic-workspace
+entry/diagnostics, and a nonlocal-voice rejection trap on a byte-identical copy
+of the executable retained from its standard installation. Production Tauri
+IPC is immutable and is not replaced or unlocked. Full mode additionally
+requires real native file-dialog input for comic editing, cleanup, typesetting,
+and CBZ/PDF export; its same-EXE local receipt is a separate mandatory gate.
+Only the local provider is a controlled response fixture; native file IO,
+packaged code and local runtime assets are not replaced.
+The exact EXE also receives the existing 60-second warmup and 300-second idle
+resource check and a bounded owned-process memory sampler during PC workflows
+(1 GiB working-set/private-byte budgets; actual sample times retained).
+A candidate is retained only if workflows, resource budget,
+hash identity and owned-profile cleanup all pass. A passing old run is not
+evidence for this follow-up.
+
+Execution is pending until its new candidate receipts and protected-main CI
+are recorded. External provider, corpus-quality, minimum-host, human voice,
+signing and responsible-owner license gates remain deferred, not passed.
+No 0.5 work is authorized.
+
 ## Verdict boundary
 
 Verdict: **INTERNAL_IMPLEMENTATION_PASS / EXTERNAL_VALIDATION_DEFERRED**.

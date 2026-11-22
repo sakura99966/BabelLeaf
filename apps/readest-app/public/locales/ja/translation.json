@@ -1904,5 +1904,6 @@
   "Book changes not saved. Keep this book open and retry saving.": "本の変更が保存されていません。この本を開いたまま、保存を再試行してください。",
   "Book settings recovered from a local backup. Check annotations before continuing.": "本の設定をローカルバックアップから復元しました。続行する前に注釈を確認してください。",
   "Dismiss": "閉じる",
-  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "API キーは不要です。翻訳を実行すると対象テキストが Bilibili に送信されます。接続テストでは内蔵のサンプルのみが送信されます。"
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "API キーは不要です。翻訳を実行すると対象テキストが Bilibili に送信されます。接続テストでは内蔵のサンプルのみが送信されます。",
+  "No local voice is available. Install an offline voice in system settings.": "利用できるローカル音声がありません。システム設定でオフライン音声をインストールしてください。"
 }

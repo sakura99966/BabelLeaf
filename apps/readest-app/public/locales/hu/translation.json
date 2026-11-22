@@ -1940,5 +1940,6 @@
   "Book changes not saved. Keep this book open and retry saving.": "A könyv módosításai nincsenek mentve. Hagyja nyitva a könyvet, és próbálja újra a mentést.",
   "Book settings recovered from a local backup. Check annotations before continuing.": "A könyv beállításai helyi biztonsági mentésből helyreállítva. Folytatás előtt ellenőrizze a jegyzeteket.",
   "Dismiss": "Bezárás",
-  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Nem szükséges API-kulcs. A fordítandó szöveg a Bilibilihez kerül. A kapcsolat tesztje csak egy beépített mintaszöveget küld."
+  "No API key required. Translation sends requested text to Bilibili. The connection test sends only a built-in sample.": "Nem szükséges API-kulcs. A fordítandó szöveg a Bilibilihez kerül. A kapcsolat tesztje csak egy beépített mintaszöveget küld.",
+  "No local voice is available. Install an offline voice in system settings.": "Nem érhető el helyi hang. Telepítsen offline hangot a rendszerbeállításokban."
 }
