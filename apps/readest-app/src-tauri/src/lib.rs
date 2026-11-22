@@ -43,6 +43,40 @@ struct WebviewEnvironment {
     scroll_bar_style: Option<String>,
 }
 
+#[cfg(test)]
+mod url_origin_security_tests {
+    use tauri::Url;
+
+    #[test]
+    fn blob_https_keeps_its_tuple_origin() {
+        let url = Url::parse("blob:https://example.invalid/resource").unwrap();
+        assert_eq!(
+            url.origin().ascii_serialization(),
+            "https://example.invalid"
+        );
+    }
+
+    #[test]
+    fn blob_with_non_origin_scheme_is_opaque() {
+        for input in [
+            "blob:blob:https://example.invalid/resource",
+            "blob:ws://example.invalid/resource",
+        ] {
+            let url = Url::parse(input).unwrap();
+            assert_eq!(url.origin().ascii_serialization(), "null");
+        }
+    }
+
+    #[test]
+    fn deeply_nested_blob_origin_does_not_exhaust_the_thread_stack() {
+        // RUSTSEC-2026-0592: 2.5.8 recursively descended every prefix and
+        // aborted the process. Keep the public advisory's 10,000-prefix case.
+        let input = format!("{}https://example.invalid/", "blob:".repeat(10_000));
+        let url = Url::parse(&input).unwrap();
+        assert_eq!(url.origin().ascii_serialization(), "null");
+    }
+}
+
 #[command]
 fn get_webview_environment(state: tauri::State<'_, WebviewEnvironment>) -> WebviewEnvironment {
     state.inner().clone()
