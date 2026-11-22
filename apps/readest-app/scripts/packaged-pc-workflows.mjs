@@ -256,7 +256,7 @@ export async function runPackagedPcWorkflows({ port, runtime, appRoot, outputDir
       if (fixture.requests.some((request) => !['/api/chat', '/api/tags'].includes(request.path)))
         throw new Error('Unexpected fixture route');
     });
-    await run('installed speech path rejects a nonlocal voice without dispatch', async () => {
+    await run('installed speech rejects nonlocal voices and settles an empty engine without dispatch', async () => {
       await library();
       await open('acceptance-text');
       await page.evaluate(() => {
@@ -272,6 +272,15 @@ export async function runPackagedPcWorkflows({ port, runtime, appRoot, outputDir
       await page.mouse.click(box.x + box.width / 2, box.y + box.height - 4);
       await page.getByRole('button', { name: 'Speak', exact: true }).click();
       await expect(page.getByText('No local voice is available. Install an offline voice in system settings.')).toBeVisible();
+      await expect(page.getByText('No local voice is available. Install an offline voice in system settings.')).not.toBeVisible({ timeout: 15000 });
+      await page.evaluate(() => {
+        window.speechSynthesis.getVoices = () => [];
+        window.speechSynthesis.onvoiceschanged = null;
+      });
+      const nextBox = await page.locator('.foliate-viewer').first().boundingBox();
+      await page.mouse.click(nextBox.x + nextBox.width / 2, nextBox.y + nextBox.height - 4);
+      await page.getByRole('button', { name: 'Speak', exact: true }).click();
+      await expect(page.getByText('No local voice is available. Install an offline voice in system settings.')).toBeVisible({ timeout: 10000 });
       const dispatched = await page.evaluate(() => window.__pcAcceptance.speech);
       if (dispatched.length) throw new Error('Installed application dispatched nonlocal/default speech');
     });

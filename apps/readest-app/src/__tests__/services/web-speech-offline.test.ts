@@ -39,6 +39,55 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('Web Speech offline boundary', () => {
+  test('settles an empty engine even if voiceschanged never fires', async () => {
+    vi.useFakeTimers();
+    try {
+      const synth = Object.assign(new EventTarget(), {
+        getVoices: () => [],
+        onvoiceschanged: null,
+      });
+      vi.stubGlobal('speechSynthesis', synth);
+      const client = new WebSpeechClient();
+      const remove = vi.spyOn(synth, 'removeEventListener');
+      const initialized = client.init();
+      await vi.advanceTimersByTimeAsync(2500);
+      let settled = false;
+      void initialized.then(() => {
+        settled = true;
+      });
+      await Promise.resolve();
+      expect(settled).toBe(true);
+      expect(await client.getAllVoices()).toEqual([]);
+      expect(remove).toHaveBeenCalledWith('voiceschanged', expect.any(Function));
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test('loads delayed local voices and removes its listener and timer', async () => {
+    vi.useFakeTimers();
+    try {
+      const voices: SpeechSynthesisVoice[] = [];
+      const synth = Object.assign(new EventTarget(), {
+        getVoices: () => voices,
+        onvoiceschanged: null,
+      });
+      vi.stubGlobal('speechSynthesis', synth);
+      const remove = vi.spyOn(synth, 'removeEventListener');
+      const client = new WebSpeechClient();
+      const initialized = client.init();
+      voices.push(voice('delayed-local', 'en-US', true));
+      synth.dispatchEvent(new Event('voiceschanged'));
+      await initialized;
+      expect((await client.getAllVoices()).map((item) => item.id)).toEqual(['delayed-local']);
+      expect(remove).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   test('notifies its reader controller when a local voice is unavailable', async () => {
     const { client } = await setup([voice('remote-en', 'en-US', false)]);
     const dispatchEvent = vi.fn();

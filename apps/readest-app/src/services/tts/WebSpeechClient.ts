@@ -116,7 +116,11 @@ export class WebSpeechClient implements TTSClient {
       return this.initialized;
     }
     await new Promise<void>((resolve) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let removeListener = () => {};
       const populateVoices = () => {
+        clearTimeout(timer);
+        removeListener();
         this.#voices = this.#synth
           .getVoices()
           .filter((voice) => voice.localService === true)
@@ -130,8 +134,21 @@ export class WebSpeechClient implements TTSClient {
 
       if (this.#synth.getVoices().length > 0) {
         populateVoices();
+      } else if (typeof this.#synth.addEventListener === 'function') {
+        this.#synth.addEventListener('voiceschanged', populateVoices, { once: true });
+        removeListener = () => this.#synth.removeEventListener('voiceschanged', populateVoices);
+        // An available engine can have no installed voices and never emit a
+        // change event. Settle locally so the caller can show the offline
+        // voice diagnostic rather than leave playback starting forever.
+        timer = setTimeout(populateVoices, 2000);
       } else if (this.#synth.onvoiceschanged !== undefined) {
+        const previous = this.#synth.onvoiceschanged;
         this.#synth.onvoiceschanged = populateVoices;
+        removeListener = () => {
+          if (this.#synth.onvoiceschanged === populateVoices)
+            this.#synth.onvoiceschanged = previous;
+        };
+        timer = setTimeout(populateVoices, 2000);
       } else {
         console.warn('Voiceschanged event not supported.');
         resolve();

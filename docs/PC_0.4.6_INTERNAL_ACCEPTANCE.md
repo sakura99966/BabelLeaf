@@ -14,6 +14,9 @@ The follow-up now has failing-before regressions and fixes for those paths,
 plus a separately reproduced native-library drop-listener initialization and
 teardown defect. Offline voice availability has an actionable localized
 message; no cloud speech fallback is permitted.
+An engine with an empty voice list is also bounded to a two-second local
+initialization wait if it never emits voiceschanged; its temporary listener
+and timer are removed on success or timeout.
 Real native-dialog testing additionally exposed an export defect: a streamed
 NativeFile has no browser-decodable internal Blob. Encoded page bytes are now
 materialized under the existing 64 MiB per-page bound, checked for source-size
