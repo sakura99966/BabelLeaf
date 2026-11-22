@@ -5,6 +5,20 @@ responsible-owner legal acceptance. Raw reports are retained under
 `target/remediation-0.4.6/`. Never suppress a new advisory to reproduce an old
 green result.
 
+## 2026-11-22 URL-origin security maintenance
+
+The fresh canonical-main audit detected
+[RUSTSEC-2026-0592](https://rustsec.org/advisories/RUSTSEC-2026-0592.html),
+issued after the earlier PR checks passed. `url` <= 2.5.8 recursively resolved
+nested `blob:` origins and could abort the process with stack exhaustion.
+The lockfile and shared workspace minimum now require patched 2.5.9;
+this advisory is not ignored or downgraded. Rust regressions cover a normal
+HTTPS blob origin, opaque non-origin inner schemes, and 10,000 nested prefixes.
+Fresh Windows Rust auditing and a rebuilt exact-package qualification are
+required for this source. Prior candidate hashes remain historical evidence,
+not acceptance of this dependency change. Dated warning counts below are not
+a current zero-warning claim.
+
 ## Enforced checks and active fixes
 
 - Production npm graph: zero unresolved findings.
