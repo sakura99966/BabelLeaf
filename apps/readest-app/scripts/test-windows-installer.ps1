@@ -15,6 +15,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'owned-windows-processes.ps1')
 
 $appRoot = Split-Path -Parent $PSScriptRoot
 $repoRoot = (Resolve-Path (Join-Path $appRoot "..\..")).Path
@@ -98,6 +99,7 @@ $sentinelPath = Join-Path $appConfigDirectory "installer-smoke-user-data.txt"
 
 $applicationProcess = $null
 $applicationPath = $null
+$applicationRunCreated = [DateTime]::UtcNow
 $installDirectory = $null
 $registryEntryCreated = $false
 $installationAttempted = $false
@@ -151,95 +153,45 @@ function Collect-FailureArtifacts {
 }
 
 function Stop-SmokeApplication {
-    $rootProcessIds = @()
-    if ($null -ne $script:applicationProcess) {
-        try {
-            $rootProcessIds = @([int]$script:applicationProcess.Id)
-            $script:applicationProcess.Refresh()
-            if (-not $script:applicationProcess.HasExited) {
-                if ($script:applicationProcess.CloseMainWindow()) {
-                    $script:applicationProcess.WaitForExit(10000) | Out-Null
+    if ([string]::IsNullOrWhiteSpace($script:applicationPath)) { return }
+    $targetPath = [IO.Path]::GetFullPath($script:applicationPath)
+    $earliest = Get-BabelLeafCreationKey $script:applicationRunCreated
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+        $snapshot = @(Get-CimInstance Win32_Process -OperationTimeoutSec 5)
+        $targets = @($snapshot | Where-Object {
+            $key = Get-BabelLeafCreationKey $_.CreationDate
+            -not [string]::IsNullOrWhiteSpace($_.ExecutablePath) -and
+            [string]::Equals([string]$_.ExecutablePath, $targetPath, [StringComparison]::OrdinalIgnoreCase) -and
+            $null -ne $key -and [string]::CompareOrdinal($key, $earliest) -ge 0
+        })
+        if ($targets.Count -eq 0) { return }
+        # Snapshot every trusted birth identity BEFORE the graceful root exit.
+        # Never rebuild descendants from a stale or reused raw parent PID.
+        $captures = @($targets | ForEach-Object {
+            $identity = [pscustomobject]@{ ProcessId=[int]$_.ProcessId;
+                CreationKey=(Get-BabelLeafCreationKey $_.CreationDate); ExecutablePath=$targetPath }
+            [pscustomobject]@{ Identity=$identity;
+                Rows=@(Select-BabelLeafOwnedProcesses -Snapshot $snapshot -Identity $identity) }
+        })
+        if ($attempt -eq 0 -and $null -ne $script:applicationProcess) {
+            $original = $script:applicationProcess
+            $original.Refresh()
+            if (-not $original.HasExited) {
+                $trustedOriginal = @($captures | Where-Object {
+                    $_.Identity.ProcessId -eq $original.Id -and
+                    $_.Identity.CreationKey -ceq (Get-BabelLeafCreationKey $original.StartTime)
+                })
+                if ($trustedOriginal.Count -gt 0 -and $original.CloseMainWindow()) {
+                    $original.WaitForExit(10000) | Out-Null
                 }
-                if (-not $script:applicationProcess.HasExited) {
-                    Stop-Process -Id $script:applicationProcess.Id -Force -ErrorAction Stop
-                    $script:applicationProcess.WaitForExit(10000) | Out-Null
-                }
-            }
-        } catch {
-            if (-not $script:applicationProcess.HasExited) {
-                throw
             }
         }
+        foreach ($capture in $captures) {
+            $null = Stop-BabelLeafOwnedProcesses -Identity $capture.Identity -Snapshot $capture.Rows
+        }
+        Start-Sleep -Milliseconds 250
     }
-
-    if (-not [string]::IsNullOrWhiteSpace($script:applicationPath)) {
-        $targetPath = [System.IO.Path]::GetFullPath($script:applicationPath)
-        foreach ($rootProcessId in $rootProcessIds) {
-            # Kill the captured Tauri root as a tree before inspecting CIM. This
-            # covers the short interval where the WebView child has detached
-            # from an already-exited root and avoids passing a live file lock to
-            # the NSIS uninstaller.
-            Start-Process -FilePath "taskkill.exe" `
-                -ArgumentList @("/PID", "$rootProcessId", "/T", "/F") `
-                -Wait -PassThru -WindowStyle Hidden |
-                Out-Null
-        }
-        $getRelatedProcesses = {
-            $allProcesses = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
-            $knownProcessIds = @{}
-            foreach ($rootProcessId in $rootProcessIds) {
-                $knownProcessIds[[int]$rootProcessId] = $true
-            }
-
-            $frontier = @($rootProcessIds | ForEach-Object { [int]$_ })
-            while ($frontier.Count -gt 0) {
-                $nextFrontier = @(
-                    $allProcesses |
-                        Where-Object {
-                            $frontier -contains [int]$_.ParentProcessId -and
-                            -not $knownProcessIds.ContainsKey([int]$_.ProcessId)
-                        } |
-                        ForEach-Object {
-                            $processId = [int]$_.ProcessId
-                            $knownProcessIds[$processId] = $true
-                            $processId
-                        }
-                )
-                $frontier = $nextFrontier
-            }
-
-            @($allProcesses | Where-Object {
-                $processId = [int]$_.ProcessId
-                $isRelated = $knownProcessIds.ContainsKey($processId)
-                $isExactTarget = -not [string]::IsNullOrWhiteSpace($_.ExecutablePath) -and
-                    [string]::Equals(
-                        [System.IO.Path]::GetFullPath([string]$_.ExecutablePath),
-                        $targetPath,
-                        [System.StringComparison]::OrdinalIgnoreCase
-                    )
-                $isRelated -or $isExactTarget
-            })
-        }
-        # Tauri can leave a second process for the same executable while the
-        # main window process is closing. Use the CIM executable path rather
-        # than Get-Process.Path (which can be unavailable during WebView2
-        # teardown), and stop every related instance before invoking NSIS.
-        for ($attempt = 0; $attempt -lt 20; $attempt++) {
-            $remaining = @(& $getRelatedProcesses)
-            if ($remaining.Count -eq 0) {
-                break
-            }
-            foreach ($process in $remaining) {
-                $killer = Start-Process -FilePath "taskkill.exe" `
-                    -ArgumentList @("/PID", "$($process.ProcessId)", "/T", "/F") `
-                    -Wait -PassThru -WindowStyle Hidden
-                if ($killer.ExitCode -ne 0) {
-                    Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
-                }
-            }
-            Start-Sleep -Milliseconds 250
-        }
-    }
+    throw 'The exact owned smoke application did not finish cleanup'
 }
 
 try {

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { ownedWindowsProcessCommand } from './owned-windows-processes.mjs';
 
 export function summarizePackagedResources(samples) {
   if (!Array.isArray(samples) || samples.length === 0 || samples.length > 4096 ||
@@ -16,24 +17,19 @@ export function summarizePackagedResources(samples) {
     scope: 'owned packaged app and descendant process sums at recorded times; sampled peaks, not unsampled maxima' };
 }
 
-export function startPackagedResourceSampler(pid) {
-  if (process.platform !== 'win32' || !Number.isSafeInteger(pid) || pid < 1)
-    throw new Error('Expected an owned Windows process ID');
-  const command = `
+export function startPackagedResourceSampler(identity) {
+  if (process.platform !== 'win32') throw new Error('Expected an owned Windows process identity');
+  const command = ownedWindowsProcessCommand(identity, `
     $ErrorActionPreference = 'Stop';
-    while (Get-Process -Id ${pid} -ErrorAction SilentlyContinue) {
-      $all = @(Get-CimInstance Win32_Process -OperationTimeoutSec 5);
-      $owned = @{}; $owned[${pid}] = $true;
-      for ($round = 0; $round -lt 16; $round++) {
-        foreach ($row in $all) {
-          if ($owned.ContainsKey([int]$row.ParentProcessId)) { $owned[[int]$row.ProcessId] = $true }
-        }
-      }
+    while ($true) {
+      $owned = @(Get-BabelLeafOwnedProcesses -Identity $identity);
+      if ($owned.Count -eq 0) { throw 'Owned root identity changed or exited during measurement' }
       $working = [long]0; $private = [long]0; $count = 0;
-      foreach ($row in $all) {
-        if (-not $owned.ContainsKey([int]$row.ProcessId)) { continue }
-        $item = Get-Process -Id $row.ProcessId -ErrorAction SilentlyContinue;
-        if ($item) { $working += $item.WorkingSet64; $private += $item.PrivateMemorySize64; $count++ }
+      foreach ($row in $owned) {
+        $sample = Get-BabelLeafProcessMemory -ProcessRow $row;
+        $working += $sample.WorkingSetBytes;
+        $private += $sample.PrivateBytes;
+        $count++;
       }
       if ($count -gt 0) {
         [Console]::WriteLine(([pscustomobject]@{
@@ -43,7 +39,7 @@ export function startPackagedResourceSampler(pid) {
       }
       Start-Sleep -Milliseconds 200;
     }
-  `;
+  `);
   const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', command],
     { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   const samples = [];
@@ -69,6 +65,7 @@ export function startPackagedResourceSampler(pid) {
       await closed;
     }
     if (failure) throw new Error(failure);
-    return { ...summarizePackagedResources(samples), measurements: samples };
+    return { ...summarizePackagedResources(samples), ownershipSchemaVersion: 1,
+      measurements: samples };
   } };
 }

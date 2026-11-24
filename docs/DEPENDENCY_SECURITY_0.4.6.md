@@ -5,6 +5,26 @@ responsible-owner legal acceptance. Raw reports are retained under
 `target/remediation-0.4.6/`. Never suppress a new advisory to reproduce an old
 green result.
 
+## 2026-11-24 i18next resource-merge security maintenance
+
+The fresh PR audit detected
+[GHSA-6jcc-5g8w-32mx](https://github.com/advisories/GHSA-6jcc-5g8w-32mx).
+With attacker-controlled resources and explicit deep/overwrite merging,
+i18next < 26.3.4 can corrupt inherited built-in functions. This is an upstream
+dependency finding, not a claim of a demonstrated content-to-exploit path in
+BabelLeaf. Both runtime and scanner core now resolve exactly to patched 26.3.4;
+the scanner's wildcard dependency is scoped to that reviewed version. There is
+no new audit exemption. Existing string-key calls remain supported; BabelLeaf
+does not use the removed legacy interpolation formatter or `initImmediate`.
+
+The old 24.2.3 core failed all three isolated built-in mutation regressions.
+The patched core passes those cases plus shipped Chinese/Japanese flat-key,
+interpolation, English/Taiwanese fallback and in-memory scanner checks. These
+checks also run within the dependency-security gate. Locale extraction is not
+run as a side effect and no locale JSON is rewritten. Fresh full CI and a new
+same-package Windows qualification remain required; earlier binaries are
+historical, including those built before this advisory entered the audit feed.
+
 ## 2026-11-22 URL-origin security maintenance
 
 The fresh canonical-main audit detected

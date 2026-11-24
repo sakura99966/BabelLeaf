@@ -20,6 +20,10 @@ const sampler = readFileSync(
   resolve(process.cwd(), 'scripts/sample-windows-process-tree.ps1'),
   'utf8',
 );
+const ownership = readFileSync(
+  resolve(process.cwd(), 'scripts/owned-windows-processes.ps1'),
+  'utf8',
+);
 
 test('waits for the sampler first-sample marker before starting the measured workload', () => {
   expect(probe).toContain('await waitForSamplerReady(');
@@ -39,9 +43,17 @@ test('explicitly stops and joins measurement before killing the measured process
 });
 
 test('bounds both CIM queries and cleans up the owned sampler on every exit path', () => {
-  expect(sampler.match(/Get-CimInstance Win32_Process[^\n]*-OperationTimeoutSec 5/g)).toHaveLength(
-    2,
+  // Root capture now lives in the shared birth-identity layer; require both
+  // that delegation and bounds on EVERY query, not two inline source strings.
+  expect(sampler).toContain(
+    'Get-BabelLeafProcessIdentity -RootId $RootProcessId -ExecutablePath $expected',
   );
+  expect(sampler).toContain(
+    'Select-BabelLeafOwnedProcesses -Snapshot $processes -Identity $identity',
+  );
+  const queries = `${sampler}\n${ownership}`.match(/Get-CimInstance Win32_Process[^\n]*/g) ?? [];
+  expect(queries.length).toBeGreaterThanOrEqual(2);
+  for (const query of queries) expect(query).toContain('-OperationTimeoutSec 5');
   const finalCleanup = probe.slice(probe.lastIndexOf('} finally {'));
   expect(finalCleanup).toContain('await cleanupSampler(');
   expect(finalCleanup).toContain('cleanupSampler(sampler, samplerStopFile).finally(async () => {');

@@ -13,6 +13,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot 'owned-windows-processes.ps1')
 
 $resolvedExecutable = (Resolve-Path -LiteralPath $ExecutablePath -ErrorAction Stop).Path
 if (-not (Test-Path -LiteralPath $resolvedExecutable -PathType Leaf)) {
@@ -71,74 +72,27 @@ if ($IsolatedProfile) {
 
 $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 $root = $null
-
-function Get-DescendantProcessIds {
-    param([int]$RootId)
-
-    $processes = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
-    $ids = [System.Collections.Generic.HashSet[int]]::new()
-    [void]$ids.Add($RootId)
-    $changed = $true
-    while ($changed) {
-        $changed = $false
-        foreach ($process in $processes) {
-            if ($ids.Contains([int]$process.ParentProcessId) -and $ids.Add([int]$process.ProcessId)) {
-                $changed = $true
-            }
-        }
-    }
-    return @($ids)
-}
+$rootIdentity = $null
+$lastOwnedSnapshot = @()
 
 function Get-ProcessTreeSample {
     param([int]$RootId)
 
-    $rows = @()
-    foreach ($id in (Get-DescendantProcessIds -RootId $RootId)) {
-        try {
-            $process = Get-Process -Id $id -ErrorAction Stop
-            $rows += [pscustomobject]@{
-                Id = $process.Id
-                Name = $process.ProcessName
-                WorkingSetBytes = [int64]$process.WorkingSet64
-                PrivateBytes = [int64]$process.PrivateMemorySize64
-            }
-        } catch {
-            # A short-lived WebView2 child may exit between enumeration and
-            # sampling; the remaining exact-path tree is still valid evidence.
-        }
-    }
-    return $rows
+    if ($null -eq $rootIdentity -or $RootId -ne $rootIdentity.ProcessId) { return @() }
+    $owned = @(Get-BabelLeafOwnedProcesses -Identity $rootIdentity)
+    if ($owned.Count -gt 0) { $script:lastOwnedSnapshot = $owned }
+    return @($owned | ForEach-Object {
+        Get-BabelLeafProcessMemory -ProcessRow $_
+    })
 }
 
 function Stop-ExactProcessTree {
     param([int]$RootId)
 
-    # Capture descendants before closing the root. WebView2 children can be
-    # re-parented as the host exits, so discovering the tree only afterwards
-    # can miss a short-lived metrics/crash helper that still locks the profile.
-    $capturedProcessIds = @(Get-DescendantProcessIds -RootId $RootId)
-    try {
-        $rootProcess = Get-Process -Id $RootId -ErrorAction SilentlyContinue
-        if ($null -ne $rootProcess -and -not $rootProcess.HasExited) {
-            if ($rootProcess.CloseMainWindow()) {
-                $rootProcess.WaitForExit(10000) | Out-Null
-            }
-        }
-    } catch {
-        # The bounded forced cleanup below is the fallback for a hung window.
-    }
-
-    if (Get-Process -Id $RootId -ErrorAction SilentlyContinue) {
-        $killer = Start-Process -FilePath "taskkill.exe" -ArgumentList @("/PID", "$RootId", "/T", "/F") -Wait -PassThru -WindowStyle Hidden
-        if ($killer.ExitCode -ne 0 -and (Get-Process -Id $RootId -ErrorAction SilentlyContinue)) {
-            Stop-Process -Id $RootId -Force -ErrorAction SilentlyContinue
-        }
-    }
-
-    foreach ($processId in $capturedProcessIds) {
-        Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
-    }
+    if ($null -eq $rootIdentity -or $RootId -ne $rootIdentity.ProcessId) { return }
+    $current = @(Get-BabelLeafOwnedProcesses -Identity $rootIdentity)
+    if ($current.Count -gt 0) { $script:lastOwnedSnapshot = $current }
+    $null = Stop-BabelLeafOwnedProcesses -Identity $rootIdentity -Snapshot $lastOwnedSnapshot
 }
 
 $warmupSamples = [System.Collections.Generic.List[object]]::new()
@@ -148,6 +102,8 @@ $startupMs = $null
 $failure = $null
 try {
     $root = Start-Process -FilePath $launchExecutable -PassThru
+    $rootIdentity = Get-BabelLeafProcessIdentity -RootId $root.Id -ExecutablePath $launchExecutable
+    $lastOwnedSnapshot = @(Get-BabelLeafOwnedProcesses -Identity $rootIdentity)
     $deadline = $stopwatch.Elapsed.TotalMilliseconds + ($startupBudgetMs * 4)
     while ($stopwatch.Elapsed.TotalMilliseconds -lt $deadline) {
         $root.Refresh()
@@ -196,12 +152,7 @@ try {
         Start-Sleep -Seconds 1
     }
 
-    $treeIds = [System.Collections.Generic.HashSet[int]]::new()
-    foreach ($processId in (Get-DescendantProcessIds -RootId $root.Id)) {
-        [void]$treeIds.Add($processId)
-    }
-    $processRoles = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-        Where-Object { $treeIds.Contains([int]$_.ProcessId) } |
+    $processRoles = @(Get-BabelLeafOwnedProcesses -Identity $rootIdentity |
         ForEach-Object {
             $commandLine = [string]$_.CommandLine
             $role = if ([int]$_.ProcessId -eq $root.Id) {
@@ -309,6 +260,7 @@ $warmupPeakPrivate = if ($warmupSamples.Count -gt 0) {
 } else { 0 }
 $result = [pscustomobject]@{
     schemaVersion = 3
+    ownershipSchemaVersion = 1
     executable = $resolvedExecutable
     executableBytes = [int64]$executableFile.Length
     executableSha256 = $executableSha256
