@@ -6,6 +6,30 @@ maintenance and canonical-main receipts are indexed in
 candidate hashes below as qualification of every later commit. Old release
 tags, packages, raw receipts, and the recorded measurement dates remain unchanged.
 
+## 2026-11-24 process-ownership qualification
+
+Local native verification exposed an acceptance-tool defect: a pre-existing,
+unrelated process can carry a stale parent PID later reused by a WebView child.
+Raw PID traversal therefore contaminated an active-memory result; it is not
+evidence that the reader itself exceeded its budget. The unrelated application
+was confirmed still running. That failed result is retained, not relabelled PASS.
+
+The shared Windows qualifier now anchors a root by executable path, PID and
+creation time. Children must be born no earlier than their confirmed parent;
+missing/ambiguous identities fail closed. Metrics come from the same CIM
+snapshot. Cleanup pins each process handle and rechecks its birth time before
+termination, rather than chasing raw/stale IDs after root exit. This follows
+the [Win32_Process PID-reuse guidance](https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-process).
+The rule is shared by active/idle sampling, interruption measurements, CDP
+ownership checks, diagnostics and installation cleanup.
+
+The Windows candidate gate includes 15 synthetic/live ownership regressions
+and retains their receipt as `process-identity.json`. Runtime, active-resource
+and idle receipts must record the new ownership schema and successful process
+cleanup. The existing 1 GiB active and 350 MiB idle budgets are unchanged.
+This is test-tooling maintenance, not a reader feature or a 0.5 scope change.
+Fresh exact-package/full-native export receipts are still required before closure.
+
 ## 2026-11-21 PC audit follow-up
 
 The November 17 independent audit reopened the Windows offline-speech gate

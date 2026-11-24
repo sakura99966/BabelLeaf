@@ -9,6 +9,7 @@ import { join, resolve, relative, isAbsolute, dirname, basename } from 'node:pat
 import { fileURLToPath } from 'node:url';
 import { validatePackagedRuntimeManifest, dispatchPackagedProbeResponse, makePackagedProbePolicy, validatePackagedLibraryTiming } from './packaged-runtime-manifest.mjs';
 import { readPackagedProbeTargets } from './packaged-runtime-transport.mjs';
+import { readOwnedWindowsProcessIdentity, ownedWindowsProcessCommand, stopOwnedWindowsProcesses } from './owned-windows-processes.mjs';
 import net from 'node:net';
 
 if (process.platform !== 'win32') throw new Error('Windows-only standard package acceptance probe');
@@ -44,6 +45,7 @@ await writeFile(join(runtime, 'settings.json'), '{}');
 for (const name of ['Roaming', 'Local', 'WebView2']) await mkdir(join(runtime, name));
 const executableSha256 = createHash('sha256').update(await readFile(binary)).digest('hex');
 let child;
+let ownedIdentity;
 let launchError;
 let socket;
 let passed = false;
@@ -64,18 +66,12 @@ const captureStartupOutput = (chunk) => {
   startupOutput = (startupOutput + chunk.toString()).slice(-8192);
 };
 const collectOwnedProcessDiagnostics = () => {
-  if (!child?.pid) return undefined;
+  if (!ownedIdentity) return { skipped: 'Owned root identity was not established' };
   try {
-    const script = `
-      $all = @(Get-CimInstance Win32_Process -OperationTimeoutSec 5);
-      $owned = @{}; $owned[${child.pid}] = $true;
-      for ($round = 0; $round -lt 16; $round++) {
-        foreach ($row in $all) {
-          if ($owned.ContainsKey([int]$row.ParentProcessId)) { $owned[[int]$row.ProcessId] = $true }
-        }
-      }
-      $rows = @($all | Where-Object { $owned.ContainsKey([int]$_.ProcessId) } | Select-Object -First 64 | ForEach-Object {
+    const script = ownedWindowsProcessCommand(ownedIdentity, `
+      $rows = @(Get-BabelLeafOwnedProcesses -Identity $identity | Select-Object -First 64 | ForEach-Object {
         $process = Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue;
+        if (-not $process -or (Get-BabelLeafCreationKey $process.StartTime) -cne (Get-BabelLeafCreationKey $_.CreationDate)) { return }
         [pscustomobject]@{
           pid = $_.ProcessId; parent = $_.ParentProcessId; name = $_.Name;
           version = $process.FileVersion; hasWindow = ($process.MainWindowHandle -ne [IntPtr]::Zero);
@@ -85,7 +81,7 @@ const collectOwnedProcessDiagnostics = () => {
         }
       });
       ConvertTo-Json -InputObject $rows -Compress
-    `;
+    `);
     return JSON.parse(execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script],
       { encoding: 'utf8', windowsHide: true, timeout: 15000 }));
   } catch (error) { return { diagnosticError: String(error) }; }
@@ -116,6 +112,7 @@ try {
   child.stdout.on('data', captureStartupOutput);
   child.stderr.on('data', captureStartupOutput);
   child.once('error', (error) => { launchError = error; });
+  ownedIdentity = readOwnedWindowsProcessIdentity(child.pid, binary);
   let target;
   const deadline = Date.now() + 45000;
   while (!target) {
@@ -133,10 +130,10 @@ try {
     } catch (error) { endpointError = String(error); }
     if (!target) await delay(200);
   }
-  const ownerCheck = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
-    '$connections = @(Get-NetTCPConnection -LocalPort ' + port + ' -State Listen -ErrorAction Stop); if ($connections | Where-Object { $_.LocalAddress -notin @("127.0.0.1","::1") }) { exit 2 }; $owner = ($connections | Select-Object -First 1).OwningProcess; ' +
-    '$seen = @{}; while ($owner -gt 0 -and -not $seen.ContainsKey([int]$owner)) { if ($owner -eq ' + child.pid + ') { exit 0 }; $seen[[int]$owner]=$true; ' +
-    '$owner = (Get-CimInstance Win32_Process -Filter ("ProcessId=" + $owner) -OperationTimeoutSec 5).ParentProcessId }; exit 1'],
+  const ownerCheck = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ownedWindowsProcessCommand(ownedIdentity,
+    '$connections = @(Get-NetTCPConnection -LocalPort ' + port + ' -State Listen -ErrorAction Stop); if ($connections | Where-Object { $_.LocalAddress -notin @("127.0.0.1","::1") }) { exit 2 }; ' +
+    '$ids = @(Get-BabelLeafOwnedProcesses -Identity $identity | ForEach-Object { [int]$_.ProcessId }); ' +
+    'if ($connections.Count -eq 0 -or @($connections | Where-Object { $ids -notcontains [int]$_.OwningProcess }).Count -gt 0) { exit 1 }; exit 0')],
     { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 });
   void ownerCheck;
   if (!target.webSocketDebuggerUrl.startsWith('ws://127.0.0.1:' + port + '/'))
@@ -236,7 +233,7 @@ try {
       await evaluate("window.__TAURI_INTERNALS__.invoke('plugin:window|show', { label: 'main' })");
     }
     const resources = await import('./packaged-native-resources.mjs');
-    resourceSampler = resources.startPackagedResourceSampler(child.pid);
+    resourceSampler = resources.startPackagedResourceSampler(ownedIdentity);
     pcWorkflows = await driver.runPackagedPcWorkflows({
       port, runtime, appRoot: join(root, 'apps/readest-app'),
       outputDirectory: join(dirname(output), 'pc-workflow-artifacts'), fixture: pcFixture,
@@ -273,8 +270,17 @@ try {
   await pcFixture?.close();
   socket?.close();
   if (child && child.exitCode === null && child.signalCode === null) {
-    try { execFileSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }); } catch {}
+    try {
+      ownedIdentity ??= readOwnedWindowsProcessIdentity(child.pid, binary);
+      result.processCleanup = stopOwnedWindowsProcesses(ownedIdentity);
+    } catch (error) {
+      passed = false; result.passed = false; result.processCleanupError = String(error);
+    }
     await Promise.race([once(child, 'exit'), delay(3000)]);
+    result.processCleanupPass = child.exitCode !== null || child.signalCode !== null;
+    if (!result.processCleanupPass) { passed = false; result.passed = false; }
+  } else {
+    result.processCleanupPass = true;
   }
   await delay(1500);
   if (policyAttempted) {
