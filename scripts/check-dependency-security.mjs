@@ -33,6 +33,7 @@ const regression = runPnpm([
   '--filter', '@readest/readest-app', 'exec', 'vitest', 'run',
   'src/__tests__/scripts/dependency-security-patches.test.ts',
   'src/__tests__/scripts/dependency-security-policy.test.ts',
+  'src/__tests__/scripts/i18next-security-compatibility.test.ts',
 ]);
 if (regression.status !== 0) throw new Error('Installed dependency backport regressions failed: ' + regression.stdout);
 const production = runPnpm(['audit', '--prod', '--json']);
